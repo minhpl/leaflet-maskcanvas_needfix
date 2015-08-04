@@ -14,7 +14,7 @@ const EMPTY = {
 };
 
 const MAXRADIUSPOLY = 256;
-const NUMPOLYGON = 10000;
+const NUMPOLYGON = 100;
 const NUMBPOLYGON = 10;
 const VPOLY = 1;
 const BPOLY = 2;
@@ -36,7 +36,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         map: undefined
     },
 
-    ready : false,
+    ready: false,
 
     needPersistents: 0,
 
@@ -105,7 +105,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         return GBB.intersects(tileBB);
     },
 
-    createTile: function(coords) {        
+    createTile: function(coords) {
         var id = coords.z + "_" + coords.x + "_" + coords.y;
         var savedTile = this.hugeTiles.get(id) || this.tiles.get(id);
 
@@ -151,7 +151,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     getVertexAndBoundinLatLng: function(poly) {
         var map = this.options.map;
         var zoom = 12; //map.getZoom();
-        console.log("zoom", zoom);
+        // console.log("zoom", zoom);
 
         var tempVertexsP = [];
         for (var i = 0; i < poly.length; i++) {
@@ -182,7 +182,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     makeDataPoly: function() {
         var dlength = dataset.length;
         var interval = (dlength / NUMPOLYGON) >> 0;
-        console.log("interval ", interval);
+        // console.log("interval ", interval);
         var dPoly = [];
         var id = 0;
 
@@ -240,7 +240,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     makeBDataPoly: function() {
         var dlength = dataset.length;
         var interval = (dlength / NUMBPOLYGON) >> 0;
-        console.log("interval ", interval);
+        // console.log("interval ", interval);
         var dPoly = [];
         var id = 0;
 
@@ -725,10 +725,10 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         var vpolyCoordinates = this._rtreePolygon.search(bb);
 
         vpolyCoordinates.sort(function(a, b) {
-                return a[5] - b[5];
-            })
-            // var self = this;
-            // var lcData = [];
+            return a[5] - b[5];
+        })
+        // var self = this;
+        // var lcData = [];
 
         // this._drawVPolys(canvas, coords, vpolyCoordinates);
 
@@ -786,7 +786,36 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                         // console.log("Draw at ",tile.bb,nw);                      
 
                         // console.log("sorted = ",tile.sorted);
-                        ctx.drawImage(tile.img, 0, 0);
+                        if (tile.img.complete){
+                            ctx.drawImage(tile.img, 0, 0);
+                        } else {
+                            tile.img.onload = function(e) {
+                                if (e.target.complete){
+                                    ctx.drawImage(tile.img, 0, 0);                                
+                                } else {
+                                    var maxTimes = 10;
+                                    var countTimes = 0;
+
+                                    function retryLoadImage() {
+                                        setTimeout(function() {
+                                            if (countTimes > maxTimes) {
+                                                // -- cannot load image.
+                                                return;
+                                            } else {
+                                                if (e.target.complete == true) {
+                                                    ctx.drawImage(tile.img, 0, 0);  
+                                                } else {
+                                                    retryLoadImage();
+                                                }
+                                            }
+                                            countTimes++;
+                                        }, 50);
+                                    };
+
+                                    retryLoadImage();
+                                }
+                            }
+                        }
                         return;
                     }
 

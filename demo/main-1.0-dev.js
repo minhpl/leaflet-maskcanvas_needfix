@@ -107,7 +107,7 @@ $(function() {
         var x = (point.x + 0.5) >> 0;
         var y = (point.y + 0.5) >> 0;
 
-        var i = ~~(x + (y * TILESIZE));
+        var i = ~~ (x + (y * TILESIZE));
         var location = (i << 2) + 3;
 
         var alpha = buffer.uint8[location]
@@ -265,7 +265,7 @@ $(function() {
                 result.canvas = tile.canvas;
                 if (!result.canvas) console.log("No canvas 2");
             } else {
-                result.canvas = coverageLayer.canvases.get(result.id);       
+                result.canvas = coverageLayer.canvases.get(result.id);
             }
         }
         return result;
@@ -437,7 +437,7 @@ $(function() {
             if (canvas) {
                 var ctx = canvas.getContext('2d');
                 // img.onload= function(){
-                ctx.drawImage(img, tilePoint[0] - w, tilePoint[1] - h);
+                drawImage(ctx,img, tilePoint[0] - w, tilePoint[1] - h);
             }
         }
     }
@@ -446,6 +446,23 @@ $(function() {
         for (var i = 0; i < imgs.length; i++) {
             var image = imgs[i];
             image.draw();
+        }
+    }
+
+    function drawImage(ctx, image, x, y) {
+        function f(){
+            drawImage(ctx, image, x, y);
+        }
+        try {
+            ctx.drawImage(image, x, y);
+        } catch (e) {
+            if (e.name == "NS_ERROR_NOT_AVAILABLE") {
+                // Wait a bit before trying again; you may wish to change the
+                // length of this delay.
+                setTimeout(f, 100);
+            } else {
+                throw e;
+            }
         }
     }
 
@@ -506,12 +523,35 @@ $(function() {
 
 
                 if (self.img.complete) {
-                    self.ctx.drawImage(self.img, minX, minY);
+                    drawImage(self.ctx,self.img, minX, minY);
                     // self.ctx.drawImage(self.img, 0, 0);
                 } else {
-                    self.img.onload = function() {
+                    self.img.onload = function(e) {
                         // self.img.loaded = true;
-                        self.ctx.drawImage(self.img, minX, minY);
+                        if (self.img.complete) {
+                            self.ctx.drawImage(self.img, minX, minY);
+                        } else {
+                            var maxTimes = 10;
+                            var countTimes = 0;
+
+                            function retryLoadImage() {
+                                setTimeout(function() {
+                                    if (countTimes > maxTimes) {
+                                        // -- cannot load image.
+                                        return;
+                                    } else {
+                                        if (e.target.complete == true) {
+                                            drawImage(self.ctx,self.img, minX, minY);
+                                        } else {
+                                            self.img.src = self.img.src;
+                                            retryLoadImage();
+                                        }
+                                    }
+                                    countTimes++;
+                                }, 50);
+                            };
+                            retryLoadImage();
+                        }
                     }
                 }
 
