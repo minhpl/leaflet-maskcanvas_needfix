@@ -82,6 +82,7 @@ $(function() {
     });
 
     coverageLayer.setData(dataset);
+    coverageLayer.globalData();
 
     map.addLayer(coverageLayer);
     map.fitBounds(coverageLayer.bounds);

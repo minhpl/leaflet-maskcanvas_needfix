@@ -33,7 +33,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         zIndex: 18, // if it is lower, then the layer is not in front
         img_on: undefined,
         img_off: undefined,
-        map: undefined
+        map: undefined,
+        useGlobalData: false
     },
 
     ready: false,
@@ -76,6 +77,14 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                 console.log(err);
             });
         }
+    },
+
+    globalData: function() {
+        this.options.useGlobalData = true;
+    },
+
+    localData: function() {
+        this.options.useGlobalData = false;
     },
 
     getId: function(coords) {
@@ -309,7 +318,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                 db.get(id, {
                     attachments: false
                 }).then(function(doc) {
-                    // console.log("Found ",doc);
+                    console.log("Found ", doc);
                     // var tile = {
                     //     _id: doc._id,
                     //     status : LOADED,
@@ -359,7 +368,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
                     res(doc);
                 }).catch(function(err) {
-                    // console.log(err);
+                    console.log(err);
                     rej(err);
                 });
             } else rej(new Error("No DB found"));
@@ -427,11 +436,11 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     var currentBounds = self._boundsToQuery(bounds);
                     var bb = [currentBounds.y, currentBounds.x, currentBounds.y + currentBounds.height, currentBounds.x + currentBounds.width];
                     // console.log(bb);
-                    var pointCoordinates = self._rtree.search(bb);
+                    var pointCoordinates = (self.options.useGlobalData) ? null : self._rtree.search(bb);
 
 
-                    if (pointCoordinates.length === 0) {
-                        // console.log("Store empty tile ",self.emptyTiles.size);
+                    if (pointCoordinates && pointCoordinates.length === 0) {
+                        console.log("Store empty tile ", self.emptyTiles.size);
                         self.emptyTiles.set(id, {});
                         self.tiles.remove(id);
                         if (self.needPersistents > self.tiles.size)
@@ -442,7 +451,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     }
 
 
-                    var numPoints = pointCoordinates.length;
+                    var numPoints = (pointCoordinates) ? pointCoordinates.length : 0;
                     tile = {
                         _id: id,
                         numPoints: numPoints,
@@ -600,10 +609,11 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     },
 
     backupToDb: function(db, tile) {
+        // console.log("Remove from memory, backup to DB ", tile);
         if (tile.needSave && tile.status == LOADED && !tile.empty) {
             var self = this;
             tile.needSave = false;
-            // console.log("Remove from memory, backup to DB ",tile);
+            // console.log("Remove from memory 22, backup to DB ", tile);
             // var db = self.options.db;
             if (db) {
                 if (self.needPersistents > 0) self.needPersistents--;
@@ -627,28 +637,30 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                 var simpleTile = {
                     _id: tile._id,
                     numPoints: tile.numPoints,
-                    data: tile.data,
+                    data: self.options.useGlobalData ? undefined : tile.data,
                     bb: tile.bb,
                     status: LOADED,
                     needSave: false
                 }
+
+                if (self.options.useGlobalData) delete simpleTile.data;
 
                 if (!self.prev) self.prev = Promise.resolve();
                 self.prev = self.prev.then(function() {
 
                     return new Promise(function(resolve, reject) {
                         db.upsert(tile._id, function(doc) {
-                            console.log("Upsert ", doc, simpleTile);
+                            // console.log("Upsert ", doc, simpleTile);
                             if (doc._rev) simpleTile._rev = doc._rev;
                             return simpleTile;
                         }).then(function(response) {
-                            console.log("upserted ", response);
+                            // console.log("upserted ", response);
                             tile._rev = response.rev; //Updating revision                    
-                            if (tile.data.length > 0 && tile.canvas) {
+                            if (tile.numPoints > 0 && tile.canvas) {
                                 // console.log(tile.data.length, tile._id);
                                 return blobUtil.canvasToBlob(tile.canvas).then(function(blob) {
                                     retryUntilWritten(tile._id, "image", response.rev, blob, 'image/png', function(r) {
-                                        console.log("Store blob successfully", r);
+                                        // console.log("Store blob successfully", r);
                                         resolve();
                                     });
                                     // success
@@ -676,7 +688,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         var self = this;
         // console.log("No tiles stored ",self.tiles.size);        
         return self.tiles.set(id, tile, function(removed) {
-            self.backupToDb(self.options.db, removed);
+            self.backupToDb(self.options.db, removed.value);
         })
     },
 
@@ -786,12 +798,12 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                         // console.log("Draw at ",tile.bb,nw);                      
 
                         // console.log("sorted = ",tile.sorted);
-                        if (tile.img.complete){
+                        if (tile.img.complete) {
                             ctx.drawImage(tile.img, 0, 0);
                         } else {
                             tile.img.onload = function(e) {
-                                if (e.target.complete){
-                                    ctx.drawImage(tile.img, 0, 0);                                
+                                if (e.target.complete) {
+                                    ctx.drawImage(tile.img, 0, 0);
                                 } else {
                                     var maxTimes = 10;
                                     var countTimes = 0;
@@ -803,7 +815,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                                                 return;
                                             } else {
                                                 if (e.target.complete == true) {
-                                                    ctx.drawImage(tile.img, 0, 0);  
+                                                    ctx.drawImage(tile.img, 0, 0);
                                                 } else {
                                                     retryLoadImage();
                                                 }
@@ -819,7 +831,21 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                         return;
                     }
 
-                    self._drawPoints(canvas, coords, tile.data, tile.sorted);
+                    if (!tile.data && self.options.useGlobalData) {
+                        var data = self._rtree.search(tile.bb);
+                        tile.numPoints = data.length;
+                        // console.log("TILE + ",tile);
+                        if (tile.numPoints > 0){                            
+                            self._drawPoints(canvas, coords, data, false);
+                        } else {                           
+                                // console.log("Store empty tile ", self.emptyTiles.size);
+                                self.emptyTiles.set(id, {});
+                                self.tiles.remove(id);
+                                if (self.needPersistents > self.tiles.size)
+                                    self.needPersistents--;
+                                // console.log("Remove empty tile from current saved tiles",self.tiles.size);                                                                                       
+                        }
+                    } else self._drawPoints(canvas, coords, tile.data, tile.sorted);
                     tile.sorted = true;
 
                     if (tile.numPoints > 0) {
