@@ -587,7 +587,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         return point._subtract(this._map.getPixelOrigin());
     },
 
-    backupOne: function() {
+    backupOne: function() {        
         var self = this;
         var db = self.options.db;
         if (db && self.needPersistents > 0) {
@@ -595,6 +595,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             var node = self.tiles.head;
             var i = 0;
             while (node) {
+
+                console.log("-------------------------");
                 var value = node.value;
                 if (value.needSave) {
                     self.backupToDb(db, value);
@@ -608,7 +610,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         }
     },
 
-    backupToDb: function(db, tile) {
+    backupToDb: function(db, tile) {        
+
         // console.log("Remove from memory, backup to DB ", tile);
         if (tile.needSave && tile.status == LOADED && !tile.empty) {
             var self = this;
@@ -619,18 +622,33 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                 if (self.needPersistents > 0) self.needPersistents--;
 
                 function retryUntilWritten(id, name, rev, blob, type, callback) {
-                    var count = 0;
-                    db.putAttachment(id, name, rev, blob, type, function(e, r) {
-                        if (e) {
-                            if (e.status === 409 && count++ < 20) {
-                                console.log("Stored blob", e);
-                                retryUntilWritten(id, name, rev, blob, type, callback);
-                            } else console.log("Error ", e);
-                        } else {
-                            // console.log("Store blob successfully", r);
-                            if (callback) callback(r);
-                        }
+
+                    console.log("Main: ",id,name,rev,blob,type); 
+
+                    
+                    var worker = new Worker('Worker.js');
+                    worker.postMessage({
+                        'id': id,
+                        'name': name,
+                        'rev': rev,
+                        'blob': blob,
+                        'type': type,                        
+                        // 'count': count
                     });
+
+
+                    // var count = 0;                    
+                    // db.putAttachment(id, name, rev, blob, type, function(e, r) {
+                    //     if (e) {
+                    //         if (e.status === 409 && count++ < 20) {
+                    //             console.log("Stored blob", e);
+                    //             retryUntilWritten(id, name, rev, blob, type, callback);
+                    //         } else console.log("Error ", e);
+                    //     } else {
+                    //         // console.log("Store blob successfully", r);
+                    //         if (callback) callback(r);
+                    //     }
+                    // });
                 }
 
 
@@ -663,6 +681,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                                         // console.log("Store blob successfully", r);
                                         resolve();
                                     });
+                                    // resolve();
                                     // success
                                 }).catch(function(err) {
                                     // error
@@ -737,10 +756,10 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         var vpolyCoordinates = this._rtreePolygon.search(bb);
 
         vpolyCoordinates.sort(function(a, b) {
-            return a[5] - b[5];
-        })
-        // var self = this;
-        // var lcData = [];
+                return a[5] - b[5];
+            })
+            // var self = this;
+            // var lcData = [];
 
         // this._drawVPolys(canvas, coords, vpolyCoordinates);
 
@@ -835,15 +854,15 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                         var data = self._rtree.search(tile.bb);
                         tile.numPoints = data.length;
                         // console.log("TILE + ",tile);
-                        if (tile.numPoints > 0){                            
+                        if (tile.numPoints > 0) {
                             self._drawPoints(canvas, coords, data, false);
-                        } else {                           
-                                // console.log("Store empty tile ", self.emptyTiles.size);
-                                self.emptyTiles.set(id, {});
-                                self.tiles.remove(id);
-                                if (self.needPersistents > self.tiles.size)
-                                    self.needPersistents--;
-                                // console.log("Remove empty tile from current saved tiles",self.tiles.size);                                                                                       
+                        } else {
+                            // console.log("Store empty tile ", self.emptyTiles.size);
+                            self.emptyTiles.set(id, {});
+                            self.tiles.remove(id);
+                            if (self.needPersistents > self.tiles.size)
+                                self.needPersistents--;
+                            // console.log("Remove empty tile from current saved tiles",self.tiles.size);                                                                                       
                         }
                     } else self._drawPoints(canvas, coords, tile.data, tile.sorted);
                     tile.sorted = true;

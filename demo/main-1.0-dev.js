@@ -569,7 +569,7 @@ $(function() {
     var insidePoly = false;
 
     function onMouseMove(e) {
-        // coverageLayer.backupOne();
+        coverageLayer.backupOne();
         var info = getInfo(e);
         var radius = coverageLayer.options.radius;
 
@@ -714,21 +714,39 @@ $(function() {
             }
         }
 
+        if (TopPoint)
+            TopPoint.id = maxId;
+
         return TopPoint;
     }
 
     function onMouseClick(e) {
         var currentPositionPoint = map.project(e.latlng);
         var Points = circleCentrePointCover(currentPositionPoint);
-        if (!isInsideObject) {
+        if (!isInsideObject && !insidePoly) {
             alert("Not inside object");
             return;
         }
-        var TopPoint = getTopPoint(Points);
-        if (!TopPoint) return;
-        var latLng = new L.LatLng(TopPoint[0], TopPoint[1]);
-        var message = latLng.toString();
-        popup.setLatLng(latLng).setContent(message).openOn(map);
+
+        if (insidePoly) {
+            var intersectPolys = getIntersectPoly(e.latlng);
+            if(!intersectPolys) return;
+
+
+            var topPoly = intersectPolys.topPoly;
+            var topPolyID = intersectPolys.topPolyID;
+
+            var posL = topPoly.posL;
+            var message = "lat: "+ posL[0]+",lng: "+posL[1]+", id: "+topPolyID;
+            popup.setLatLng(posL).setContent(message).openOn(map);
+
+        } else if (isInsideObject) {
+            var TopPoint = getTopPoint(Points);
+            if (!TopPoint) return;
+            var latLng = new L.LatLng(TopPoint[0], TopPoint[1]);
+            var message = latLng.toString() + "id: " + TopPoint.id;
+            popup.setLatLng(latLng).setContent(message).openOn(map);
+        }
     }
 
     $('.leaflet-container').css('cursor', 'auto');
@@ -742,7 +760,7 @@ $(function() {
             .openOn(map);
     }
 
-    map.on('click', onMapClick);
+    map.on('click', onMouseClick);
 
 
     // map.on('click', onMouseClick);
