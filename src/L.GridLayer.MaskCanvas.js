@@ -621,22 +621,16 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             if (db) {
                 if (self.needPersistents > 0) self.needPersistents--;
 
-                function retryUntilWritten(id, name, rev, blob, type, callback) {
-
-                    console.log("Main: ",id,name,rev,blob,type); 
-
-                    
+                function retryUntilWritten(id, name, rev, blob, type, callback) {                                    
                     var worker = new Worker('Worker.js');
                     worker.postMessage({
                         'id': id,
                         'name': name,
                         'rev': rev,
                         'blob': blob,
-                        'type': type,                        
-                        // 'count': count
+                        'type': type,                                                
                     });
-
-
+                    
                     // var count = 0;                    
                     // db.putAttachment(id, name, rev, blob, type, function(e, r) {
                     //     if (e) {
@@ -679,9 +673,9 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                                 return blobUtil.canvasToBlob(tile.canvas).then(function(blob) {
                                     retryUntilWritten(tile._id, "image", response.rev, blob, 'image/png', function(r) {
                                         // console.log("Store blob successfully", r);
-                                        resolve();
+                                        // resolve();
                                     });
-                                    // resolve();
+                                    resolve();
                                     // success
                                 }).catch(function(err) {
                                     // error

@@ -569,7 +569,7 @@ $(function() {
     var insidePoly = false;
 
     function onMouseMove(e) {
-        coverageLayer.backupOne();
+        // coverageLayer.backupOne();
         var info = getInfo(e);
         var radius = coverageLayer.options.radius;
 
