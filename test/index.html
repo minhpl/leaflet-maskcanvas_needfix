@@ -1,17 +1,100 @@
 <!DOCTYPE html>
-<html>
+<html lang="en-UK">
 
 <head>
-    <meta charset="utf-8" />
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="http://code.jquery.com/jquery-1.8.0.min.js"></script>
+    <meta charset="utf-8">
+    <title>Some of Vienna's exciting places with leaflet 1.0-dev</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="../demo/main.css" />
+    <script src="http://code.jquery.com/jquery-1.8.0.min.js"></script>
+    <script src="../lib/js-object-clone-master/object-clone.js"></script>
+    <!--  -->
+    <script src="../demo/makepolygon.js"></script>
+    <link rel="stylesheet" href="../lib/leaflet-1.0-dev/leaflet.css" />
+    <script src="../lib/leaflet-1.0-dev/leaflet-src.js"></script>
+    <script src="../demo/node_modules/rbush-master/rbush.js"></script>
+    <script src="../demo/node_modules/tinyqueue/tinyqueue.js"></script>
+    <script src="../demo/node_modules/rbush-knn-master/rbush-knn.js"></script>
+    <!-- <script src="Points.js"></script> -->
+    <script src="../demo/data.js"></script>
+    <script src="../src/lru.js"></script>
+    <script src="../demo/node_modules/blob-util.min.js"></script>
+    <script src="../demo/node_modules/pouchdb-3.6.0.min.js"></script>
+    <script src="../demo/node_modules/es6-promise.min.js"></script>
+    <script src="../demo/node_modules/upsert.js"></script>
+    <script src="../demo/node_modules/ImageBuffer.min.js"></script>
+    <script src="../src/QuadTree.js"></script>
+    <!--  -->
+    <!-- // <script src="../src/L.GridLayer.MaskCanvas2.js"></script> -->
+    <!-- // <script src="../src/L.GridLayer.MaskCanvas_for_debug.js"></script> -->
+    <script src="../lib/point-in-polygon-master/index.js"></script>
+    <script src="operative.js"></script>
+    <!-- <script src="main-1.0-dev.js"></script>
+    // <script src="Worker.js"></script> -->
 </head>
 
 <body>
-    <button onclick="sayHI()">Say HI</button>
-    <button onclick="unknownCmd()">Send unknown command</button>
-    <button onclick="stop()">Stop worker</button>
-    <output id="result"></output>
     <script>
-    
+    operative.setBaseURL('http://127.0.0.1:8000/demo/');
+
+    var craziness = operative({
+
+        doCrazy: function(cb) {
+
+            console.time('send');
+
+            var minXLatLng = 1000,
+                minYLatLng = 1000,
+                maxXLatLng = -1000,
+                maxYLatLng = -1000;
+
+
+            var buffer = new ArrayBuffer(8 * dataset.length * 2);
+            var arr = new Float64Array(buffer, 0);
+
+            var j = 0;
+
+            for (var i = 0; i < dataset.length; ++i) {
+                var item = dataset[i];
+                var x = item[0];
+                var y = item[1];
+
+                arr[j] = x;
+                arr[++j] = y;
+                ++j;
+
+                if (x < minXLatLng) minXLatLng = x;
+                if (y < minYLatLng) minYLatLng = y;
+                if (x > maxXLatLng) maxXLatLng = x;
+                if (y > maxYLatLng) maxYLatLng = y;
+            }
+
+            var BBAllPointLatlng = [minXLatLng, minYLatLng, maxXLatLng, maxYLatLng];
+            cb({
+                'buffer': buffer,
+                'bb': BBAllPointLatlng
+            });
+            console.timeEnd('send');
+        }
+
+    }, ['data.js']);
+
+    craziness.doCrazy(function(result) {
+        console.log(result);
+        var buffer = result.buffer;
+        var arr = new Float64Array(buffer, 0);
+        var j = 0;
+        for (var i = 0; i < arr.length; i += 2) {
+            var x = arr[i];
+            var y = arr[i + 1];
+            console.log(x);
+            var item = [x, y];
+        }
+
+    });
     </script>
 </body>
 

@@ -32,27 +32,69 @@
     <!-- // <script src="../src/L.GridLayer.MaskCanvas2.js"></script> -->
     <!-- // <script src="../src/L.GridLayer.MaskCanvas_for_debug.js"></script> -->
     <script src="../lib/point-in-polygon-master/index.js"></script>
-    //
+    <script src="operative.js"></script>
     <!-- <script src="main-1.0-dev.js"></script>
     // <script src="Worker.js"></script> -->
 </head>
 
 <body>
-    <script type="text/javascript">
-    db = new PouchDB('test');
+    <script>
+    operative.setBaseURL('http://127.0.0.1:8000/demo/');
+
+    var craziness = operative({
+
+        doCrazy: function(cb) {
+
+            console.time('Craziness');
+            var minXLatLng = 1000,
+                minYLatLng = 1000,
+                maxXLatLng = -1000,
+                maxYLatLng = -1000;
 
 
+            var buffer = new ArrayBuffer(8 * dataset.length * 2);
+            var arr = new Float64Array(buffer, 0);
 
-    db.upsert('myDocId', function(doc) {
-        if (!doc.count) {
-            doc.count = 0;
+            var j = 0;
+
+            for (var i = 0; i < dataset.length; ++i) {
+                var item = dataset[i];
+                var x = item[0];
+                var y = item[1];
+
+                arr[j] = x;
+                arr[++j] = y;
+                ++j;
+
+                if (x < minXLatLng) minXLatLng = x;
+                if (y < minYLatLng) minYLatLng = y;
+                if (x > maxXLatLng) maxXLatLng = x;
+                if (y > maxYLatLng) maxYLatLng = y;
+            }
+
+            var BBAllPointLatlng = [minXLatLng, minYLatLng, maxXLatLng, maxYLatLng];
+
+            console.timeEnd('Craziness');
+
+            console.time('send');
+            cb(buffer);
+            console.timeEnd('send');
         }
-        doc.count++;
-        return doc;
-    }).then(function(res) {
-        console.log('res: ', res);
-    }).catch(function(err) {
-        console.log('err', err);
+
+    }, ['data.js']);
+
+    craziness.doCrazy(function(result) {
+
+        var buffer = result
+        var arr = new Float64Array(buffer, 0);
+        var j = 0;
+        for (var i = 0; i < arr.length; i += 2) {
+            var x = arr[i];
+            var y = arr[i + 1];
+            // console.log(x);
+            var item = [x, y];            
+        }
+                
     });
     </script>
 </body>

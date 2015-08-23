@@ -1,5 +1,6 @@
 if ('undefined' === typeof window) {
 
+    console.time('all');
     importScripts('data.js');
 
 
@@ -53,5 +54,5 @@ if ('undefined' === typeof window) {
 
     var end = new Date();
     console.log("Time Send: ", end - start, "milliseconds");
-
+    console.timeEnd('all');
 }

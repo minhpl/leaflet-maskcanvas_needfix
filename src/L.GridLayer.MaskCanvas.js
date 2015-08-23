@@ -272,6 +272,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     //     }
     //     return dPoly;
     // },  
+
+
     setData: function(dataset) {
         var self = this;
         this.bounds = new L.LatLngBounds(dataset);
@@ -282,6 +284,63 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             maxYLatLng = -1000;
 
         this._rtree = new rbush(32);
+
+        /**
+         * This block used web worker library called Operative
+         */
+        {
+            // operative.setBaseURL('http://127.0.0.1:8000/demo/');
+            // var craziness = operative({
+            //     doCrazy: function(cb) {
+            //         console.time('send');
+            //         var minXLatLng = 1000,
+            //             minYLatLng = 1000,
+            //             maxXLatLng = -1000,
+            //             maxYLatLng = -1000;
+            //         var buffer = new ArrayBuffer(8 * dataset.length * 2);
+            //         var arr = new Float64Array(buffer, 0);
+            //         var j = 0;
+            //         for (var i = 0; i < dataset.length; ++i) {
+            //             var item = dataset[i];
+            //             var x = item[0];
+            //             var y = item[1];
+
+            //             arr[j] = x;
+            //             arr[++j] = y;
+            //             ++j;
+
+            //             if (x < minXLatLng) minXLatLng = x;
+            //             if (y < minYLatLng) minYLatLng = y;
+            //             if (x > maxXLatLng) maxXLatLng = x;
+            //             if (y > maxYLatLng) maxYLatLng = y;
+            //         }
+            //         var BBAllPointLatlng = [minXLatLng, minYLatLng, maxXLatLng, maxYLatLng];
+            //         cb({        
+            //             'buffer': buffer,
+            //             'bb': BBAllPointLatlng
+            //         });
+            //         console.timeEnd('send');
+            //     }
+            // }, ['data.js']);
+
+            // var data = [];
+            // craziness.doCrazy(function(result) {
+            //     console.log(result);
+            //     var buffer = result.buffer;
+
+            //     var arr = new Float64Array(buffer, 0);
+            //     var j = 0;
+            //     for (var i = 0; i < arr.length; i += 2) {
+            //         var x = arr[i];
+            //         var y = arr[i + 1];
+            //         var item = [x, y];
+            //         data.push([x, y, x, y, item, j++]);
+            //     }
+
+            //     self._rtree.clear().load(data);
+            //     self.BBAllPointLatlng = result.bb;
+            // });
+        }
 
         var worker = new Worker('WorkerLoadData.js');
 
@@ -322,7 +381,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
         // this.BBAllPointLatlng = [minXLatLng, minYLatLng, maxXLatLng, maxYLatLng];
 
-        // this._rtree.load(data);
+        this._rtree.load(data);
 
         this._rtreePolygon = new rbush(32);
         this._rtreePolygon.load(this.makeDataPoly());
@@ -655,10 +714,9 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                 if (self.needPersistents > 0) self.needPersistents--;
 
                 function retryUntilWritten(id, name, rev, blob, type, callback) {
-                    var worker = new Worker('WorkerBackUpToDB.js');
 
-                    // var first = new Date();
-
+                    console.time("putAttachment time");
+                    // var worker = new Worker('WorkerBackUpToDB.js');                    
                     // worker.postMessage({
                     //     'id': id,
                     //     'name': name,
@@ -670,8 +728,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     // var end = new Date();
                     // console.log("Time take: ", end - first, " in milliseconds");
 
-
-                    var count = 0;                    
+                    var count = 0;
                     var first = new Date();
                     db.putAttachment(id, name, rev, blob, type, function(e, r) {
                         if (e) {
@@ -684,8 +741,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                             if (callback) callback(r);
                         }
                     });
-                    var end = new Date();
-                    console.log("Time take: ", end - first, " in milliseconds");
+
+                    console.timeEnd("putAttachment time");
                 }
 
 
