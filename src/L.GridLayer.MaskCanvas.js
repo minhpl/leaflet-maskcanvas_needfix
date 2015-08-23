@@ -18,7 +18,7 @@ const NUMPOLYGON = 100;
 const NUMBPOLYGON = 10;
 const VPOLY = 1;
 const BPOLY = 2;
-const HUGETILE_THREADSHOLD = 5000
+const HUGETILE_THREADSHOLD = 5000;
 
 L.GridLayer.MaskCanvas = L.GridLayer.extend({
     options: {
@@ -50,17 +50,25 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     canvases: new lru(100),
 
     // rtreeLCTilePoly: new lru(40),    
-    BBGlobalLatlng: [-9999, -9999, -9999, -9999],
+    BBAllPointLatlng: [-9999, -9999, -9999, -9999],
     initialize: function(options) {
         L.setOptions(this, options);
         var db = this.options.db;
         var self = this;
         if (db) {
-            // db.destroy().then(function(){
-            //   console.log("PouchDB destroyed");
-            // }).catch(function(err){
-            //   console.log(err);
-            // });
+
+            // var refreshDB = function(self) {
+            //     db.destroy().then(function(response) {
+            //         db = new PouchDB('vmts');
+            //         console.log("Refresh database");                    
+            //         self.ready = true;
+            //     }).catch(function(err) {
+            //         console.log(err);
+            //     })
+            // }
+
+            // refreshDB(this);
+
             db.allDocs({
                 include_docs: true,
                 attachments: true
@@ -94,10 +102,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     iscollides: function(coords) {
         var tileSize = this.options.tileSize;
 
-        // console.log("coords---------------------",coords);
-
-        // console.log("tileSize: ",tileSize);
-        var nwPoint = coords.multiplyBy(tileSize);
+        var nwPoint = coords.multiplyBy(tileSize); //coordinate of tile by world point
         var sePoint = nwPoint.add(new L.Point(tileSize, tileSize));
         var nw = this._map.unproject(nwPoint, coords.z);
         var se = this._map.unproject(sePoint, coords.z);
@@ -105,7 +110,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
         // console.log("tilebox: ",tileBB);
 
-        var bb = this.BBGlobalLatlng;
+        var bb = this.BBAllPointLatlng;
         var southWest = L.latLng(bb[0], bb[1]),
             northEast = L.latLng(bb[2], bb[3]);
         var GBB = L.latLngBounds(southWest, northEast);
@@ -115,10 +120,11 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     },
 
     createTile: function(coords) {
-        var id = coords.z + "_" + coords.x + "_" + coords.y;
-        var savedTile = this.hugeTiles.get(id) || this.tiles.get(id);
+        var id = this.getId(coords);
+        var savedTile = this.hugeTiles.get(id) || this.tiles.get(id); //check if tile in lru mem cache
 
         var canvas = (savedTile && savedTile.canvas) ? savedTile.canvas : document.createElement('canvas');
+
         if (!canvas) canvas = document.createElement('canvas');
         canvas.width = canvas.height = this.options.tileSize;
 
@@ -141,7 +147,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         // ctx.globalCompositeOperation = 'xor';
         // canvas2d.globalCompositeOperation = "lighter";
 
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0)';
         ctx.fillRect(0, 0, tileSize, tileSize);
 
         ctx.strokeStyle = '#000';
@@ -200,13 +206,11 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         // ctx.fillStyle = 'rgba(20,250,200,0.1)';
 
         for (var i = 0, j = 0; i < dlength && j < NUMPOLYGON; i += interval, j++) {
-
             // 20.9204, 105.59578
             // 21.11269, 105.88451
 
             // 21.15176, 105.65826
             // 20.76831, 105.25108
-
             var lat = 20.76831 + Math.random() * (21.15176 - 20.76831);
             var lng = 105.25108 + Math.random() * (105.65826 - 105.25108);
 
@@ -244,56 +248,82 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
         return dPoly;
     },
+    // makeBDataPoly: function() {
+    //     var dlength = dataset.length;
+    //     var interval = (dlength / NUMBPOLYGON) >> 0;
+    //     // console.log("interval ", interval);
+    //     var dPoly = [];
+    //     var id = 0;
 
 
-    makeBDataPoly: function() {
-        var dlength = dataset.length;
-        var interval = (dlength / NUMBPOLYGON) >> 0;
-        // console.log("interval ", interval);
-        var dPoly = [];
-        var id = 0;
+    //     for (var i = 0, j = 0; i < dlength && j < NUMPOLYGON; i += interval, j++) {
+    //         var posL = dataset[i];
 
+    //         var poly = makeBPolygons();
+    //         poly.posL = posL;
 
-        for (var i = 0, j = 0; i < dlength && j < NUMPOLYGON; i += interval, j++) {
-            var posL = dataset[i];
+    //         this.getVertexAndBoundinLatLng(poly);
 
-            var poly = makeBPolygons();
-            poly.posL = posL;
+    //         lBounds = poly.lBounds;
+    //         var a = [lBounds.getSouth(), lBounds.getWest(), lBounds.getNorth(), lBounds.getEast(), poly, id++];
+    //         dPoly.push(a);
 
-            this.getVertexAndBoundinLatLng(poly);
-
-            lBounds = poly.lBounds;
-            var a = [lBounds.getSouth(), lBounds.getWest(), lBounds.getNorth(), lBounds.getEast(), poly, id++];
-            dPoly.push(a);
-
-            console.log(poly);
-        }
-        return dPoly;
-    },
+    //         console.log(poly);
+    //     }
+    //     return dPoly;
+    // },  
     setData: function(dataset) {
         var self = this;
         this.bounds = new L.LatLngBounds(dataset);
 
-
-        var minXLatLng = 10000,
-            minYLatLng = 10000,
+        var minXLatLng = 1000,
+            minYLatLng = 1000,
             maxXLatLng = -1000,
             maxYLatLng = -1000;
-        this._rtree = new rbush(32);
-        var data = [];
-        for (var i = 0; i < dataset.length; ++i) {
-            var item = dataset[i];
-            var x = item[0];
-            var y = item[1];
-            data.push([x, y, x, y, item, i]);
-            if (x < minXLatLng) minXLatLng = x;
-            if (y < minYLatLng) minYLatLng = y;
-            if (x > maxXLatLng) maxXLatLng = x;
-            if (y > maxYLatLng) maxYLatLng = y;
-        }
-        this.BBGlobalLatlng = [minXLatLng, minYLatLng, maxXLatLng, maxYLatLng];
 
-        this._rtree.load(data);
+        this._rtree = new rbush(32);
+
+        var worker = new Worker('WorkerLoadData.js');
+
+        var self = this;
+            
+        var data = [];
+        worker.addEventListener('message', function(e) {
+            var rec = e.data;
+
+            if (!rec.flag && rec.data) {
+                var buffer = rec.data;
+                var arr = new Float64Array(buffer, 0);
+                var j = 0;
+                for (var i = 0; i < arr.length; i += 2) {
+                    var x = arr[i];
+                    var y = arr[i + 1];
+                    var item = [x, y];
+                    data.push([x, y, x, y, item, j++]);
+                }
+
+                self._rtree.clear().load(data);
+                self.BBAllPointLatlng = rec.bb;
+                r = true;
+            }
+
+        }, false);
+
+        // for (var i = 0; i < dataset.length; ++i) {
+        //     var item = dataset[i];
+        //     var x = item[0];
+        //     var y = item[1];
+        //     // data.push([x, y, x, y, item, i]);
+        //     if (x < minXLatLng) minXLatLng = x;
+        //     if (y < minYLatLng) minYLatLng = y;
+        //     if (x > maxXLatLng) maxXLatLng = x;
+        //     if (y > maxYLatLng) maxYLatLng = y;
+        // }
+
+        // this.BBAllPointLatlng = [minXLatLng, minYLatLng, maxXLatLng, maxYLatLng];
+
+        // this._rtree.load(data);
+
         this._rtreePolygon = new rbush(32);
         this._rtreePolygon.load(this.makeDataPoly());
 
@@ -306,7 +336,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
     getStoreObj: function(id) {
         var db = this.options.db;
-        // console.log("getStoreObj ",id);
+
         var self = this;
         var promise = new Promise(function(res, rej) {
             if (!self.ready) {
@@ -314,7 +344,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                 return;
             }
             if (db) {
-
                 db.get(id, {
                     attachments: false
                 }).then(function(doc) {
@@ -383,6 +412,9 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             // console.log("Not valid");
             return Promise.resolve(EMPTY);
         }
+
+        //Dau tien kiem tra tile trong bo nho RAM
+
         var tile = this.hugeTiles.get(id) || this.tiles.get(id);
         var self = this;
         // if (tile) console.log("Status ",tile.status);
@@ -399,6 +431,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             self.store(id, tile);
 
             var promise = new Promise(function(resolve, reject) {
+                //sau do kiem tra trong o cung
+
                 var out = self.getStoreObj(id).then(function(res) {
                     self.store(id, res);
                     res.status = LOADED;
@@ -415,6 +449,9 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
 
                 }, function(err) {
+
+                    //neu trong o cung khong co thi lay trong RTREE
+
                     // console.log(err);
                     var tileSize = self.options.tileSize;
                     var nwPoint = coords.multiplyBy(tileSize);
@@ -587,7 +624,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         return point._subtract(this._map.getPixelOrigin());
     },
 
-    backupOne: function() {        
+    backupOne: function() {
         var self = this;
         var db = self.options.db;
         if (db && self.needPersistents > 0) {
@@ -595,8 +632,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             var node = self.tiles.head;
             var i = 0;
             while (node) {
-
-                console.log("-------------------------");
                 var value = node.value;
                 if (value.needSave) {
                     self.backupToDb(db, value);
@@ -610,9 +645,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         }
     },
 
-    backupToDb: function(db, tile) {        
-
-        // console.log("Remove from memory, backup to DB ", tile);
+    backupToDb: function(db, tile) {
         if (tile.needSave && tile.status == LOADED && !tile.empty) {
             var self = this;
             tile.needSave = false;
@@ -621,16 +654,16 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             if (db) {
                 if (self.needPersistents > 0) self.needPersistents--;
 
-                function retryUntilWritten(id, name, rev, blob, type, callback) {                                    
-                    var worker = new Worker('Worker.js');
+                function retryUntilWritten(id, name, rev, blob, type, callback) {
+                    var worker = new Worker('WorkerBackUpToDB.js');
                     worker.postMessage({
                         'id': id,
                         'name': name,
                         'rev': rev,
                         'blob': blob,
-                        'type': type,                                                
+                        'type': type,
                     });
-                    
+
                     // var count = 0;                    
                     // db.putAttachment(id, name, rev, blob, type, function(e, r) {
                     //     if (e) {
@@ -639,7 +672,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     //             retryUntilWritten(id, name, rev, blob, type, callback);
                     //         } else console.log("Error ", e);
                     //     } else {
-                    //         // console.log("Store blob successfully", r);
+                    //         console.log("Store blob successfully", r);
                     //         if (callback) callback(r);
                     //     }
                     // });
@@ -670,7 +703,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                             tile._rev = response.rev; //Updating revision                    
                             if (tile.numPoints > 0 && tile.canvas) {
                                 // console.log(tile.data.length, tile._id);
-                                return blobUtil.canvasToBlob(tile.canvas).then(function(blob) {
+                                return blobUtil.canvasToBlob(tile.canvas).then(function(blob) {                                    
                                     retryUntilWritten(tile._id, "image", response.rev, blob, 'image/png', function(r) {
                                         // console.log("Store blob successfully", r);
                                         // resolve();
@@ -717,7 +750,33 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         // if (!this._rtree || !this._map) {
         //   return;
         // }
-        var id = coords.z + "_" + coords.x + "_" + coords.y;
+        var queryPolys = function(coords, self) {
+            var tileSize = self.options.tileSize;
+
+            var nwPoint = coords.multiplyBy(tileSize);
+            var sePoint = nwPoint.add(new L.Point(tileSize, tileSize));
+
+            if (self.options.useAbsoluteRadius) {
+                var centerPoint = nwPoint.add(new L.Point(tileSize >> 1, tileSize >> 1));
+                this._latLng = this._map.unproject(centerPoint, coords.z);
+            }
+
+            var bounds = new L.LatLngBounds(self._map.unproject(sePoint, coords.z), self._map.unproject(nwPoint, coords.z));
+
+            var currentBounds = self._boundsToQuery(bounds);
+            var bb = [currentBounds.y, currentBounds.x, currentBounds.y + currentBounds.height, currentBounds.x + currentBounds.width];
+            var vpolyCoordinates = self._rtreePolygon.search(bb);
+
+            vpolyCoordinates.sort(function(a, b) {
+                return a[5] - b[5];
+            })
+            return vpolyCoordinates;
+        }
+
+        var vpolyCoordinates = queryPolys(coords, this);
+
+        var id = this.getId(coords);
+
         this.canvases.set(id, canvas, function(removed, keyadd) {
             // console.log("add:", "removed: ",removed.key);
         });
@@ -727,70 +786,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             return;
         }
 
-        var tileSize = this.options.tileSize;
 
-        var nwPoint = coords.multiplyBy(tileSize);
-        var sePoint = nwPoint.add(new L.Point(tileSize, tileSize));
-
-        if (this.options.useAbsoluteRadius) {
-            var centerPoint = nwPoint.add(new L.Point(tileSize >> 1, tileSize >> 1));
-            this._latLng = this._map.unproject(centerPoint, coords.z);
-        }
-
-        // padding
-        // console.log("max radius ",this._getMaxRadius(coords.z));
-        var pad = new L.Point(0, 0);
-        nwPoint = nwPoint.subtract(pad);
-        sePoint = sePoint.add(pad);
-
-        var bounds = new L.LatLngBounds(this._map.unproject(sePoint, coords.z), this._map.unproject(nwPoint, coords.z));
-
-        var currentBounds = this._boundsToQuery(bounds);
-        var bb = [currentBounds.y, currentBounds.x, currentBounds.y + currentBounds.height, currentBounds.x + currentBounds.width];
-        var vpolyCoordinates = this._rtreePolygon.search(bb);
-
-        vpolyCoordinates.sort(function(a, b) {
-                return a[5] - b[5];
-            })
-            // var self = this;
-            // var lcData = [];
-
-        // this._drawVPolys(canvas, coords, vpolyCoordinates);
-
-        // var getTilePoint = function(poly, coords) {
-        //     var latLng = poly.latLng;
-        //     var tilePoint = self._tilePoint(coords, [latLng.lat, latLng.lng]);
-        //     return tilePoint;
-        // };
-
-        // var translate = function(poly, posPolyPoint) {
-        //     var bb = poly.bb;
-        //     var xCentre = bb[6];
-        //     var yCentre = bb[7];
-
-
-        //     var dx = posPolyPoint[0] - xCentre;
-        //     var dy = posPolyPoint[1] - yCentre;
-
-        //     var newBB = [bb[0] + dx, bb[1] + dy, bb[2] + dx, bb[3] + dy,
-        //         bb[4], bb[5], posPolyPoint[0], posPolyPoint[1]
-        //     ];
-
-        //     poly.bb = newBB;
-        //     return poly;
-        // }
-
-        // // padding
-        // var pad = new L.Point(this._getMaxRadius(coords.z), this._getMaxRadius(coords.z));
-        // nwPoint = nwPoint.subtract(pad);
-        // sePoint = sePoint.add(pad);
-
-        // var bounds = new L.LatLngBounds(this._map.unproject(sePoint, coords.z), this._map.unproject(nwPoint, coords.z));
-
-        // var currentBounds = this._boundsToQuery(bounds);
-        // var bb = [currentBounds.y,currentBounds.x,currentBounds.y+currentBounds.height,currentBounds.x+currentBounds.width];
-        // // console.log(bb);
-        // var pointCoordinates = this._rtree.search(bb);
         var self = this;
         (function(self, canvas, coords) {
             var id = coords.z + "_" + coords.x + "_" + coords.y;
@@ -947,20 +943,19 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         }
     },
 
-    // drawVPoly: function(poly,canvas,coords) {
-    //     var vertexsL = poly.vertexsL;
+    drawVPoly: function(poly, canvas, coords) {
+        var vertexsL = poly.vertexsL;
 
-    //     var v0 = vertexsL[0];
-    //     var p0 = this._tilePoint(coords,[v0.lat,v0.lng]);
-    //     console.log("here",p0);
+        var v0 = vertexsL[0];
+        var p0 = this._tilePoint(coords, [v0.lat, v0.lng]);
+        console.log("here", p0);
 
-    // },
+    },
 
     drawLinhTinh: function(canvas, coords, vpolyCoordinates) {
         var ctx = canvas.getContext('2d');
         ctx.drawImage(this.options.img_on, 0, 0);
     },
-
 
     getCanvas: function(vpoly, coords, color) {
         var boundsL = vpoly.lBounds;

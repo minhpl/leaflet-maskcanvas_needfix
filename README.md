@@ -1,3 +1,10 @@
+install: 1. cd .../leaflet-maskcanvas_needfix
+         2. python -m SimpleHTTPServer
+
+run:     127.0.0.1:8000/demo/index-1.0-dev.html 
+
+
+
 #Leaflet MaskCanvas
 
 A leaflet canvas layer for displaying large coverage data sets.
