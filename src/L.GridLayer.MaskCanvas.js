@@ -286,7 +286,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         var worker = new Worker('WorkerLoadData.js');
 
         var self = this;
-            
+
         var data = [];
         worker.addEventListener('message', function(e) {
             var rec = e.data;
@@ -656,26 +656,36 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
                 function retryUntilWritten(id, name, rev, blob, type, callback) {
                     var worker = new Worker('WorkerBackUpToDB.js');
-                    worker.postMessage({
-                        'id': id,
-                        'name': name,
-                        'rev': rev,
-                        'blob': blob,
-                        'type': type,
-                    });
 
-                    // var count = 0;                    
-                    // db.putAttachment(id, name, rev, blob, type, function(e, r) {
-                    //     if (e) {
-                    //         if (e.status === 409 && count++ < 20) {
-                    //             console.log("Stored blob", e);
-                    //             retryUntilWritten(id, name, rev, blob, type, callback);
-                    //         } else console.log("Error ", e);
-                    //     } else {
-                    //         console.log("Store blob successfully", r);
-                    //         if (callback) callback(r);
-                    //     }
+                    // var first = new Date();
+
+                    // worker.postMessage({
+                    //     'id': id,
+                    //     'name': name,
+                    //     'rev': rev,
+                    //     'blob': blob,
+                    //     'type': type,
                     // });
+
+                    // var end = new Date();
+                    // console.log("Time take: ", end - first, " in milliseconds");
+
+
+                    var count = 0;                    
+                    var first = new Date();
+                    db.putAttachment(id, name, rev, blob, type, function(e, r) {
+                        if (e) {
+                            if (e.status === 409 && count++ < 20) {
+                                console.log("Stored blob", e);
+                                retryUntilWritten(id, name, rev, blob, type, callback);
+                            } else console.log("Error ", e);
+                        } else {
+                            console.log("Store blob successfully", r);
+                            if (callback) callback(r);
+                        }
+                    });
+                    var end = new Date();
+                    console.log("Time take: ", end - first, " in milliseconds");
                 }
 
 
@@ -703,7 +713,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                             tile._rev = response.rev; //Updating revision                    
                             if (tile.numPoints > 0 && tile.canvas) {
                                 // console.log(tile.data.length, tile._id);
-                                return blobUtil.canvasToBlob(tile.canvas).then(function(blob) {                                    
+                                return blobUtil.canvasToBlob(tile.canvas).then(function(blob) {
                                     retryUntilWritten(tile._id, "image", response.rev, blob, 'image/png', function(r) {
                                         // console.log("Store blob successfully", r);
                                         // resolve();
