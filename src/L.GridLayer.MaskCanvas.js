@@ -13,6 +13,7 @@ const EMPTY = {
     status: LOADED
 };
 
+
 const MAXRADIUSPOLY = 256;
 const NUMPOLYGON = 100;
 const NUMBPOLYGON = 10;
@@ -38,6 +39,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     },
 
     ready: false,
+    rtree_loaded: false,
 
     needPersistents: 0,
 
@@ -248,6 +250,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
         return dPoly;
     },
+
     // makeBDataPoly: function() {
     //     var dlength = dataset.length;
     //     var interval = (dlength / NUMBPOLYGON) >> 0;
@@ -273,6 +276,122 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     //     return dPoly;
     // },  
 
+    makeRtree: function() {
+        var self = this;
+
+        // var promise = new Promise(function(res, rej) {
+        //     if (self.rtree_loaded) {
+        //         res(true)
+        //         return;
+        //     }
+
+        //     var worker = new Worker('WorkerLoadData.js');
+
+        //     var data = [];
+
+        //     var count = 0;
+        //     worker.addEventListener('message', function(e) {
+        //         count++;
+        //         var rec = e.data;
+
+        //         if (!rec.flag && rec.data) {
+        //             var buffer = rec.data;
+        //             var arr = new Float64Array(buffer, 0);
+        //             var j = 0;
+        //             for (var i = 0; i < arr.length; i += 2) {
+        //                 var x = arr[i];
+        //                 var y = arr[i + 1];
+        //                 var item = [x, y];
+        //                 data.push([x, y, x, y, item, j++]);
+        //             }
+
+        //             if (!self._rtree.Loaded) {
+        //                 self._rtree = new rbush(32);
+        //                 self._rtree.load(data);
+        //                 self.rtree_loaded = true;
+        //                 self.BBAllPointLatlng = rec.bb;
+        //             }
+
+        //             // worker.terminate();
+        //             console.log("here")
+        //             res(true);
+
+        //         } else {
+        //             if (count == 2)
+        //                 res(undefined);
+        //         }
+        //     }, false);
+        // })
+
+        var promise = new Promise(function(res, rej) {
+
+            operative.setBaseURL('http://127.0.0.1:8000/demo/');
+
+            var craziness = operative({
+                doCrazy: function(rtree_loaded) {
+                    var deferred = this.deferred();
+                    if (!rtree_loaded) {
+                        console.time('send');
+
+                        var minXLatLng = 1000,
+                            minYLatLng = 1000,
+                            maxXLatLng = -1000,
+                            maxYLatLng = -1000;
+                        var buffer = new ArrayBuffer(8 * dataset.length * 2);
+                        var arr = new Float64Array(buffer, 0);
+                        var j = 0;
+                        for (var i = 0; i < dataset.length; ++i) {
+                            var item = dataset[i];
+                            var x = item[0];
+                            var y = item[1];
+
+                            arr[j] = x;
+                            arr[++j] = y;
+                            ++j;
+
+                            if (x < minXLatLng) minXLatLng = x;
+                            if (y < minYLatLng) minYLatLng = y;
+                            if (x > maxXLatLng) maxXLatLng = x;
+                            if (y > maxYLatLng) maxYLatLng = y;
+                        }
+                        var BBAllPointLatlng = [minXLatLng, minYLatLng, maxXLatLng, maxYLatLng];
+
+                        deferred.fulfill({
+                            'buffer': buffer,
+                            'bb': BBAllPointLatlng
+                        });
+
+                        console.timeEnd('send');
+                    } else {
+                        deferred.fulfill(undefined);
+                    }
+                }
+            }, ['data.js']);
+
+            craziness.doCrazy(self.rtree_loaded).then(function(result) {
+                if (!self.rtree_loaded && result) {
+                    var buffer = result.buffer;
+                    var data = [];
+                    var arr = new Float64Array(buffer, 0);
+                    var j = 0;
+                    for (var i = 0; i < arr.length; i += 2) {
+                        var x = arr[i];
+                        var y = arr[i + 1];
+                        var item = [x, y];
+                        data.push([x, y, x, y, item, j++]);
+                    }
+                    self._rtree.clear().load(data);
+                    self.rtree_loaded = true;
+                    self.BBAllPointLatlng = result.bb;
+                    res(true);
+                } else {
+                    res(true);
+                }
+            });
+        });
+
+        return promise;
+    },
 
     setData: function(dataset) {
         var self = this;
@@ -284,104 +403,13 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             maxYLatLng = -1000;
 
         this._rtree = new rbush(32);
+        this._rtree.Loaded = false;
 
-        /**
-         * This block used web worker library called Operative
-         */
-        {
-            // operative.setBaseURL('http://127.0.0.1:8000/demo/');
-            // var craziness = operative({
-            //     doCrazy: function(cb) {
-            //         console.time('send');
-            //         var minXLatLng = 1000,
-            //             minYLatLng = 1000,
-            //             maxXLatLng = -1000,
-            //             maxYLatLng = -1000;
-            //         var buffer = new ArrayBuffer(8 * dataset.length * 2);
-            //         var arr = new Float64Array(buffer, 0);
-            //         var j = 0;
-            //         for (var i = 0; i < dataset.length; ++i) {
-            //             var item = dataset[i];
-            //             var x = item[0];
-            //             var y = item[1];
-
-            //             arr[j] = x;
-            //             arr[++j] = y;
-            //             ++j;
-
-            //             if (x < minXLatLng) minXLatLng = x;
-            //             if (y < minYLatLng) minYLatLng = y;
-            //             if (x > maxXLatLng) maxXLatLng = x;
-            //             if (y > maxYLatLng) maxYLatLng = y;
-            //         }
-            //         var BBAllPointLatlng = [minXLatLng, minYLatLng, maxXLatLng, maxYLatLng];
-            //         cb({        
-            //             'buffer': buffer,
-            //             'bb': BBAllPointLatlng
-            //         });
-            //         console.timeEnd('send');
-            //     }
-            // }, ['data.js']);
-
-            // var data = [];
-            // craziness.doCrazy(function(result) {
-            //     console.log(result);
-            //     var buffer = result.buffer;
-
-            //     var arr = new Float64Array(buffer, 0);
-            //     var j = 0;
-            //     for (var i = 0; i < arr.length; i += 2) {
-            //         var x = arr[i];
-            //         var y = arr[i + 1];
-            //         var item = [x, y];
-            //         data.push([x, y, x, y, item, j++]);
-            //     }
-
-            //     self._rtree.clear().load(data);
-            //     self.BBAllPointLatlng = result.bb;
-            // });
-        }
-
-        var worker = new Worker('WorkerLoadData.js');
-
-        var self = this;
-
-        var data = [];
-        worker.addEventListener('message', function(e) {
-            var rec = e.data;
-
-            if (!rec.flag && rec.data) {
-                var buffer = rec.data;
-                var arr = new Float64Array(buffer, 0);
-                var j = 0;
-                for (var i = 0; i < arr.length; i += 2) {
-                    var x = arr[i];
-                    var y = arr[i + 1];
-                    var item = [x, y];
-                    data.push([x, y, x, y, item, j++]);
-                }
-
-                self._rtree.clear().load(data);
-                self.BBAllPointLatlng = rec.bb;
-                r = true;
-            }
-
-        }, false);
-
-        // for (var i = 0; i < dataset.length; ++i) {
-        //     var item = dataset[i];
-        //     var x = item[0];
-        //     var y = item[1];
-        //     // data.push([x, y, x, y, item, i]);
-        //     if (x < minXLatLng) minXLatLng = x;
-        //     if (y < minYLatLng) minYLatLng = y;
-        //     if (x > maxXLatLng) maxXLatLng = x;
-        //     if (y > maxYLatLng) maxYLatLng = y;
-        // }
-
-        // this.BBAllPointLatlng = [minXLatLng, minYLatLng, maxXLatLng, maxYLatLng];
-
-        this._rtree.load(data);
+        this.makeRtree().then(function(res) {
+            console.log(res);
+        }).catch(function(err) {
+            console.log(err);
+        })
 
         this._rtreePolygon = new rbush(32);
         this._rtreePolygon.load(this.makeDataPoly());
@@ -465,13 +493,9 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     },
 
     getTile: function(coords) {
+
         var id = coords.z + "_" + coords.x + "_" + coords.y;
         var valid = this.iscollides(coords);
-        if (!valid) {
-            // console.log("Not valid");
-            return Promise.resolve(EMPTY);
-        }
-
         //Dau tien kiem tra tile trong bo nho RAM
 
         var tile = this.hugeTiles.get(id) || this.tiles.get(id);
@@ -490,8 +514,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             self.store(id, tile);
 
             var promise = new Promise(function(resolve, reject) {
-                //sau do kiem tra trong o cung
-
+                //sau do kiem tra trong o cung                
                 var out = self.getStoreObj(id).then(function(res) {
                     self.store(id, res);
                     res.status = LOADED;
@@ -508,10 +531,9 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
 
                 }, function(err) {
-
                     //neu trong o cung khong co thi lay trong RTREE
 
-                    // console.log(err);
+
                     var tileSize = self.options.tileSize;
                     var nwPoint = coords.multiplyBy(tileSize);
                     var sePoint = nwPoint.add(new L.Point(tileSize, tileSize));
@@ -572,13 +594,14 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                             resolve(tile);
                         } else resolve(nTile);
                     }
-
-
-                })
+                }).catch(function(err) {
+                    console.log(err);
+                });
             });
 
             return promise;
         }
+
         tile.needSave = (tile.status == LOADED) ? false : true;
         return Promise.resolve(tile);
     },
@@ -723,10 +746,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     //     'rev': rev,
                     //     'blob': blob,
                     //     'type': type,
-                    // });
-
-                    // var end = new Date();
-                    // console.log("Time take: ", end - first, " in milliseconds");
+                    // });                            
 
                     var count = 0;
                     var first = new Date();
@@ -796,13 +816,14 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         }
     },
 
-
     store: function(id, tile) {
         var self = this;
-        // console.log("No tiles stored ",self.tiles.size);        
-        return self.tiles.set(id, tile, function(removed) {
-            self.backupToDb(self.options.db, removed.value);
-        })
+        if (self.rtree_loaded) {
+            // console.log("No tiles stored ",self.tiles.size);        
+            return self.tiles.set(id, tile, function(removed) {
+                self.backupToDb(self.options.db, removed.value);
+            })
+        }
     },
 
 
@@ -814,9 +835,12 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     _draw: function(canvas, coords) {
         // var valid = this.iscollides(coords);
         // if (!valid) return;
-        // if (!this._rtree || !this._map) {
-        //   return;
-        // }
+        if (!this._rtree || !this._map) {
+            return;
+        }
+
+        var self = this;
+
         var queryPolys = function(coords, self) {
             var tileSize = self.options.tileSize;
 
@@ -854,9 +878,10 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         }
 
 
-        var self = this;
+
         (function(self, canvas, coords) {
             var id = coords.z + "_" + coords.x + "_" + coords.y;
+
             self.getTile(coords).then(function(tile) {
                 if (!tile || tile.status != LOADED || tile.empty) {
                     return;
@@ -914,12 +939,14 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                         if (tile.numPoints > 0) {
                             self._drawPoints(canvas, coords, data, false);
                         } else {
-                            // console.log("Store empty tile ", self.emptyTiles.size);
-                            self.emptyTiles.set(id, {});
-                            self.tiles.remove(id);
-                            if (self.needPersistents > self.tiles.size)
-                                self.needPersistents--;
-                            // console.log("Remove empty tile from current saved tiles",self.tiles.size);                                                                                       
+                            if (self.rtree_loaded) {
+                                // console.log("Store empty tile ", self.emptyTiles.size);
+                                self.emptyTiles.set(id, {});
+                                self.tiles.remove(id);
+                                if (self.needPersistents > self.tiles.size)
+                                    self.needPersistents--;
+                                // console.log("Remove empty tile from current saved tiles",self.tiles.size);                                                                                       
+                            }
                         }
                     } else self._drawPoints(canvas, coords, tile.data, tile.sorted);
                     tile.sorted = true;
@@ -950,9 +977,9 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
                             nTile.canvas = canvas;
                             ntile.needSave = false;
-                            if (tile.numPoints >= HUGETILE_THREADSHOLD)
+                            if (tile.numPoints >= HUGETILE_THREADSHOLD) {
                                 self.hugeTiles.set(id, nTile);
-                            else self.store(id, nTile);
+                            } else self.store(id, nTile);
                         }
                         // };
                     }
