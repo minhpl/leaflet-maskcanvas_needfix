@@ -108,7 +108,7 @@ $(function() {
         var x = (point.x + 0.5) >> 0;
         var y = (point.y + 0.5) >> 0;
 
-        var i = ~~ (x + (y * TILESIZE));
+        var i = ~~(x + (y * TILESIZE));
         var location = (i << 2) + 3;
 
         var alpha = buffer.uint8[location]
@@ -438,7 +438,7 @@ $(function() {
             if (canvas) {
                 var ctx = canvas.getContext('2d');
                 // img.onload= function(){
-                drawImage(ctx,img, tilePoint[0] - w, tilePoint[1] - h);
+                drawImage(ctx, img, tilePoint[0] - w, tilePoint[1] - h);
             }
         }
     }
@@ -451,7 +451,7 @@ $(function() {
     }
 
     function drawImage(ctx, image, x, y) {
-        function f(){
+        function f() {
             drawImage(ctx, image, x, y);
         }
         try {
@@ -524,7 +524,7 @@ $(function() {
 
 
                 if (self.img.complete) {
-                    drawImage(self.ctx,self.img, minX, minY);
+                    drawImage(self.ctx, self.img, minX, minY);
                     // self.ctx.drawImage(self.img, 0, 0);
                 } else {
                     self.img.onload = function(e) {
@@ -542,7 +542,7 @@ $(function() {
                                         return;
                                     } else {
                                         if (e.target.complete == true) {
-                                            drawImage(self.ctx,self.img, minX, minY);
+                                            drawImage(self.ctx, self.img, minX, minY);
                                         } else {
                                             self.img.src = self.img.src;
                                             retryLoadImage();
@@ -730,14 +730,14 @@ $(function() {
 
         if (insidePoly) {
             var intersectPolys = getIntersectPoly(e.latlng);
-            if(!intersectPolys) return;
+            if (!intersectPolys) return;
 
 
             var topPoly = intersectPolys.topPoly;
             var topPolyID = intersectPolys.topPolyID;
 
             var posL = topPoly.posL;
-            var message = "lat: "+ posL[0]+",lng: "+posL[1]+", id: "+topPolyID;
+            var message = "lat: " + posL[0] + ",lng: " + posL[1] + ", id: " + topPolyID;
             popup.setLatLng(posL).setContent(message).openOn(map);
 
         } else if (isInsideObject) {
@@ -760,8 +760,65 @@ $(function() {
             .openOn(map);
     }
 
-    map.on('click', onMouseClick);
+    map.on('click', onMouseClick2);
 
 
-    // map.on('click', onMouseClick);
+
+    map.on('click', drawMarker);
+
+    function drawMarker(marker) {
+        var WIDTH, HEIGHT;
+        WIDTH = HEIGHT = red_canvas.width;
+        var centerlatLng = [marker.lat, marker.lng];
+
+        console.log(marker);
+
+        var currentlatlng = L.latLng(marker.lat, marker.lng);
+        var currentPoint = map.project(currentlatlng);
+
+        var x = (currentPoint.x / TILESIZE) >> 0;
+        var y = (currentPoint.y / TILESIZE) >> 0;
+        var zoom = map.getZoom();
+        //
+        var tileID = zoom + "_" + x + "_" + y;
+
+        //calculate Point relative to Tile
+        var tileTop = x * TILESIZE;
+        var tileLeft = y * TILESIZE;
+        var point = L.point(tileTop, tileLeft);
+        var coords = L.point(x, y);
+        coords.z = zoom;
+
+        draw(centerlatLng, WIDTH, HEIGHT, coords, red_canvas);
+
+        var item = [marker.lat, marker.lng];        
+        var x = item[0];
+        var y = item[1];
+        var data = [x,y,x,y,item,0];
+        console.log("???");
+
+        // coverageLayer._rtree.insert(data);
+
+        // var tilePoint = coverageLayer._tilePoint(coords, [currentlatlng.lat, currentlatlng.lng]);
+
+        // console.log(tilePoint);
+
+        // var canvas = coverageLayer.canvases.get(tileID);
+        // var context = canvas.getContext('2d');
+
+        // context.drawImage(marker.img, tilePoint[0], tilePoint[1]);
+    }
+
+    function onMouseClick2(e) {
+        
+        var marker = {
+            lat: e.latlng.lat,
+            lng: e.latlng.lng,
+            img: blue_canvas,
+            data: {},
+            title: 'title',
+        };
+        
+        drawMarker(marker);
+    }
 });

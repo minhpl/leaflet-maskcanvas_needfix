@@ -1,6 +1,6 @@
 if ('undefined' === typeof window) {
-    
-    importScripts('pouchdb-3.6.0.min.js');
+
+    importScripts('pouchdb-4.0.0.min.js');
 
 
     self.addEventListener('message', function(e) {
@@ -18,16 +18,21 @@ if ('undefined' === typeof window) {
             db.putAttachment(id, name, rev, blob, type, function(e, r) {
                 if (e) {
                     if (e.status === 409 && count++ < 20) {
-                        console.log("Stored blob", e);
+                        console.log("Worker Stored blob", e);
                         retryUntilWritten(id, name, rev, blob, type);
-                    } else console.log("Error ", e);
+                        self.close();
+                    } else {
+                        console.log("Worker Error ", e);
+                        self.close();
+                    }
                 } else {
-                    console.log("Store blob successfully", r);                    
+                    console.log("Worker Store blob successfully", r);                    
                 }
             });
         }
 
         retryUntilWritten(id, name, rev, blob, type);
+        // self.close();
     });
 
 

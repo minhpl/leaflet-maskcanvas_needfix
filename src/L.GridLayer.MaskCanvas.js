@@ -79,7 +79,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                 return Promise.all(result.rows.map(function(row) {
                     return db.remove(row.id, row.value.rev);
                 })).then(function() {
-                    ready = true;
+                    self.ready = true;
                     console.log("Remove all temporary tiles");
                 });
 
@@ -397,19 +397,34 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         var self = this;
         this.bounds = new L.LatLngBounds(dataset);
 
-        var minXLatLng = 1000,
-            minYLatLng = 1000,
+        this._rtree = new rbush(32);
+        this.rtree_loaded = false;
+
+        // this.makeRtree().then(function(res) {
+        //     console.log(res);
+        // }).catch(function(err) {
+        //     console.log(err);
+        // })
+
+        var minXLatLng = 10000,
+            minYLatLng = 10000,
             maxXLatLng = -1000,
             maxYLatLng = -1000;
+        var data = [];
+        for (var i = 0; i < dataset.length; ++i) {
+            var item = dataset[i];
+            var x = item[0];
+            var y = item[1];
+            data.push([x, y, x, y, item, i]);
+            if (x < minXLatLng) minXLatLng = x;
+            if (y < minYLatLng) minYLatLng = y;
+            if (x > maxXLatLng) maxXLatLng = x;
+            if (y > maxYLatLng) maxYLatLng = y;
+        }
+        this.BBGlobalLatlng = [minXLatLng, minYLatLng, maxXLatLng, maxYLatLng];
 
-        this._rtree = new rbush(32);
-        this._rtree.Loaded = false;
-
-        this.makeRtree().then(function(res) {
-            console.log(res);
-        }).catch(function(err) {
-            console.log(err);
-        })
+        this._rtree.load(data);
+        this.rtree_loaded = true;
 
         this._rtreePolygon = new rbush(32);
         this._rtreePolygon.load(this.makeDataPoly());
@@ -434,7 +449,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                 db.get(id, {
                     attachments: false
                 }).then(function(doc) {
-                    console.log("Found ", doc);
+                    console.log("Found ------------------- ", doc);
                     // var tile = {
                     //     _id: doc._id,
                     //     status : LOADED,
@@ -451,40 +466,79 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
                         var db = self.options.db;
                         // console.log("Get Attachment from ",doc);
-                        db.getAttachment(id, "image", {
-                            rev: doc._rev
-                        }).then(function(blob) {
-                            // console.log("Loaded image tile ", id + "/image : ",  blob);
+                        var imageID = id + "_img";
+
+                        db.get(imageID).then(function(doc) {
+                            var blob = doc.blob;
+                            console.log('blob: ', blob);
+
                             var blobURL = blobUtil.createObjectURL(blob);
 
                             var newImg = new Image();
                             newImg.src = blobURL;
 
-                            // newImg.onload = function(){
-                            doc.img = newImg;
-                            if (doc.numPoints < HUGETILE_THREADSHOLD) {
-                                var nTile = self.tiles.get(id);
-                                if (!nTile || !nTile.img)
-                                    self.store(id, doc);
-                            } else {
-                                var nTile = self.hugeTiles.get(id);
-                                if (!nTile || !nTile.img)
-                                    self.hugeTiles.set(id, doc);
+                            newImg.onload = function() {
+                                doc.img = newImg;
+                                doc.fromDB = true;
+                                doc.numPoints = 100;
+                                doc.status = LOADED;                                
+                                console.log("img: ",doc.img);
+
+                                var canvas = self.canvases.get(id);
+                                var ctx = canvas.getContext('2d');
+                                ctx.drawImage(newImg,-100,-100);
+
+
+                                if (doc.numPoints < HUGETILE_THREADSHOLD) {
+                                    var nTile = self.tiles.get(id);
+                                    if (!nTile || !nTile.img)
+                                        self.store(id, doc);
+                                } else {
+                                    var nTile = self.hugeTiles.get(id);
+                                    if (!nTile || !nTile.img)
+                                        self.hugeTiles.set(id, doc);
+                                }
                             }
-                            // resolve(res);  
-                            // }
+
+                        }).catch(function(err) {
+
+                        })
 
 
-                        }, function(err) {
-                            // console.log(id, err);
-                            // res.status = LOADED;
-                            // resolve(res);
-                        });
+                        // db.getAttachment(id, "image", {
+                        //     rev: doc._rev
+                        // }).then(function(blob) {
+                        //     // console.log("Loaded image tile ", id + "/image : ",  blob);
+                        //     var blobURL = blobUtil.createObjectURL(blob);
+
+                        //     var newImg = new Image();
+                        //     newImg.src = blobURL;
+
+                        //     // newImg.onload = function(){
+                        //     doc.img = newImg;
+                        //     if (doc.numPoints < HUGETILE_THREADSHOLD) {
+                        //         var nTile = self.tiles.get(id);
+                        //         if (!nTile || !nTile.img)
+                        //             self.store(id, doc);
+                        //     } else {
+                        //         var nTile = self.hugeTiles.get(id);
+                        //         if (!nTile || !nTile.img)
+                        //             self.hugeTiles.set(id, doc);
+                        //     }
+                        //     // resolve(res);  
+                        //     // }
+
+
+                        // }, function(err) {
+                        //     // console.log(id, err);
+                        //     // res.status = LOADED;
+                        //     // resolve(res);
+                        // });
                     }
 
                     res(doc);
                 }).catch(function(err) {
-                    console.log(err);
+                    // console.log(err);
                     rej(err);
                 });
             } else rej(new Error("No DB found"));
@@ -635,6 +689,9 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
      */
     _tilePoint: function(coords, pointCoordinate) {
         // start coords to tile 'space'
+
+        // console.log(pointCoordinate);
+
         var s = coords.multiplyBy(this.options.tileSize);
 
         // actual coords to tile 'space'
@@ -727,6 +784,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         }
     },
 
+    worker: undefined,
+
     backupToDb: function(db, tile) {
         if (tile.needSave && tile.status == LOADED && !tile.empty) {
             var self = this;
@@ -738,7 +797,150 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
                 function retryUntilWritten(id, name, rev, blob, type, callback) {
 
-                    console.time("putAttachment time");
+                    if (!self.worker) {
+
+                        self.worker = operative({
+                            store: function(data, cb) {
+                                var id = data.id;
+                                var name = data.name;
+                                var rev = data.rev;
+                                var blob = data.blob;
+                                var type = data.type;
+                                var db = new PouchDB("vmts");
+
+                                var self = this;
+
+                                var idimg = id+"_img";
+                                db.put({
+                                    '_id': idimg,
+                                    'name': name,
+                                    'rev': rev,
+                                    'blob': blob,
+                                    'type': type
+                                }).then(function(res) {
+                                    return db.get(idimg);
+                                }).then(function(doc) {
+                                    console.log("doc :", doc);
+                                }).catch(function(err) {
+                                    console.log(err);
+                                });
+
+
+                                // function retryUntilWritten(id, name, rev, blob, type) {
+
+                                //     var count = 0;
+                                //     db.putAttachment(id, name, rev, blob, type, function(e, r) {
+                                //         if (e) {
+                                //             if (e.status === 409 && count++ < 20) {
+                                //                 console.log("Worker Stored blob", e);
+                                //                 retryUntilWritten(id, name, rev, blob, type);
+                                //             } else {
+                                //                 // console.log("Worker Error ", e);
+                                //                 cb('ok');
+                                //             }
+                                //         } else {
+                                //             // console.log("Worker Store blob successfully", r);
+                                //             cb('ok');
+                                //         }
+                                //     });
+                                // }
+
+                                // retryUntilWritten(id, name, rev, blob, type);
+
+                            }
+                        }, ['pouchdb-4.0.0.min.js']);
+                    }
+
+                    if (self.worker) {
+                        self.worker.store({
+                                'id': id,
+                                'name': name,
+                                'rev': rev,
+                                'blob': blob,
+                                'type': type,
+                            },
+                            function(result) {
+
+                            }
+                        );
+
+                    }
+
+                    //******************************************************************
+                    //******************************************************************
+
+
+                    // if (!self.worker) {
+                    //     self.worker = cw({
+                    //         store: function(data, cb) {
+
+                    //             importScripts('pouchdb-4.0.0.min.js');
+
+                    //             var id = data.id;
+                    //             var name = data.name;
+                    //             var rev = data.rev;
+                    //             var blob = data.blob;
+                    //             var type = data.type;
+                    //             var db = new PouchDB("vmts");
+
+                    //             var self = this;
+
+
+                    //             db.put({
+                    //                 _id: 'dave@gmail.com',
+                    //                 name: 'David',
+                    //                 age: 68,
+                    //             }).then(function(res) {
+                    //                 console.log(res);
+                    //                 // cb('ok');
+                    //             }).catch(function(err) {
+                    //                 console.log(err);
+                    //                 // cb('ok');
+                    //             });
+
+
+                    //             function retryUntilWritten(id, name, rev, blob, type) {
+
+                    //                 var count = 0;
+                    //                 db.putAttachment(id, name, rev, blob, type, function(e, r) {
+                    //                     if (e) {
+                    //                         if (e.status === 409 && count++ < 20) {
+                    //                             console.log("Worker Stored blob", e);
+                    //                             retryUntilWritten(id, name, rev, blob, type);
+                    //                         } else {
+                    //                             console.log("Worker Error ", e);
+                    //                             // cb('ok');
+                    //                         }
+                    //                     } else {
+                    //                         console.log("Worker Store blob successfully", r);
+                    //                         // cb('ok');
+                    //                     }
+                    //                 });
+                    //             }
+
+                    //             retryUntilWritten(id, name, rev, blob, type);
+
+                    //         }
+                    //     });
+                    // }
+
+                    // if (self.worker) {
+                    //     self.worker.store({
+                    //         'id': id,
+                    //         'name': name,
+                    //         'rev': rev,
+                    //         'blob': blob,
+                    //         'type': type,
+                    //     }).then(function(result) {
+                    //         // self.worker.close();
+                    //     });
+
+                    // }
+
+                    //******************************************************************88
+                    //******************************************************************
+
+
                     // var worker = new Worker('WorkerBackUpToDB.js');                    
                     // worker.postMessage({
                     //     'id': id,
@@ -748,21 +950,20 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     //     'type': type,
                     // });                            
 
-                    var count = 0;
-                    var first = new Date();
-                    db.putAttachment(id, name, rev, blob, type, function(e, r) {
-                        if (e) {
-                            if (e.status === 409 && count++ < 20) {
-                                console.log("Stored blob", e);
-                                retryUntilWritten(id, name, rev, blob, type, callback);
-                            } else console.log("Error ", e);
-                        } else {
-                            console.log("Store blob successfully", r);
-                            if (callback) callback(r);
-                        }
-                    });
+                    // var count = 0;
+                    // var first = new Date();
 
-                    console.timeEnd("putAttachment time");
+                    // db.putAttachment(id, name, rev, blob, type, function(e, r) {
+                    //     if (e) {
+                    //         if (e.status === 409 && count++ < 20) {
+                    //             console.log("Main Stored blob", e);
+                    //             retryUntilWritten(id, name, rev, blob, type, callback);
+                    //         } else console.log("Main Error ", e);
+                    //     } else {
+                    //         console.log("Main Store blob successfully", r);
+                    //         if (callback) callback(r);
+                    //     }
+                    // });                    
                 }
 
 
@@ -877,8 +1078,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             return;
         }
 
-
-
         (function(self, canvas, coords) {
             var id = coords.z + "_" + coords.x + "_" + coords.y;
 
@@ -900,11 +1099,18 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
                         // console.log("sorted = ",tile.sorted);
                         if (tile.img.complete) {
-                            ctx.drawImage(tile.img, 0, 0);
+                            if (tile.fromDB) {
+                                ctx.drawImage(tile.img, -50, -50);
+                                console.log("----", tile.fromDB);
+                            } else
+                                ctx.drawImage(tile.img, 0, 0);
                         } else {
                             tile.img.onload = function(e) {
                                 if (e.target.complete) {
-                                    ctx.drawImage(tile.img, 0, 0);
+                                    if (tile.fromDB)
+                                        ctx.drawImage(tile.img, -50, -50);
+                                    else
+                                        ctx.drawImage(tile.img, 0, 0);
                                 } else {
                                     var maxTimes = 10;
                                     var countTimes = 0;
@@ -916,7 +1122,10 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                                                 return;
                                             } else {
                                                 if (e.target.complete == true) {
-                                                    ctx.drawImage(tile.img, 0, 0);
+                                                    if (tile.fromDB)
+                                                        ctx.drawImage(tile.img, -50, -50);
+                                                    else
+                                                        ctx.drawImage(tile.img, 0, 0);
                                                 } else {
                                                     retryLoadImage();
                                                 }
