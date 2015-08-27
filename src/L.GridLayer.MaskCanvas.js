@@ -400,11 +400,16 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         this._rtree = new rbush(32);
         this.rtree_loaded = false;
 
-        // this.makeRtree().then(function(res) {
-        //     console.log(res);
-        // }).catch(function(err) {
-        //     console.log(err);
-        // })
+        this.makeRtree().then(function(res) {
+            console.log(res);
+
+            if (self._map) {
+                self.redraw();
+            }
+
+        }).catch(function(err) {
+            console.log(err);
+        })
 
         var minXLatLng = 10000,
             minYLatLng = 10000,
@@ -447,7 +452,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                 return;
             }
 
-
             if (db) {
                 db.get(id, {
                     attachments: false
@@ -466,45 +470,27 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     doc.status = LOADED;
                     doc.needSave = false;
                     if (!doc.img && doc.numPoints > 0) {
-                        // var db = self.options.db;
-
                         var blob = doc.image;
-                        var blobURL = blobUtil.createObjectURL(blob);
-
-                        // console.log("Get Attachment from ",doc);
-
                         var blobURL = blobUtil.createObjectURL(blob);
 
                         var newImg = new Image();
                         newImg.src = blobURL;
-
                         doc.img = newImg;
-                        var canvas = self.canvases.get(id);
-                        var ctx = canvas.getContext('2d');
-
-                        ctx.drawImage(newImg, -100, -100);
-                            ctx.drawImage(newImg, 100, 100);
-                        
-                        console.log(newImg);
-
-                        newImg.onload() = function() {
-                            console.log("here");
-                            ctx.drawImage(newImg, -100, -100);
-                            ctx.drawImage(newImg, 100, 100);
+                        doc.imgFromDB = true;
+                        // setTimeout(function() {                            
+                        //     var canvas = self.canvases.get(id);
+                        //     var ctx = canvas.getContext('2d');
+                        //     ctx.drawImage(newImg, -100, -100);                        
+                        // }, 300);
+                        if (doc.numPoints < HUGETILE_THREADSHOLD) {
+                            var nTile = self.tiles.get(id);
+                            if (!nTile || !nTile.img)
+                                self.store(id, doc);
+                        } else {
+                            var nTile = self.hugeTiles.get(id);
+                            if (!nTile || !nTile.img)
+                                self.hugeTiles.set(id, doc);
                         }
-                        console.log(id, canvas);
-
-                        // if (doc.numPoints < HUGETILE_THREADSHOLD) {
-                        //     var nTile = self.tiles.get(id);
-                        //     if (!nTile || !nTile.img)
-                        //         self.store(id, doc);
-                        // } else {
-                        //     var nTile = self.hugeTiles.get(id);
-                        //     if (!nTile || !nTile.img)
-                        //         self.hugeTiles.set(id, doc);
-                        // }
-
-                        // }
                     }
                     // resolve(res);  
                     res(doc);
@@ -542,6 +528,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             var promise = new Promise(function(resolve, reject) {
                 //sau do kiem tra trong o cung                
                 var out = self.getStoreObj(id).then(function(res) {
+
                     self.store(id, res);
                     res.status = LOADED;
 
@@ -759,6 +746,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     worker: undefined,
 
     backupToDb: function(db, tile) {
+
         if (tile.needSave && tile.status == LOADED && !tile.empty) {
             var self = this;
             tile.needSave = false;
@@ -766,179 +754,176 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             // var db = self.options.db;
             if (db) {
                 if (self.needPersistents > 0) self.needPersistents--;
+                // function retryUntilWritten(id, name, rev, blob, type, callback) {
 
-                function retryUntilWritten(id, name, rev, blob, type, callback) {
+                //     // if (!self.worker) {
 
-                    // if (!self.worker) {
+                //     //     self.worker = operative({
+                //     //         store: function(data, cb) {
+                //     //             var id = data.id;
+                //     //             var name = data.name;
+                //     //             var rev = data.rev;
+                //     //             var blob = data.blob;
+                //     //             var type = data.type;
+                //     //             var db = new PouchDB("vmts");
 
-                    //     self.worker = operative({
-                    //         store: function(data, cb) {
-                    //             var id = data.id;
-                    //             var name = data.name;
-                    //             var rev = data.rev;
-                    //             var blob = data.blob;
-                    //             var type = data.type;
-                    //             var db = new PouchDB("vmts");
+                //     //             var self = this;
 
-                    //             var self = this;
-
-                    //             // var idimg = id+"_img";
-                    //             // db.put({
-                    //             //     '_id': idimg,
-                    //             //     'name': name,
-                    //             //     'rev': rev,
-                    //             //     'blob': blob,
-                    //             //     'type': type
-                    //             // }).then(function(res) {
-                    //             //     return db.get(idimg);
-                    //             // }).then(function(doc) {
-                    //             //     console.log("doc :", doc);
-                    //             // }).catch(function(err) {
-                    //             //     console.log(err);
-                    //             // });
-
-
-                    //             function retryUntilWritten(id, name, rev, blob, type) {
-
-                    //                 var count = 0;
-                    //                 db.putAttachment(id, name, rev, blob, type, function(e, r) {
-                    //                     if (e) {
-                    //                         if (e.status === 409 && count++ < 20) {
-                    //                             console.log("Worker Stored blob", e);
-                    //                             retryUntilWritten(id, name, rev, blob, type);
-                    //                         } else {
-                    //                             console.log("Worker Error ", e);
-                    //                             // cb('ok');
-                    //                         }
-                    //                     } else {
-                    //                         console.log("Worker Store blob successfully", r);
-                    //                         // cb('ok');
-                    //                     }
-                    //                 });
-                    //             }
-
-                    //             retryUntilWritten(id, name, rev, blob, type);
-
-                    //         }
-                    //     }, ['pouchdb-4.0.0.min.js']);
-                    // }
-
-                    // if (self.worker) {
-                    //     self.worker.store({
-                    //             'id': id,
-                    //             'name': name,
-                    //             'rev': rev,
-                    //             'blob': blob,
-                    //             'type': type,
-                    //         },
-                    //         function(result) {
-
-                    //         }
-                    //     );
-
-                    // }
-
-                    //******************************************************************
-                    //******************************************************************
+                //     //             // var idimg = id+"_img";
+                //     //             // db.put({
+                //     //             //     '_id': idimg,
+                //     //             //     'name': name,
+                //     //             //     'rev': rev,
+                //     //             //     'blob': blob,
+                //     //             //     'type': type
+                //     //             // }).then(function(res) {
+                //     //             //     return db.get(idimg);
+                //     //             // }).then(function(doc) {
+                //     //             //     console.log("doc :", doc);
+                //     //             // }).catch(function(err) {
+                //     //             //     console.log(err);
+                //     //             // });
 
 
-                    // if (!self.worker) {
-                    //     self.worker = cw({
-                    //         store: function(data, cb) {
+                //     //             function retryUntilWritten(id, name, rev, blob, type) {
 
-                    //             importScripts('pouchdb-4.0.0.min.js');
+                //     //                 var count = 0;
+                //     //                 db.putAttachment(id, name, rev, blob, type, function(e, r) {
+                //     //                     if (e) {
+                //     //                         if (e.status === 409 && count++ < 20) {
+                //     //                             console.log("Worker Stored blob", e);
+                //     //                             retryUntilWritten(id, name, rev, blob, type);
+                //     //                         } else {
+                //     //                             console.log("Worker Error ", e);
+                //     //                             // cb('ok');
+                //     //                         }
+                //     //                     } else {
+                //     //                         console.log("Worker Store blob successfully", r);
+                //     //                         // cb('ok');
+                //     //                     }
+                //     //                 });
+                //     //             }
 
-                    //             var id = data.id;
-                    //             var name = data.name;
-                    //             var rev = data.rev;
-                    //             var blob = data.blob;
-                    //             var type = data.type;
-                    //             var db = new PouchDB("vmts");
+                //     //             retryUntilWritten(id, name, rev, blob, type);
 
-                    //             var self = this;
+                //     //         }
+                //     //     }, ['pouchdb-4.0.0.min.js']);
+                //     // }
 
+                //     // if (self.worker) {
+                //     //     self.worker.store({
+                //     //             'id': id,
+                //     //             'name': name,
+                //     //             'rev': rev,
+                //     //             'blob': blob,
+                //     //             'type': type,
+                //     //         },
+                //     //         function(result) {
 
-                    //             db.put({
-                    //                 _id: 'dave@gmail.com',
-                    //                 name: 'David',
-                    //                 age: 68,
-                    //             }).then(function(res) {
-                    //                 console.log(res);
-                    //                 // cb('ok');
-                    //             }).catch(function(err) {
-                    //                 console.log(err);
-                    //                 // cb('ok');
-                    //             });
+                //     //         }
+                //     //     );
 
+                //     // }
 
-                    //             function retryUntilWritten(id, name, rev, blob, type) {
-
-                    //                 var count = 0;
-                    //                 db.putAttachment(id, name, rev, blob, type, function(e, r) {
-                    //                     if (e) {
-                    //                         if (e.status === 409 && count++ < 20) {
-                    //                             console.log("Worker Stored blob", e);
-                    //                             retryUntilWritten(id, name, rev, blob, type);
-                    //                         } else {
-                    //                             console.log("Worker Error ", e);
-                    //                             // cb('ok');
-                    //                         }
-                    //                     } else {
-                    //                         console.log("Worker Store blob successfully", r);
-                    //                         // cb('ok');
-                    //                     }
-                    //                 });
-                    //             }
-
-                    //             retryUntilWritten(id, name, rev, blob, type);
-
-                    //         }
-                    //     });
-                    // }
-
-                    // if (self.worker) {
-                    //     self.worker.store({
-                    //         'id': id,
-                    //         'name': name,
-                    //         'rev': rev,
-                    //         'blob': blob,
-                    //         'type': type,
-                    //     }).then(function(result) {
-                    //         // self.worker.close();
-                    //     });
-
-                    // }
-
-                    //******************************************************************
-                    //******************************************************************
+                //     //******************************************************************
+                //     //******************************************************************
 
 
-                    // var worker = new Worker('WorkerBackUpToDB.js');                    
-                    // worker.postMessage({
-                    //     'id': id,
-                    //     'name': name,
-                    //     'rev': rev,
-                    //     'blob': blob,
-                    //     'type': type,
-                    // });                            
+                //     // if (!self.worker) {
+                //     //     self.worker = cw({
+                //     //         store: function(data, cb) {
 
-                    //******************************************************************
-                    //******************************************************************                        
-                    // var count = 0;                    
-                    // db.putAttachment(id, name, rev, blob, type, function(e, r) {
-                    //     if (e) {
-                    //         if (e.status === 409 && count++ < 20) {
-                    //             console.log("Main Stored blob", e);
-                    //             retryUntilWritten(id, name, rev, blob, type, callback);
-                    //         } else console.log("Main Error ", e);
-                    //     } else {
-                    //         console.log("Main Store blob successfully", r);
-                    //         if (callback) callback(r);
-                    //     }
-                    // });                    
-                }
+                //     //             importScripts('pouchdb-4.0.0.min.js');
+
+                //     //             var id = data.id;
+                //     //             var name = data.name;
+                //     //             var rev = data.rev;
+                //     //             var blob = data.blob;
+                //     //             var type = data.type;
+                //     //             var db = new PouchDB("vmts");
+
+                //     //             var self = this;
 
 
+                //     //             db.put({
+                //     //                 _id: 'dave@gmail.com',
+                //     //                 name: 'David',
+                //     //                 age: 68,
+                //     //             }).then(function(res) {
+                //     //                 console.log(res);
+                //     //                 // cb('ok');
+                //     //             }).catch(function(err) {
+                //     //                 console.log(err);
+                //     //                 // cb('ok');
+                //     //             });
+
+
+                //     //             function retryUntilWritten(id, name, rev, blob, type) {
+
+                //     //                 var count = 0;
+                //     //                 db.putAttachment(id, name, rev, blob, type, function(e, r) {
+                //     //                     if (e) {
+                //     //                         if (e.status === 409 && count++ < 20) {
+                //     //                             console.log("Worker Stored blob", e);
+                //     //                             retryUntilWritten(id, name, rev, blob, type);
+                //     //                         } else {
+                //     //                             console.log("Worker Error ", e);
+                //     //                             // cb('ok');
+                //     //                         }
+                //     //                     } else {
+                //     //                         console.log("Worker Store blob successfully", r);
+                //     //                         // cb('ok');
+                //     //                     }
+                //     //                 });
+                //     //             }
+
+                //     //             retryUntilWritten(id, name, rev, blob, type);
+
+                //     //         }
+                //     //     });
+                //     // }
+
+                //     // if (self.worker) {
+                //     //     self.worker.store({
+                //     //         'id': id,
+                //     //         'name': name,
+                //     //         'rev': rev,
+                //     //         'blob': blob,
+                //     //         'type': type,
+                //     //     }).then(function(result) {
+                //     //         // self.worker.close();
+                //     //     });
+
+                //     // }
+
+                //     //******************************************************************
+                //     //******************************************************************
+
+
+                //     // var worker = new Worker('WorkerBackUpToDB.js');                    
+                //     // worker.postMessage({
+                //     //     'id': id,
+                //     //     'name': name,
+                //     //     'rev': rev,
+                //     //     'blob': blob,
+                //     //     'type': type,
+                //     // });                            
+
+                //     //******************************************************************
+                //     //******************************************************************                        
+                //     // var count = 0;                    
+                //     // db.putAttachment(id, name, rev, blob, type, function(e, r) {
+                //     //     if (e) {
+                //     //         if (e.status === 409 && count++ < 20) {
+                //     //             console.log("Main Stored blob", e);
+                //     //             retryUntilWritten(id, name, rev, blob, type, callback);
+                //     //         } else console.log("Main Error ", e);
+                //     //     } else {
+                //     //         console.log("Main Store blob successfully", r);
+                //     //         if (callback) callback(r);
+                //     //     }
+                //     // });                    
+                // }
                 var simpleTile = {
                     _id: tile._id,
                     numPoints: tile.numPoints,
@@ -950,23 +935,69 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
                 if (self.options.useGlobalData) delete simpleTile.data;
 
+
                 if (!self.prev) self.prev = Promise.resolve();
                 self.prev = self.prev.then(function() {
 
                     return new Promise(function(resolved, reject) {
                         if (tile.numPoints > 0 && tile.canvas) {
                             blobUtil.canvasToBlob(tile.canvas).then(function(blob) {
-                                db.upsert(tile._id, function(doc) {
-                                    if (doc._rev) simpleTile._rev = doc._rev;
-                                    simpleTile.image = blob;
-                                    return simpleTile;
-                                }).then(function(response) {
-                                    tile.rev = response.rev;
-                                    resolved();
-                                }).catch(function(err) {
-                                    console.log(err);
-                                    reject();
-                                });
+
+                                simpleTile.image = blob;
+
+                                if (!self.worker) {
+                                    self.worker = operative({
+                                        backup: function(simpleTile, callback) {
+                                            // console.log(simpleTile);
+
+                                            db = new PouchDB('vmts');
+
+                                            db.get(simpleTile._id).then(function(doc) {
+                                                simpleTile._rev = doc._rev;
+                                                return db.put(simpleTile);
+                                            }).then(function() {
+                                                callback('ok');
+                                                return db.get(simpleTile._id);
+                                            }).then(function(doc) {
+                                                // console.log("successfully update stored object: ", doc);
+                                            }).catch(function(err) {
+                                                if (err.status == 404) {
+                                                    db.put(simpleTile).then(function(res) {
+                                                        // console.log('successfully store object 2', res);
+                                                    });
+                                                    callback('ok');
+                                                } else {
+                                                    console.log('other err');
+                                                    callback(undefined);
+                                                }
+                                            });
+
+                                            // db.upsert(simpleTile._id, function(doc) {
+                                            //     if (doc._rev) simpleTile._rev = doc._rev;
+                                            //     // simpleTile.image = blob;
+                                            //     return simpleTile;
+                                            // }).then(function(response) {
+                                            //     // tile.rev = response.rev;
+                                            //     resolved();
+                                            // }).catch(function(err) {
+                                            //     // console.log(err);
+                                            //     reject();
+                                            // });
+                                        }
+                                    }, ['pouchdb-4.0.0.min.js', 'pouchdb.upsert.js']);
+                                }
+
+                                if (self.worker) {
+                                    self.worker.backup(simpleTile, function(results) {
+                                        if (results) {
+                                            resolved();
+                                        } else {
+                                            console.log('err');
+                                            reject();
+                                        }
+                                    })
+                                }
+
                             }).catch(function(err) {
                                 console.log(err);
                                 reject();
@@ -974,13 +1005,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                         } else {
                             resolved();
                         }
-                        // db.upsert(tile._id, function(doc) {
-                        //     if (doc._rev) simpleTile._rev = doc._rev;
-
-                        // })
-
                     });
-
 
                     // return new Promise(function(resolve, reject) {
                     //     db.upsert(tile._id, function(doc) {
@@ -1083,6 +1108,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             var id = coords.z + "_" + coords.x + "_" + coords.y;
 
             self.getTile(coords).then(function(tile) {
+
                 if (!tile || tile.status != LOADED || tile.empty) {
                     return;
                 }
@@ -1094,23 +1120,25 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     // }                    
 
                     if (tile.img) {
+
                         // console.log("Draw from saved tile ",tile);
                         // var nw = self._tilePoint(coords,tile.bb);
                         // console.log("Draw at ",tile.bb,nw);                      
 
                         // console.log("sorted = ",tile.sorted);
                         if (tile.img.complete) {
-                            if (tile.fromDB) {
-                                ctx.drawImage(tile.img, -50, -50);
-                                console.log("----", tile.fromDB);
+                            if (tile.imgFromDB) {
+                                ctx.drawImage(tile.img, 50, 50);
+                                console.log("img from DB:", tile._id, " ctx.drawImage(tile.img, 50, 50)");
                             } else
                                 ctx.drawImage(tile.img, 0, 0);
                         } else {
                             tile.img.onload = function(e) {
                                 if (e.target.complete) {
-                                    if (tile.fromDB)
-                                        ctx.drawImage(tile.img, -50, -50);
-                                    else
+                                    if (tile.imgFromDB) {
+                                        ctx.drawImage(tile.img, 50, 50);
+                                        console.log("img from DB:", tile._id, " ctx.drawImage(tile.img, 50, 50)");
+                                    } else
                                         ctx.drawImage(tile.img, 0, 0);
                                 } else {
                                     var maxTimes = 10;
@@ -1123,9 +1151,10 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                                                 return;
                                             } else {
                                                 if (e.target.complete == true) {
-                                                    if (tile.fromDB)
-                                                        ctx.drawImage(tile.img, -50, -50);
-                                                    else
+                                                    if (tile.imgFromDB) {
+                                                        ctx.drawImage(tile.img, 50, 50);
+                                                        console.log("img from DB:", tile._id, " ctx.drawImage(tile.img, 50, 50)");
+                                                    } else
                                                         ctx.drawImage(tile.img, 0, 0);
                                                 } else {
                                                     retryLoadImage();
