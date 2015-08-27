@@ -440,11 +440,14 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         var db = this.options.db;
 
         var self = this;
+
         var promise = new Promise(function(res, rej) {
             if (!self.ready) {
                 rej("Not ready");
                 return;
             }
+
+
             if (db) {
                 db.get(id, {
                     attachments: false
@@ -459,83 +462,51 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     //     needSave: false
                     // };
                     // var id = doc._id;
+
                     doc.status = LOADED;
                     doc.needSave = false;
-
                     if (!doc.img && doc.numPoints > 0) {
+                        // var db = self.options.db;
 
-                        var db = self.options.db;
+                        var blob = doc.image;
+                        var blobURL = blobUtil.createObjectURL(blob);
+
                         // console.log("Get Attachment from ",doc);
-                        var imageID = id + "_img";
 
-                        db.get(imageID).then(function(doc) {
-                            var blob = doc.blob;
-                            console.log('blob: ', blob);
+                        var blobURL = blobUtil.createObjectURL(blob);
 
-                            var blobURL = blobUtil.createObjectURL(blob);
+                        var newImg = new Image();
+                        newImg.src = blobURL;
 
-                            var newImg = new Image();
-                            newImg.src = blobURL;
+                        doc.img = newImg;
+                        var canvas = self.canvases.get(id);
+                        var ctx = canvas.getContext('2d');
 
-                            newImg.onload = function() {
-                                doc.img = newImg;
-                                doc.fromDB = true;
-                                doc.numPoints = 100;
-                                doc.status = LOADED;                                
-                                console.log("img: ",doc.img);
+                        ctx.drawImage(newImg, -100, -100);
+                            ctx.drawImage(newImg, 100, 100);
+                        
+                        console.log(newImg);
 
-                                var canvas = self.canvases.get(id);
-                                var ctx = canvas.getContext('2d');
-                                ctx.drawImage(newImg,-100,-100);
+                        newImg.onload() = function() {
+                            console.log("here");
+                            ctx.drawImage(newImg, -100, -100);
+                            ctx.drawImage(newImg, 100, 100);
+                        }
+                        console.log(id, canvas);
 
+                        // if (doc.numPoints < HUGETILE_THREADSHOLD) {
+                        //     var nTile = self.tiles.get(id);
+                        //     if (!nTile || !nTile.img)
+                        //         self.store(id, doc);
+                        // } else {
+                        //     var nTile = self.hugeTiles.get(id);
+                        //     if (!nTile || !nTile.img)
+                        //         self.hugeTiles.set(id, doc);
+                        // }
 
-                                if (doc.numPoints < HUGETILE_THREADSHOLD) {
-                                    var nTile = self.tiles.get(id);
-                                    if (!nTile || !nTile.img)
-                                        self.store(id, doc);
-                                } else {
-                                    var nTile = self.hugeTiles.get(id);
-                                    if (!nTile || !nTile.img)
-                                        self.hugeTiles.set(id, doc);
-                                }
-                            }
-
-                        }).catch(function(err) {
-
-                        })
-
-
-                        // db.getAttachment(id, "image", {
-                        //     rev: doc._rev
-                        // }).then(function(blob) {
-                        //     // console.log("Loaded image tile ", id + "/image : ",  blob);
-                        //     var blobURL = blobUtil.createObjectURL(blob);
-
-                        //     var newImg = new Image();
-                        //     newImg.src = blobURL;
-
-                        //     // newImg.onload = function(){
-                        //     doc.img = newImg;
-                        //     if (doc.numPoints < HUGETILE_THREADSHOLD) {
-                        //         var nTile = self.tiles.get(id);
-                        //         if (!nTile || !nTile.img)
-                        //             self.store(id, doc);
-                        //     } else {
-                        //         var nTile = self.hugeTiles.get(id);
-                        //         if (!nTile || !nTile.img)
-                        //             self.hugeTiles.set(id, doc);
-                        //     }
-                        //     // resolve(res);  
-                        //     // }
-
-
-                        // }, function(err) {
-                        //     // console.log(id, err);
-                        //     // res.status = LOADED;
-                        //     // resolve(res);
-                        // });
+                        // }
                     }
-
+                    // resolve(res);  
                     res(doc);
                 }).catch(function(err) {
                     // console.log(err);
@@ -543,6 +514,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                 });
             } else rej(new Error("No DB found"));
         });
+
         return promise;
     },
 
@@ -797,74 +769,74 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
                 function retryUntilWritten(id, name, rev, blob, type, callback) {
 
-                    if (!self.worker) {
+                    // if (!self.worker) {
 
-                        self.worker = operative({
-                            store: function(data, cb) {
-                                var id = data.id;
-                                var name = data.name;
-                                var rev = data.rev;
-                                var blob = data.blob;
-                                var type = data.type;
-                                var db = new PouchDB("vmts");
+                    //     self.worker = operative({
+                    //         store: function(data, cb) {
+                    //             var id = data.id;
+                    //             var name = data.name;
+                    //             var rev = data.rev;
+                    //             var blob = data.blob;
+                    //             var type = data.type;
+                    //             var db = new PouchDB("vmts");
 
-                                var self = this;
+                    //             var self = this;
 
-                                var idimg = id+"_img";
-                                db.put({
-                                    '_id': idimg,
-                                    'name': name,
-                                    'rev': rev,
-                                    'blob': blob,
-                                    'type': type
-                                }).then(function(res) {
-                                    return db.get(idimg);
-                                }).then(function(doc) {
-                                    console.log("doc :", doc);
-                                }).catch(function(err) {
-                                    console.log(err);
-                                });
+                    //             // var idimg = id+"_img";
+                    //             // db.put({
+                    //             //     '_id': idimg,
+                    //             //     'name': name,
+                    //             //     'rev': rev,
+                    //             //     'blob': blob,
+                    //             //     'type': type
+                    //             // }).then(function(res) {
+                    //             //     return db.get(idimg);
+                    //             // }).then(function(doc) {
+                    //             //     console.log("doc :", doc);
+                    //             // }).catch(function(err) {
+                    //             //     console.log(err);
+                    //             // });
 
 
-                                // function retryUntilWritten(id, name, rev, blob, type) {
+                    //             function retryUntilWritten(id, name, rev, blob, type) {
 
-                                //     var count = 0;
-                                //     db.putAttachment(id, name, rev, blob, type, function(e, r) {
-                                //         if (e) {
-                                //             if (e.status === 409 && count++ < 20) {
-                                //                 console.log("Worker Stored blob", e);
-                                //                 retryUntilWritten(id, name, rev, blob, type);
-                                //             } else {
-                                //                 // console.log("Worker Error ", e);
-                                //                 cb('ok');
-                                //             }
-                                //         } else {
-                                //             // console.log("Worker Store blob successfully", r);
-                                //             cb('ok');
-                                //         }
-                                //     });
-                                // }
+                    //                 var count = 0;
+                    //                 db.putAttachment(id, name, rev, blob, type, function(e, r) {
+                    //                     if (e) {
+                    //                         if (e.status === 409 && count++ < 20) {
+                    //                             console.log("Worker Stored blob", e);
+                    //                             retryUntilWritten(id, name, rev, blob, type);
+                    //                         } else {
+                    //                             console.log("Worker Error ", e);
+                    //                             // cb('ok');
+                    //                         }
+                    //                     } else {
+                    //                         console.log("Worker Store blob successfully", r);
+                    //                         // cb('ok');
+                    //                     }
+                    //                 });
+                    //             }
 
-                                // retryUntilWritten(id, name, rev, blob, type);
+                    //             retryUntilWritten(id, name, rev, blob, type);
 
-                            }
-                        }, ['pouchdb-4.0.0.min.js']);
-                    }
+                    //         }
+                    //     }, ['pouchdb-4.0.0.min.js']);
+                    // }
 
-                    if (self.worker) {
-                        self.worker.store({
-                                'id': id,
-                                'name': name,
-                                'rev': rev,
-                                'blob': blob,
-                                'type': type,
-                            },
-                            function(result) {
+                    // if (self.worker) {
+                    //     self.worker.store({
+                    //             'id': id,
+                    //             'name': name,
+                    //             'rev': rev,
+                    //             'blob': blob,
+                    //             'type': type,
+                    //         },
+                    //         function(result) {
 
-                            }
-                        );
+                    //         }
+                    //     );
 
-                    }
+                    // }
 
                     //******************************************************************
                     //******************************************************************
@@ -937,7 +909,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
                     // }
 
-                    //******************************************************************88
+                    //******************************************************************
                     //******************************************************************
 
 
@@ -950,9 +922,9 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     //     'type': type,
                     // });                            
 
-                    // var count = 0;
-                    // var first = new Date();
-
+                    //******************************************************************
+                    //******************************************************************                        
+                    // var count = 0;                    
                     // db.putAttachment(id, name, rev, blob, type, function(e, r) {
                     //     if (e) {
                     //         if (e.status === 409 && count++ < 20) {
@@ -981,35 +953,64 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                 if (!self.prev) self.prev = Promise.resolve();
                 self.prev = self.prev.then(function() {
 
-                    return new Promise(function(resolve, reject) {
-                        db.upsert(tile._id, function(doc) {
-                            // console.log("Upsert ", doc, simpleTile);
-                            if (doc._rev) simpleTile._rev = doc._rev;
-                            return simpleTile;
-                        }).then(function(response) {
-                            // console.log("upserted ", response);
-                            tile._rev = response.rev; //Updating revision                    
-                            if (tile.numPoints > 0 && tile.canvas) {
-                                // console.log(tile.data.length, tile._id);
-                                return blobUtil.canvasToBlob(tile.canvas).then(function(blob) {
-                                    retryUntilWritten(tile._id, "image", response.rev, blob, 'image/png', function(r) {
-                                        // console.log("Store blob successfully", r);
-                                        // resolve();
-                                    });
-                                    resolve();
-                                    // success
+                    return new Promise(function(resolved, reject) {
+                        if (tile.numPoints > 0 && tile.canvas) {
+                            blobUtil.canvasToBlob(tile.canvas).then(function(blob) {
+                                db.upsert(tile._id, function(doc) {
+                                    if (doc._rev) simpleTile._rev = doc._rev;
+                                    simpleTile.image = blob;
+                                    return simpleTile;
+                                }).then(function(response) {
+                                    tile.rev = response.rev;
+                                    resolved();
                                 }).catch(function(err) {
-                                    // error
                                     console.log(err);
-                                    reject(err);
+                                    reject();
                                 });
-                            } else resolve();
-                            console("Resolved");
-                        }).catch(function(err) {
-                            console.log("Reject : ", err);
-                            reject(err);
-                        })
+                            }).catch(function(err) {
+                                console.log(err);
+                                reject();
+                            })
+                        } else {
+                            resolved();
+                        }
+                        // db.upsert(tile._id, function(doc) {
+                        //     if (doc._rev) simpleTile._rev = doc._rev;
+
+                        // })
+
                     });
+
+
+                    // return new Promise(function(resolve, reject) {
+                    //     db.upsert(tile._id, function(doc) {
+                    //         // console.log("Upsert ", doc, simpleTile);
+                    //         if (doc._rev) simpleTile._rev = doc._rev;
+                    //         return simpleTile;
+                    //     }).then(function(response) {
+                    //         // console.log("upserted ", response);
+                    //         tile._rev = response.rev; //Updating revision                    
+                    //         if (tile.numPoints > 0 && tile.canvas) {
+                    //             // console.log(tile.data.length, tile._id);
+                    //             return blobUtil.canvasToBlob(tile.canvas).then(function(blob) {
+                    //                 retryUntilWritten(tile._id, "image", response.rev, blob, 'image/png', function(r) {
+                    //                     // console.log("Store blob successfully", r);
+                    //                     // resolve();
+                    //                 });
+                    //                 resolve();
+                    //                 // success
+                    //             }).catch(function(err) {
+                    //                 // error
+                    //                 console.log(err);
+                    //                 reject(err);
+                    //             });
+                    //         } else resolve();
+                    //         console("Resolved");
+                    //     }).catch(function(err) {
+                    //         console.log("Reject : ", err);
+                    //         reject(err);
+                    //     })
+                    // });
 
                 });
 

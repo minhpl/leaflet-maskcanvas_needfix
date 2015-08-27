@@ -56,8 +56,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         var db = this.options.db;
         var self = this;
         if (db) {
-
-
+            
             // var refreshDB = function(self) {
             //     db.destroy().then(function(response) {
             //         db = new PouchDB('vmts');

@@ -38,63 +38,9 @@
 
 <body>
     <script>
-    operative.setBaseURL('http://127.0.0.1:8000/demo/');
 
-    var craziness = operative({
+        
 
-        doCrazy: function(cb) {
-
-            console.time('send');
-
-            var minXLatLng = 1000,
-                minYLatLng = 1000,
-                maxXLatLng = -1000,
-                maxYLatLng = -1000;
-
-
-            var buffer = new ArrayBuffer(8 * dataset.length * 2);
-            var arr = new Float64Array(buffer, 0);
-
-            var j = 0;
-
-            for (var i = 0; i < dataset.length; ++i) {
-                var item = dataset[i];
-                var x = item[0];
-                var y = item[1];
-
-                arr[j] = x;
-                arr[++j] = y;
-                ++j;
-
-                if (x < minXLatLng) minXLatLng = x;
-                if (y < minYLatLng) minYLatLng = y;
-                if (x > maxXLatLng) maxXLatLng = x;
-                if (y > maxYLatLng) maxYLatLng = y;
-            }
-
-            var BBAllPointLatlng = [minXLatLng, minYLatLng, maxXLatLng, maxYLatLng];
-            cb({
-                'buffer': buffer,
-                'bb': BBAllPointLatlng
-            });
-            console.timeEnd('send');
-        }
-
-    }, ['data.js']);
-
-    craziness.doCrazy(function(result) {
-        console.log(result);
-        var buffer = result.buffer;
-        var arr = new Float64Array(buffer, 0);
-        var j = 0;
-        for (var i = 0; i < arr.length; i += 2) {
-            var x = arr[i];
-            var y = arr[i + 1];
-            console.log(x);
-            var item = [x, y];
-        }
-
-    });
     </script>
 </body>
 

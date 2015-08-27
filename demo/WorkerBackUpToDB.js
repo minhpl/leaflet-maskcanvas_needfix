@@ -20,13 +20,14 @@ if ('undefined' === typeof window) {
                     if (e.status === 409 && count++ < 20) {
                         console.log("Worker Stored blob", e);
                         retryUntilWritten(id, name, rev, blob, type);
-                        self.close();
+                        // self.close();
                     } else {
                         console.log("Worker Error ", e);
                         self.close();
                     }
                 } else {
-                    console.log("Worker Store blob successfully", r);                    
+                    console.log("Worker Store blob successfully", r);             
+                    self.close();       
                 }
             });
         }
