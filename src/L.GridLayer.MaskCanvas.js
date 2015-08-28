@@ -13,7 +13,6 @@ const EMPTY = {
     status: LOADED
 };
 
-
 const MAXRADIUSPOLY = 256;
 const NUMPOLYGON = 100;
 const NUMBPOLYGON = 10;
@@ -325,7 +324,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
         var promise = new Promise(function(res, rej) {
 
-            operative.setBaseURL('http://127.0.0.1:8000/demo/');
+            // operative.setBaseURL('http://127.0.0.1:8000/demo/');
+            // console.log(operative.getBaseURL());
 
             var craziness = operative({
                 doCrazy: function(rtree_loaded) {
@@ -359,16 +359,18 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                         deferred.fulfill({
                             'buffer': buffer,
                             'bb': BBAllPointLatlng
-                        });
+                        }, [buffer]);
 
                         console.timeEnd('send');
                     } else {
                         deferred.fulfill(undefined);
                     }
                 }
-            }, ['data.js']);
+            }, ['data.js']);            
+            
 
-            craziness.doCrazy(self.rtree_loaded).then(function(result) {
+            craziness.doCrazy(self.rtree_loaded).then(function(result) {            
+
                 if (!self.rtree_loaded && result) {
                     var buffer = result.buffer;
                     var data = [];
@@ -400,36 +402,36 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         this._rtree = new rbush(32);
         this.rtree_loaded = false;
 
-        this.makeRtree().then(function(res) {
+        this.makeRtree(self.rtree_loaded).then(function(res) {
             console.log(res);
 
             if (self._map) {
                 self.redraw();
             }
-
+            console.log(self.rtree_loaded);
         }).catch(function(err) {
             console.log(err);
         })
 
-        var minXLatLng = 10000,
-            minYLatLng = 10000,
-            maxXLatLng = -1000,
-            maxYLatLng = -1000;
-        var data = [];
-        for (var i = 0; i < dataset.length; ++i) {
-            var item = dataset[i];
-            var x = item[0];
-            var y = item[1];
-            data.push([x, y, x, y, item, i]);
-            if (x < minXLatLng) minXLatLng = x;
-            if (y < minYLatLng) minYLatLng = y;
-            if (x > maxXLatLng) maxXLatLng = x;
-            if (y > maxYLatLng) maxYLatLng = y;
-        }
-        this.BBGlobalLatlng = [minXLatLng, minYLatLng, maxXLatLng, maxYLatLng];
+        // var minXLatLng = 10000,
+        //     minYLatLng = 10000,
+        //     maxXLatLng = -1000,
+        //     maxYLatLng = -1000;
+        // var data = [];
+        // for (var i = 0; i < dataset.length; ++i) {
+        //     var item = dataset[i];
+        //     var x = item[0];
+        //     var y = item[1];
+        //     data.push([x, y, x, y, item, i]);
+        //     if (x < minXLatLng) minXLatLng = x;
+        //     if (y < minYLatLng) minYLatLng = y;
+        //     if (x > maxXLatLng) maxXLatLng = x;
+        //     if (y > maxYLatLng) maxYLatLng = y;
+        // }
+        // this.BBGlobalLatlng = [minXLatLng, minYLatLng, maxXLatLng, maxYLatLng];
 
-        this._rtree.load(data);
-        this.rtree_loaded = true;
+        // this._rtree.load(data);
+        // this.rtree_loaded = true;
 
         this._rtreePolygon = new rbush(32);
         this._rtreePolygon.load(this.makeDataPoly());
@@ -445,7 +447,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         var db = this.options.db;
 
         var self = this;
-
         var promise = new Promise(function(res, rej) {
             if (!self.ready) {
                 rej("Not ready");
@@ -520,9 +521,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             if (!tile) {
                 tile = {};
             }
-
             tile.status = LOADING;
-
+            
             self.store(id, tile);
 
             var promise = new Promise(function(resolve, reject) {
@@ -607,9 +607,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                             resolve(tile);
                         } else resolve(nTile);
                     }
-                }).catch(function(err) {
-                    console.log(err);
-                });
+                })
             });
 
             return promise;
@@ -952,7 +950,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                                     self.worker = operative({
                                         backup: function(simpleTile, callback) {
                                             // console.log(simpleTile);
-
                                             db = new PouchDB('vmts');
 
                                             db.get(simpleTile._id).then(function(doc) {
@@ -968,9 +965,12 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                                                     db.put(simpleTile).then(function(res) {
                                                         // console.log('successfully store object 2', res);
                                                         callback('ok');
-                                                    });                                    
+                                                    }).catch(function(err) {
+                                                        console.log('other err2');
+                                                        callback(undefined);
+                                                    });
                                                 } else {
-                                                    console.log('other err');
+                                                    console.log('other err1');
                                                     callback(undefined);
                                                 }
                                             });
@@ -990,6 +990,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                                     }, ['pouchdb-4.0.0.min.js', 'pouchdb.upsert.js']);
                                 }
 
+                                //********invoke web worker******
+                                //*********************************
                                 if (self.worker) {
                                     self.worker.backup(simpleTile, function(results) {
                                         if (results) {
@@ -1181,6 +1183,12 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                         } else {
                             if (self.rtree_loaded) {
                                 // console.log("Store empty tile ", self.emptyTiles.size);
+                                /**                            
+                                 * @description if rtree_loeaded = false, because rtree_loaded in asynchronous manner,
+                                 * so data have not been loaded in tile.
+                                 * and we cannot store tile to empty tile                                
+                                 */
+
                                 self.emptyTiles.set(id, {});
                                 self.tiles.remove(id);
                                 if (self.needPersistents > self.tiles.size)
@@ -1256,8 +1264,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             ctx.strokeStyle = this.options.lineColor;
             ctx.lineWidth = this.options.lineWidth || 1;
         }
-
-
 
         if (pointCoordinates) {
             // var w = ((this.options.radius+ 0.5) >> 1) | 0;
@@ -1379,8 +1385,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             }
         }
     }
-
-
 });
 
 L.TileLayer.maskCanvas = function(options) {
