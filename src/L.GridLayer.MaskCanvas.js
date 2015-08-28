@@ -946,6 +946,9 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                                 simpleTile.image = blob;
 
                                 if (!self.worker) {
+
+                                    //********Web worker******
+                                    //**************************
                                     self.worker = operative({
                                         backup: function(simpleTile, callback) {
                                             // console.log(simpleTile);
@@ -964,8 +967,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                                                 if (err.status == 404) {
                                                     db.put(simpleTile).then(function(res) {
                                                         // console.log('successfully store object 2', res);
-                                                    });
-                                                    callback('ok');
+                                                        callback('ok');
+                                                    });                                    
                                                 } else {
                                                     console.log('other err');
                                                     callback(undefined);
@@ -1038,7 +1041,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     // });
 
                 });
-
             }
         }
     },
@@ -1052,7 +1054,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             })
         }
     },
-
 
     /**
      * @param {HTMLCanvasElement|HTMLElement} canvas
