@@ -764,7 +764,7 @@ $(function() {
 
 
 
-    map.on('click', drawMarker);
+    map.on('click');
 
     function drawMarker(marker) {
         var WIDTH, HEIGHT;

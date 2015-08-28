@@ -366,10 +366,10 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                         deferred.fulfill(undefined);
                     }
                 }
-            }, ['data.js']);            
-            
+            }, ['data.js']);
 
-            craziness.doCrazy(self.rtree_loaded).then(function(result) {            
+
+            craziness.doCrazy(self.rtree_loaded).then(function(result) {
 
                 if (!self.rtree_loaded && result) {
                     var buffer = result.buffer;
@@ -522,7 +522,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                 tile = {};
             }
             tile.status = LOADING;
-            
+
             self.store(id, tile);
 
             var promise = new Promise(function(resolve, reject) {
@@ -1130,19 +1130,19 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
                         // console.log("sorted = ",tile.sorted);
                         if (tile.img.complete) {
-                            if (tile.imgFromDB) {
-                                ctx.drawImage(tile.img, 50, 50);
-                                console.log("img from DB:", tile._id, " ctx.drawImage(tile.img, 50, 50)");
-                            } else
-                                ctx.drawImage(tile.img, 0, 0);
+                            // if (tile.imgFromDB) {
+                            //     ctx.drawImage(tile.img, 50, 50);
+                            //     console.log("img from DB:", tile._id, " ctx.drawImage(tile.img, 50, 50)");
+                            // } else
+                            ctx.drawImage(tile.img, 0, 0);
                         } else {
                             tile.img.onload = function(e) {
                                 if (e.target.complete) {
-                                    if (tile.imgFromDB) {
-                                        ctx.drawImage(tile.img, 50, 50);
-                                        console.log("img from DB:", tile._id, " ctx.drawImage(tile.img, 50, 50)");
-                                    } else
-                                        ctx.drawImage(tile.img, 0, 0);
+                                    // if (tile.imgFromDB) {
+                                    //     ctx.drawImage(tile.img, 50, 50);
+                                    //     console.log("img from DB:", tile._id, " ctx.drawImage(tile.img, 50, 50)");
+                                    // } else
+                                    ctx.drawImage(tile.img, 0, 0);
                                 } else {
                                     var maxTimes = 10;
                                     var countTimes = 0;
@@ -1154,11 +1154,11 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                                                 return;
                                             } else {
                                                 if (e.target.complete == true) {
-                                                    if (tile.imgFromDB) {
-                                                        ctx.drawImage(tile.img, 50, 50);
-                                                        console.log("img from DB:", tile._id, " ctx.drawImage(tile.img, 50, 50)");
-                                                    } else
-                                                        ctx.drawImage(tile.img, 0, 0);
+                                                    // if (tile.imgFromDB) {
+                                                    //     ctx.drawImage(tile.img, 50, 50);
+                                                    //     console.log("img from DB:", tile._id, " ctx.drawImage(tile.img, 50, 50)");
+                                                    // } else
+                                                    ctx.drawImage(tile.img, 0, 0);
                                                 } else {
                                                     retryLoadImage();
                                                 }
