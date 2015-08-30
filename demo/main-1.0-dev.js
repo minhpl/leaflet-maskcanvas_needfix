@@ -569,7 +569,7 @@ $(function() {
     var insidePoly = false;
 
     function onMouseMove(e) {
-        // coverageLayer.backupOne();
+        coverageLayer.backupOne();
         var info = getInfo(e);
         var radius = coverageLayer.options.radius;
 
@@ -722,7 +722,7 @@ $(function() {
 
     function onMouseClick(e) {
         var currentPositionPoint = map.project(e.latlng);
-        var Points = circleCentrePointCover(currentPositionPoint);
+        var Points = circleCentrePointCover(currentPositionPoint);        
         if (!isInsideObject && !insidePoly) {
             alert("Not inside object");
             return;
@@ -764,14 +764,14 @@ $(function() {
 
 
 
-    map.on('click');
+    // map.on('click');
 
     function drawMarker(marker) {
         var WIDTH, HEIGHT;
         WIDTH = HEIGHT = red_canvas.width;
         var centerlatLng = [marker.lat, marker.lng];
 
-        console.log(marker);
+        // console.log(marker);
 
         var currentlatlng = L.latLng(marker.lat, marker.lng);
         var currentPoint = map.project(currentlatlng);
@@ -795,7 +795,7 @@ $(function() {
         var x = item[0];
         var y = item[1];
         var data = [x,y,x,y,item,0];
-        console.log("???");
+        // console.log("???");
 
         // coverageLayer._rtree.insert(data);
 

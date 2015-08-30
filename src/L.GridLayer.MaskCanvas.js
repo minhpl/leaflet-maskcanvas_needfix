@@ -438,9 +438,9 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
         this._maxRadius = this.options.radius;
 
-        if (this._map) {
-            this.redraw();
-        }
+        // if (this._map) {
+        //     this.redraw();
+        // }
     },
 
     getStoreObj: function(id) {
@@ -457,7 +457,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                 db.get(id, {
                     attachments: false
                 }).then(function(doc) {
-                    console.log("Found ------------------- ", doc);
+                    // if (self.options.debug) console.log("Found ------------------- ", doc);
                     // var tile = {
                     //     _id: doc._id,
                     //     status : LOADED,
@@ -751,6 +751,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             // console.log("Remove from memory 22, backup to DB ", tile);
             // var db = self.options.db;
             if (db) {
+                // console.log('Back up to DB',db);
                 if (self.needPersistents > 0) self.needPersistents--;
                 // function retryUntilWritten(id, name, rev, blob, type, callback) {
 
@@ -931,7 +932,10 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     needSave: false
                 }
 
-                if (self.options.useGlobalData) delete simpleTile.data;
+                if (self.options.useGlobalData) {
+                    delete simpleTile.data;
+                    delete simpleTile.sorted;
+                }
 
 
                 if (!self.prev) self.prev = Promise.resolve();
@@ -947,15 +951,19 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
                                     //********Web worker******
                                     //**************************
+                                    //I hope that operative will fallback to setTimeout in case of no web-worker support.
                                     self.worker = operative({
-                                        backup: function(simpleTile, callback) {
-                                            // console.log(simpleTile);
-                                            db = new PouchDB('vmts');
+                                        backup: function(simpleTile, callback) {                                            
 
-                                            db.get(simpleTile._id).then(function(doc) {
+                                            //Only need to create DB object only once
+                                            if (!self.db)
+                                                self.db = new PouchDB('vmts');
+
+                                            
+                                            self.db.get(simpleTile._id).then(function(doc) {
                                                 simpleTile._rev = doc._rev;
                                                 return db.put(simpleTile);
-                                            }).then(function() {
+                                            }).then(function() {                                                
                                                 callback('ok');
                                                 return db.get(simpleTile._id);
                                             }).then(function(doc) {
@@ -995,6 +1003,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                                 if (self.worker) {
                                     self.worker.backup(simpleTile, function(results) {
                                         if (results) {
+                                            // if (self.options.debug) console.log("Successfully update stored object: ",results);
                                             resolved();
                                         } else {
                                             console.log('err');
@@ -1049,12 +1058,16 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
     store: function(id, tile) {
         var self = this;
-        if (self.rtree_loaded) {
+
+        //No need to wait for rtree_loaded
+        //rtree_loaded is actually global map data
+        //tile can be loaded from server individually, there is no need to wait for the whole map to be downloaded and store in rtree.
+        // if (self.rtree_loaded) {
             // console.log("No tiles stored ",self.tiles.size);        
             return self.tiles.set(id, tile, function(removed) {
                 self.backupToDb(self.options.db, removed.value);
             })
-        }
+        // }
     },
 
     /**
