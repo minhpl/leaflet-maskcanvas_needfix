@@ -386,6 +386,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     self.rtree_loaded = true;
                     self.BBAllPointLatlng = result.bb;
                     res(true);
+                    craziness.terminate();
                 } else {
                     res(true);
                 }
@@ -951,26 +952,40 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
                                     //********Web worker******
                                     //**************************
-                                    //I hope that operative will fallback to setTimeout in case of no web-worker support.
+                                    
+                                    /**
+                                     * I hope that operative will fallback to setTimeout in case of no web-worker support.
+                                     */                                                                        
+                                    
+                                    /**
+                                     * @description  web worker only see variable and function in worker scope (
+                                     * because web worker be written on individual blob or file), -> cannot see
+                                     * any variable or function in outer scope
+                                     *
+                                     *  but why if replace this by self, this code still work correct ? 
+                                     */
+                                    
                                     self.worker = operative({
-                                        backup: function(simpleTile, callback) {                                            
+                                        db : undefined,
+
+                                        backup: function(simpleTile, callback) {   
 
                                             //Only need to create DB object only once
-                                            if (!self.db)
-                                                self.db = new PouchDB('vmts');
-
+                                            if (!this.db){
+                                                this.db = new PouchDB('vmts');                                                
+                                            }
                                             
-                                            self.db.get(simpleTile._id).then(function(doc) {
+                                            this.db.get(simpleTile._id).then(function(doc) {                                                
                                                 simpleTile._rev = doc._rev;
-                                                return db.put(simpleTile);
+                                                return this.db.put(simpleTile);
                                             }).then(function() {                                                
                                                 callback('ok');
-                                                return db.get(simpleTile._id);
+                                                return this.db.get(simpleTile._id);
                                             }).then(function(doc) {
                                                 // console.log("successfully update stored object: ", doc);
                                             }).catch(function(err) {
                                                 if (err.status == 404) {
-                                                    db.put(simpleTile).then(function(res) {
+                                                    this.db.put(simpleTile).then(function(res) {
                                                         // console.log('successfully store object 2', res);
                                                         callback('ok');
                                                     }).catch(function(err) {
@@ -1059,9 +1074,19 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     store: function(id, tile) {
         var self = this;
 
-        //No need to wait for rtree_loaded
-        //rtree_loaded is actually global map data
-        //tile can be loaded from server individually, there is no need to wait for the whole map to be downloaded and store in rtree.
+        /**
+         *No need to wait for rtree_loaded 
+         *rtree_loaded is actually global map data
+         *tile can be loaded from server individually, there is no need to wait for the whole map to be downloaded and store in rtree.
+         */
+        
+        /**        
+         *  when rtree have not been fully loaded data, if we save tile to db,
+         *  then when rtree is fully load data, data of some tile will change, so we need to update all tile in db.
+         *
+         *  additionally, when rtree contain no data, all tile is empty, so this function never been called
+         */
+        
         // if (self.rtree_loaded) {
             // console.log("No tiles stored ",self.tiles.size);        
             return self.tiles.set(id, tile, function(removed) {
