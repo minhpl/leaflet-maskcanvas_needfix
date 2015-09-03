@@ -47,6 +47,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     tiles: new lru(40),
     hugeTiles: new lru(40),
 
+    rtree_cachedTile: rbush(32),
+
     emptyTiles: new lru(4000),
     canvases: new lru(100),
 
@@ -61,34 +63,49 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
      */
 
     //have not been complete
-    updateCachedTile: function(coords, numPoint) {
-        var id = this.getId(coords);
+    updateCachedTile: function(bb) {
 
-        var tile = this.tiles.get(id) || this.hugeTiles.get(id);
-        if (tile) {
-            if (tile.numPoints)
-                tile.numPoints += tile.numPoints;
-            else tile.numPoints = numPoints;
+        if (this.rtree_cachedTile) {
+            var result = this.rtree_cachedTile.search(bb);
 
-            if (tile.numPoints == 0) {
+            for (var i = 0; i < result.length; i++) {
+                var id = result[i][4];
+
+                console.log(id);
+
+                this.emptyTiles.remove(id);
                 this.tiles.remove(id);
                 this.hugeTiles.remove(id);
-                this.emptyTiles.set(id, EMPTY);
-
-                if (tile.img)
-                    delete tile.img;
-            }
-
-            if (tile.numPoints > 0) {
-                var img = new Image();
-                img.src = this.canvases.get(id).toDataURL("image/png");
-                tile.img = img;
             }
         }
 
-        var db = this.options.db;
+        // var id = this.getId(coords);
+
+        // var tile = this.tiles.get(id) || this.hugeTiles.get(id);
+        // if (tile) {
+        //     if (tile.numPoints)
+        //         tile.numPoints += tile.numPoints;
+        //     else tile.numPoints = numPoints;
+
+        //     if (tile.numPoints == 0) {
+        //         this.tiles.remove(id);
+        //         this.hugeTiles.remove(id);
+        //         this.emptyTiles.set(id, EMPTY);
+
+        //         if (tile.img)
+        //             delete tile.img;
+        //     }
+
+        //     if (tile.numPoints > 0) {
+        //         var img = new Image();
+        //         img.src = this.canvases.get(id).toDataURL("image/png");
+        //         tile.img = img;
+        //     }
+        // }
 
 
+
+        // var db = this.options.db;
     },
 
     initialize: function(options) {
@@ -548,15 +565,17 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         return promise;
     },
 
+    all_tiles_id: new lru(4000),
 
     //important function
     getTile: function(coords) {
+
         /**
          * @general description: this function check if tile in cache (lru or db)
          * if tile is not founded, then we create tile data by RTREE, and then we cache this tile to lru immediately    
          */
-
         var id = coords.z + "_" + coords.x + "_" + coords.y;
+
         var valid = this.iscollides(coords);
         //Dau tien kiem tra tile trong bo nho RAM
 
@@ -595,10 +614,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
                     resolve(res);
 
-
                 }, function(err) {
-                    //neu trong o cung khong co thi lay trong RTREE
-
+                    //neu trong o cung khong co thi lay trong RTREE                    
 
                     var tileSize = self.options.tileSize;
                     var nwPoint = coords.multiplyBy(tileSize);
@@ -623,9 +640,21 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     var pointCoordinates = (self.options.useGlobalData) ? null : self._rtree.search(bb);
 
 
+                    //Create RTREE_cached
+                    if (!self.all_tiles_id.get(id)) {
+                        self.all_tiles_id.set(id, {});
+                        console.log(self.all_tiles_id.size);
+                        self.rtree_cachedTile.insert([bb[0], bb[1], bb[2], bb[3], id]);                        
+                    }
+
+
                     if (pointCoordinates && pointCoordinates.length === 0) {
+
+                        console.log("here");
+
                         console.log("Store empty tile ", self.emptyTiles.size);
                         self.emptyTiles.set(id, {});
+
                         self.tiles.remove(id);
                         if (self.needPersistents > self.tiles.size)
                             self.needPersistents--;
@@ -647,6 +676,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     //after create tile with RTREE, we save it down to lru cache and db immediately/
 
                     if (numPoints >= HUGETILE_THREADSHOLD) {
+                        console.log("here1");
                         var nTile = self.hugeTiles.get(id);
                         if (!nTile || nTile.status != LOADED) {
                             self.hugeTiles.set(id, tile);
@@ -785,7 +815,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         if (this.timeoutId) clearTimeout(this.timeoutId);
 
         this.timeoutId = setTimeout(function() {
-            console.log("here");
+            // console.log("here");
             this.timeoutId = 0;
             var db = self.options.db;
             if (db && self.needPersistents > 0) {
@@ -813,7 +843,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
         if (tile.needSave && tile.status == LOADED && !tile.empty) {
             var self = this;
-            tile.needSave = false;   // change needSave field = false, so we know to don't duplicate save the same tile to db in later
+            tile.needSave = false; // change needSave field = false, so we know to don't duplicate save the same tile to db in later
             // console.log("Remove from memory 22, backup to DB ", tile);
             // var db = self.options.db;
             if (db) {
@@ -821,174 +851,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                 if (self.needPersistents > 0) self.needPersistents--;
                 // function retryUntilWritten(id, name, rev, blob, type, callback) {
 
-                //     // if (!self.worker) {
-
-                //     //     self.worker = operative({
-                //     //         store: function(data, cb) {
-                //     //             var id = data.id;
-                //     //             var name = data.name;
-                //     //             var rev = data.rev;
-                //     //             var blob = data.blob;
-                //     //             var type = data.type;
-                //     //             var db = new PouchDB("vmts");
-
-                //     //             var self = this;
-
-                //     //             // var idimg = id+"_img";
-                //     //             // db.put({
-                //     //             //     '_id': idimg,
-                //     //             //     'name': name,
-                //     //             //     'rev': rev,
-                //     //             //     'blob': blob,
-                //     //             //     'type': type
-                //     //             // }).then(function(res) {
-                //     //             //     return db.get(idimg);
-                //     //             // }).then(function(doc) {
-                //     //             //     console.log("doc :", doc);
-                //     //             // }).catch(function(err) {
-                //     //             //     console.log(err);
-                //     //             // });
-
-
-                //     //             function retryUntilWritten(id, name, rev, blob, type) {
-
-                //     //                 var count = 0;
-                //     //                 db.putAttachment(id, name, rev, blob, type, function(e, r) {
-                //     //                     if (e) {
-                //     //                         if (e.status === 409 && count++ < 20) {
-                //     //                             console.log("Worker Stored blob", e);
-                //     //                             retryUntilWritten(id, name, rev, blob, type);
-                //     //                         } else {
-                //     //                             console.log("Worker Error ", e);
-                //     //                             // cb('ok');
-                //     //                         }
-                //     //                     } else {
-                //     //                         console.log("Worker Store blob successfully", r);
-                //     //                         // cb('ok');
-                //     //                     }
-                //     //                 });
-                //     //             }
-
-                //     //             retryUntilWritten(id, name, rev, blob, type);
-
-                //     //         }
-                //     //     }, ['pouchdb-4.0.0.min.js']);
-                //     // }
-
-                //     // if (self.worker) {
-                //     //     self.worker.store({
-                //     //             'id': id,
-                //     //             'name': name,
-                //     //             'rev': rev,
-                //     //             'blob': blob,
-                //     //             'type': type,
-                //     //         },
-                //     //         function(result) {
-
-                //     //         }
-                //     //     );
-
-                //     // }
-
-                //     //******************************************************************
-                //     //******************************************************************
-
-
-                //     // if (!self.worker) {
-                //     //     self.worker = cw({
-                //     //         store: function(data, cb) {
-
-                //     //             importScripts('pouchdb-4.0.0.min.js');
-
-                //     //             var id = data.id;
-                //     //             var name = data.name;
-                //     //             var rev = data.rev;
-                //     //             var blob = data.blob;
-                //     //             var type = data.type;
-                //     //             var db = new PouchDB("vmts");
-
-                //     //             var self = this;
-
-
-                //     //             db.put({
-                //     //                 _id: 'dave@gmail.com',
-                //     //                 name: 'David',
-                //     //                 age: 68,
-                //     //             }).then(function(res) {
-                //     //                 console.log(res);
-                //     //                 // cb('ok');
-                //     //             }).catch(function(err) {
-                //     //                 console.log(err);
-                //     //                 // cb('ok');
-                //     //             });
-
-
-                //     //             function retryUntilWritten(id, name, rev, blob, type) {
-
-                //     //                 var count = 0;
-                //     //                 db.putAttachment(id, name, rev, blob, type, function(e, r) {
-                //     //                     if (e) {
-                //     //                         if (e.status === 409 && count++ < 20) {
-                //     //                             console.log("Worker Stored blob", e);
-                //     //                             retryUntilWritten(id, name, rev, blob, type);
-                //     //                         } else {
-                //     //                             console.log("Worker Error ", e);
-                //     //                             // cb('ok');
-                //     //                         }
-                //     //                     } else {
-                //     //                         console.log("Worker Store blob successfully", r);
-                //     //                         // cb('ok');
-                //     //                     }
-                //     //                 });
-                //     //             }
-
-                //     //             retryUntilWritten(id, name, rev, blob, type);
-
-                //     //         }
-                //     //     });
-                //     // }
-
-                //     // if (self.worker) {
-                //     //     self.worker.store({
-                //     //         'id': id,
-                //     //         'name': name,
-                //     //         'rev': rev,
-                //     //         'blob': blob,
-                //     //         'type': type,
-                //     //     }).then(function(result) {
-                //     //         // self.worker.close();
-                //     //     });
-
-                //     // }
-
-                //     //******************************************************************
-                //     //******************************************************************
-
-
-                //     // var worker = new Worker('WorkerBackUpToDB.js');                    
-                //     // worker.postMessage({
-                //     //     'id': id,
-                //     //     'name': name,
-                //     //     'rev': rev,
-                //     //     'blob': blob,
-                //     //     'type': type,
-                //     // });                            
-
-                //     //******************************************************************
-                //     //******************************************************************                        
-                //     // var count = 0;                    
-                //     // db.putAttachment(id, name, rev, blob, type, function(e, r) {
-                //     //     if (e) {
-                //     //         if (e.status === 409 && count++ < 20) {
-                //     //             console.log("Main Stored blob", e);
-                //     //             retryUntilWritten(id, name, rev, blob, type, callback);
-                //     //         } else console.log("Main Error ", e);
-                //     //     } else {
-                //     //         console.log("Main Store blob successfully", r);
-                //     //         if (callback) callback(r);
-                //     //     }
-                //     // });                    
-                // }
                 var simpleTile = {
                     _id: tile._id,
                     numPoints: tile.numPoints,
@@ -1062,18 +924,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                                                     callback(undefined);
                                                 }
                                             });
-
-                                            // db.upsert(simpleTile._id, function(doc) {
-                                            //     if (doc._rev) simpleTile._rev = doc._rev;
-                                            //     // simpleTile.image = blob;
-                                            //     return simpleTile;
-                                            // }).then(function(response) {
-                                            //     // tile.rev = response.rev;
-                                            //     resolved();
-                                            // }).catch(function(err) {
-                                            //     // console.log(err);
-                                            //     reject();
-                                            // });
                                         }
                                     }, ['pouchdb-4.0.0.min.js', 'pouchdb.upsert.js']);
                                 }
@@ -1101,36 +951,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                         }
                     });
 
-                    // return new Promise(function(resolve, reject) {
-                    //     db.upsert(tile._id, function(doc) {
-                    //         // console.log("Upsert ", doc, simpleTile);
-                    //         if (doc._rev) simpleTile._rev = doc._rev;
-                    //         return simpleTile;
-                    //     }).then(function(response) {
-                    //         // console.log("upserted ", response);
-                    //         tile._rev = response.rev; //Updating revision                    
-                    //         if (tile.numPoints > 0 && tile.canvas) {
-                    //             // console.log(tile.data.length, tile._id);
-                    //             return blobUtil.canvasToBlob(tile.canvas).then(function(blob) {
-                    //                 retryUntilWritten(tile._id, "image", response.rev, blob, 'image/png', function(r) {
-                    //                     // console.log("Store blob successfully", r);
-                    //                     // resolve();
-                    //                 });
-                    //                 resolve();
-                    //                 // success
-                    //             }).catch(function(err) {
-                    //                 // error
-                    //                 console.log(err);
-                    //                 reject(err);
-                    //             });
-                    //         } else resolve();
-                    //         console("Resolved");
-                    //     }).catch(function(err) {
-                    //         console.log("Reject : ", err);
-                    //         reject(err);
-                    //     })
-                    // });
-
                 });
             }
         }
@@ -1154,8 +974,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
          */
 
         // if (self.rtree_loaded) {
-            // console.log("No tiles stored ",self.tiles.size);        
-            return self.tiles.set(id, tile, function(removed) {
+        // console.log("No tiles stored ",self.tiles.size);        
+        return self.tiles.set(id, tile, function(removed) {
                 self.backupToDb(self.options.db, removed.value);
             })
             // }
@@ -1170,7 +990,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     //important function
     _draw: function(canvas, coords) {
         // var valid = this.iscollides(coords);
-        // if (!valid) return;
+        // if (!valid) return;  
         if (!this._rtree || !this._map) {
             return;
         }
@@ -1210,11 +1030,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             // console.log("add:", "removed: ",removed.key);
         });
 
-
-        // if (!this._rtree || !this._map) {
-        //     return;
-        // }
-
         (function(self, canvas, coords) {
             var id = self.getId(coords);
 
@@ -1229,9 +1044,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     tile.canvas = canvas;
                     // self.store(id, tile);
                     // }                    
-
-                    if (tile.img) {  //if tile containt img rendered in early, draw img and return
-
+                    if (tile.img) { //if tile containt img rendered in early, draw img and return
                         // console.log("Draw from saved tile ",tile);
                         // var nw = self._tilePoint(coords,tile.bb);
                         // console.log("Draw at ",tile.bb,nw);                      
@@ -1274,7 +1087,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                                             countTimes++;
                                         }, 50);
                                     };
-
                                     retryLoadImage();
                                 }
                             }
@@ -1314,16 +1126,17 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                         var img = new Image();
                         img.src = canvas.toDataURL("image/png");
 
-
                         // img.onload = function(){
                         // console.log("Store Img to tile");
+
+                        //sau khi ve xong phai luu lai vao lru  hoac cache.
                         var nTile = self.tiles.get(id);
                         if (!nTile || !nTile.img) { // neu khong co tile hoac tile khong chua img
                             tile.img = img;
 
                             if (tile.numPoints >= HUGETILE_THREADSHOLD) {
                                 self.hugeTiles.set(id, tile);
-                                tile.needSave = false;  //hugetile don't need to save to cached.
+                                tile.needSave = false; //hugetile don't need to save to cached.
                             } else self.store(id, tile);
 
                             if (tile.needSave) {
@@ -1331,7 +1144,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                                 // console.log("Need persistent ",self.needPersistents,self.tiles.size);
                             }
 
-                        } else {        
+                        } else {
                             //never called                    
                             console.log("OMG_________________________________________________________OMG");
 
@@ -1339,7 +1152,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                             /**
                              * why needSave = false ?                             
                              */
-                            
                             ntile.needSave = false;
                             if (tile.numPoints >= HUGETILE_THREADSHOLD) {
                                 self.hugeTiles.set(id, nTile);
@@ -1347,9 +1159,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                         }
                         // };
                     }
-
-                    // console.log("Update tile ",id,tile);
-                    // self.store(id, tile);
                 }
             }).then(function() {
                 self._drawVPolys(canvas, coords, vpolyCoordinates);
@@ -1400,14 +1209,14 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         }
     },
 
-    drawVPoly: function(poly, canvas, coords) {
-        var vertexsL = poly.vertexsL;
+    // drawVPoly: function(poly, canvas, coords) {
+    //     var vertexsL = poly.vertexsL;
 
-        var v0 = vertexsL[0];
-        var p0 = this._tilePoint(coords, [v0.lat, v0.lng]);
-        console.log("here", p0);
+    //     var v0 = vertexsL[0];
+    //     var p0 = this._tilePoint(coords, [v0.lat, v0.lng]);
+    //     console.log("here", p0);
 
-    },
+    // },
 
     drawLinhTinh: function(canvas, coords, vpolyCoordinates) {
         var ctx = canvas.getContext('2d');

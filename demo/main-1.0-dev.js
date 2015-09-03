@@ -27,7 +27,6 @@ $(function() {
     var canvas;
     var remoteCouch = false;
 
-
     var red_canvas = document.createElement('canvas');
     const RADIUS = 10;
     const NUM_POLYGON = 50;
@@ -95,15 +94,14 @@ $(function() {
 
         var context = canvas.getContext('2d');
 
-
         var buffer;
-        
+
         if (!canvas.imgData) {
             // console.log("Create new ImageData");
             var pix = context.getImageData(0, 0, TILESIZE, TILESIZE);
             canvas.imgData = new ImageBuffer(pix);
             buffer = canvas.imgData
-        } else {            
+        } else {
             buffer = canvas.imgData;
         }
 
@@ -115,15 +113,19 @@ $(function() {
 
         var alph = buffer.uint8[location];
 
-        // var color = ImageBuffer.createColor();
-        // buffer.getPixel(i,color);
-        // if (color.a) return color.a;
-
         return (!alph) ? -1 : alph;
     }
 
     var MEM;
-
+    /**
+     * [cropImage description]
+     * @param  {[type]} canvas      [description]
+     * @param  {[type]} centrePoint : point relative with tile
+     * @param  {[type]} WIDTH       [description]
+     * @param  {[type]} HEIGHT      [description]
+     * @param  {[type]} alph        [description]
+     * @return {[type]}             [description]
+     */
     function cropImage(canvas, centrePoint, WIDTH, HEIGHT, alph) {
         var context = canvas.getContext('2d');
         // w = w << 1;
@@ -141,13 +143,11 @@ $(function() {
 
         var minX = (centrePoint[0] - w);
         var minY = (centrePoint[1] - h);
-        minX = (minX < 0) ? (minX - 0.5) >> 0 : (minX + 0.5) >> 0;
-        minY = (minY < 0) ? (minY - 0.5) >> 0 : (minY + 0.5) >> 0;
+        minX = (minX < 0) ? (minX - 0.5) >> 0 : (minX + 0.5) >> 0;  //round();
+        minY = (minY < 0) ? (minY - 0.5) >> 0 : (minY + 0.5) >> 0;  //round();
 
 
-        // var maxX = Math.round(centrePoint[0] + w+2*w);
         var maxX = minX + WIDTH;
-        // var maxY = Math.round(centrePoint[1] + h+2*h);
         var maxY = minY + HEIGHT;
 
         if (minX < 0)
@@ -225,7 +225,6 @@ $(function() {
 
         subContext.putImageData(imgData, 0, 0);
         img.src = subCanvas.toDataURL("image/png");
-
         // if (img.complete) {
         //     context.drawImage(img, 0, 0);
         // }
@@ -238,9 +237,7 @@ $(function() {
         // var time = end - start;
         // console.log("New way : ",end-start);
         // }
-
         return img;
-
     }
 
     var popup = L.popup();
@@ -370,12 +367,22 @@ $(function() {
         return result;
     }
 
+    /**
+     * [getTileIDs description]
+     * @param  {[type]} centrePoint point relative with tile
+     * @param  {[type]} WIDTH       [description]
+     * @param  {[type]} HEIGHT      [description]
+     * @param  {[type]} coords      [description]
+     * @return {[type]}             [description]
+     */
     function getTileIDs(centrePoint, WIDTH, HEIGHT, coords) {
         // var TopPoint = info.topPointTile;
         // console.log("--------",info)
         var radius = coverageLayer.options.radius >> 1;
         w = WIDTH >> 1;
         h = HEIGHT >> 1;
+
+
         var minX = centrePoint[0] - w;
         var minY = centrePoint[1] - h;
         var maxX = centrePoint[0] + w;
@@ -387,7 +394,8 @@ $(function() {
         var tileIDY = coords.y;
         var zoom = coords.z;
 
-        var tileIDs = [getID(zoom, tileIDX, tileIDY)];
+        // var tileIDs = [getID(zoom, tileIDX, tileIDY)];
+        var tileIDs = [];
         var mina = 0,
             minb = 0,
             maxa = 0,
@@ -415,7 +423,7 @@ $(function() {
             for (var j = minb; j <= maxb; j++) {
                 tileIDs.push(getID(zoom, tileIDX + i, tileIDY + j)) //8
             }
-
+        
         return tileIDs;
     }
 
@@ -573,110 +581,119 @@ $(function() {
 
     var insidePoly = false;
 
+    var timeoutID = undefined;
+
     function onMouseMove(e) {
-        coverageLayer.backupOne();
-        var info = getInfo(e);
+        if (timeoutID) clearTimeout(timeoutID);
 
-        var radius = coverageLayer.options.radius;
+        timeoutID = setTimeout(function() {
+            timeoutID = 0;
 
-        insidePoly = false;
+            coverageLayer.backupOne();
+            var info = getInfo(e);
 
-        if (info.intersectPolys && info.intersectPolys.length > 0) {
-            insidePoly = true;
-            isInsideObject = false;
-            // console.log("inside poly: ", insidePoly, "isInsideObject: ", isInsideObject);
-        } else {
+            var radius = coverageLayer.options.radius;
+
             insidePoly = false;
-            if (info.alpha == 255) {
-                $('.leaflet-container').css('cursor', 'pointer');
-                isInsideObject = true;
-                // console.log("inside poly: ", insidePoly, "isInsideObject: ", isInsideObject);
-            } else {
+
+            if (info.intersectPolys && info.intersectPolys.length > 0) {
+                insidePoly = true;
                 isInsideObject = false;
                 // console.log("inside poly: ", insidePoly, "isInsideObject: ", isInsideObject);
-            }
-        }
-
-
-        if (insidePoly) {
-            $('.leaflet-container').css('cursor', 'pointer');
-
-            var poly = info.intersectPolys.topPoly;
-            if (!poly || !poly.size || poly.size.length == 0) return;
-
-            var insideTheSamePoly = function(info, lastRecentInfo) {
-                // console.log("inside the same poly");
-                return lastRecentInfo && lastRecentInfo.imgsPolyCropped && lastRecentInfo.intersectPolys && info.intersectPolys && (lastRecentInfo.intersectPolys.topPolyID == info.intersectPolys.topPolyID);
-            }
-
-            if (insideTheSamePoly(info, lastRecentInfo)) {
-                return;
-            }
-
-            if (lastRecentInfo && lastRecentInfo.imgsPolyCropped) {
-                redraw(lastRecentInfo.imgsPolyCropped);
-            }
-
-
-            var imgsPolyCropped = cropImgBoxs(poly.posL, poly.size[0], poly.size[1], info.coords, poly.canvas);
-            info.imgsPolyCropped = imgsPolyCropped;
-
-            // console.log(poly);
-            if (lastRecentInfo && lastRecentInfo.img) {
-                redraw(lastRecentInfo.img);
-            }
-
-            draw(poly.posL, poly.size[0], poly.size[1], info.coords, poly.canvas2);
-
-            lastRecentInfo = info;
-
-        } else {
-            if (lastRecentInfo && lastRecentInfo.imgsPolyCropped) {
-                redraw(lastRecentInfo.imgsPolyCropped);
-                lastRecentInfo.imgsPolyCropped = null;
-            }
-        }
-
-        //--------------------------------------------------------------------------------------------------        
-
-        if (isInsideObject) {
-            if (info.topCircleID && lastRecentInfo && lastRecentInfo.img &&
-                lastRecentInfo.topCircleID && info.topCircleID == lastRecentInfo.topCircleID) {
-                return;
-            }
-
-            if (lastRecentInfo && lastRecentInfo.img) {
-                var lastTopPointTile = lastRecentInfo.topPointTile;
-                if (lastTopPointTile) {
-                    redraw(lastRecentInfo.img);
+            } else {
+                insidePoly = false;
+                if (info.alpha == 255) {
+                    $('.leaflet-container').css('cursor', 'pointer');
+                    isInsideObject = true;
+                    // console.log("inside poly: ", insidePoly, "isInsideObject: ", isInsideObject);
+                } else {
+                    isInsideObject = false;
+                    // console.log("inside poly: ", insidePoly, "isInsideObject: ", isInsideObject);
                 }
             }
 
-            var topPointTile = info.topPointTile;
 
-            if (topPointTile) {
-                var WIDTH, HEIGHT;
-                WIDTH = HEIGHT = radius;
-                var imgs = cropImgBoxs(info.topPointlatlng, WIDTH, HEIGHT, info.coords);
-                info.img = imgs;
-                // console.log("Draw ",++count);
-                var WIDTH, HEIGHT;
-                WIDTH = HEIGHT = radius;
-                draw(info.topPointlatlng, WIDTH, HEIGHT, info.coords, img_blueCircle);
-            }
+            if (insidePoly) {
+                $('.leaflet-container').css('cursor', 'pointer');
 
-            lastRecentInfo = info;
-        } else {
-            if (lastRecentInfo && lastRecentInfo.img) {
-                var topPointTileRecent = lastRecentInfo.topPointTile;
-                if (topPointTileRecent) {
-                    // console.log("Redraw ",count);
+                var poly = info.intersectPolys.topPoly;
+                if (!poly || !poly.size || poly.size.length == 0) return;
+
+                var insideTheSamePoly = function(info, lastRecentInfo) {
+                    // console.log("inside the same poly");
+                    return lastRecentInfo && lastRecentInfo.imgsPolyCropped && lastRecentInfo.intersectPolys && info.intersectPolys && (lastRecentInfo.intersectPolys.topPolyID == info.intersectPolys.topPolyID);
+                }
+
+                if (insideTheSamePoly(info, lastRecentInfo)) {
+                    return;
+                }
+
+                if (lastRecentInfo && lastRecentInfo.imgsPolyCropped) {
+                    redraw(lastRecentInfo.imgsPolyCropped);
+                }
+
+
+                var imgsPolyCropped = cropImgBoxs(poly.posL, poly.size[0], poly.size[1], info.coords, poly.canvas);
+                info.imgsPolyCropped = imgsPolyCropped;
+
+                // console.log(poly);
+                if (lastRecentInfo && lastRecentInfo.img) {
                     redraw(lastRecentInfo.img);
                 }
-                lastRecentInfo = undefined;
+
+                draw(poly.posL, poly.size[0], poly.size[1], info.coords, poly.canvas2);
+
+                lastRecentInfo = info;
+
+            } else {
+                if (lastRecentInfo && lastRecentInfo.imgsPolyCropped) {
+                    redraw(lastRecentInfo.imgsPolyCropped);
+                    lastRecentInfo.imgsPolyCropped = null;
+                }
             }
-            $('.leaflet-container').css('cursor', 'auto');
-        }
+
+            //--------------------------------------------------------------------------------------------------        
+
+            if (isInsideObject) {
+                if (info.topCircleID && lastRecentInfo && lastRecentInfo.img &&
+                    lastRecentInfo.topCircleID && info.topCircleID == lastRecentInfo.topCircleID) {
+                    return;
+                }
+
+                if (lastRecentInfo && lastRecentInfo.img) {
+                    var lastTopPointTile = lastRecentInfo.topPointTile;
+                    if (lastTopPointTile) {
+                        redraw(lastRecentInfo.img);
+                    }
+                }
+
+                var topPointTile = info.topPointTile;
+
+                if (topPointTile) {
+                    var WIDTH, HEIGHT;
+                    WIDTH = HEIGHT = radius;
+                    var imgs = cropImgBoxs(info.topPointlatlng, WIDTH, HEIGHT, info.coords);
+                    info.img = imgs;
+                    // console.log("Draw ",++count);
+                    var WIDTH, HEIGHT;
+                    WIDTH = HEIGHT = radius;
+                    draw(info.topPointlatlng, WIDTH, HEIGHT, info.coords, img_blueCircle);
+                }
+
+                lastRecentInfo = info;
+            } else {
+                if (lastRecentInfo && lastRecentInfo.img) {
+                    var topPointTileRecent = lastRecentInfo.topPointTile;
+                    if (topPointTileRecent) {
+                        // console.log("Redraw ",count);
+                        redraw(lastRecentInfo.img);
+                    }
+                    lastRecentInfo = undefined;
+                }
+                $('.leaflet-container').css('cursor', 'auto');
+            }
+        }, 10);
+
     }
 
     function squaredistance(point1, point2) {
@@ -757,7 +774,7 @@ $(function() {
 
     $('.leaflet-container').css('cursor', 'auto');
 
-    map.on('mousemove', onMouseMove);
+    // map.on('mousemove', onMouseMove);
 
     function onMouseClick_showLatLng(e) {
         popup
@@ -768,10 +785,12 @@ $(function() {
 
     map.on('click', onMouseClick_drawMarker);
 
+    var markerID = dataset.length;
+
     function drawMarker(marker) {
         var WIDTH, HEIGHT;
         WIDTH = HEIGHT = red_canvas.width;
-        var centerlatLng = [marker.lat, marker.lng];                
+        var centerlatLng = [marker.lat, marker.lng];
 
         var currentlatlng = L.latLng(marker.lat, marker.lng);
         var currentPoint = map.project(currentlatlng);
@@ -788,19 +807,36 @@ $(function() {
         var point = L.point(tileTop, tileLeft);
         var coords = L.point(x, y);
         coords.z = zoom;
+        
 
-        var canvas = coverageLayer.canvases.get(tileID);
-        if(canvas.imgData) delete canvas.imgData;
+        var tilePoint = coverageLayer._tilePoint(coords,[marker.lat,marker.lng]);
+        // console.log(tilePoint);
+
+        var tileIds = getTileIDs(tilePoint, WIDTH, HEIGHT, coords);
+        // console.log(tileIds,tileIds.length);        
 
         draw(centerlatLng, WIDTH, HEIGHT, coords, red_canvas);
+
+        for (var i = 0; i < tileIds.length; i++) {
+            var tileID = tileIds[i].id;            
+            var canvas = coverageLayer.canvases.get(tileID);
+               if (canvas && canvas.imgData) delete canvas.imgData;
+        }
 
         var item = [marker.lat, marker.lng];
         var x = item[0];
         var y = item[1];
-        var data = [x, y, x, y, item, 0];
+        var data = [x, y, x, y, item, ++markerID];
         coverageLayer._rtree.insert(data);
 
-        coverageLayer.updateCachedTile(coords);
+        var pad = L.point(red_canvas.width >> 1, red_canvas.height >> 1);
+        var topLeft = currentPoint.subtract(pad);
+        var bottomRight = currentPoint.add(pad);
+        var nw = map.unproject(topLeft);
+        var se = map.unproject(bottomRight);
+        var bb = [se.lat, nw.lng, nw.lat, se.lng];
+
+        coverageLayer.updateCachedTile(bb);
     }
 
     function onMouseClick_drawMarker(e) {
