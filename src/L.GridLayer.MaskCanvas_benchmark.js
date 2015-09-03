@@ -14,7 +14,7 @@ const EMPTY = {
 };
 
 const MAXRADIUSPOLY = 256;
-const NUMPOLYGON = 100;
+const NUMPOLYGON = 1000;
 const NUMBPOLYGON = 10;
 const VPOLY = 1;
 const BPOLY = 2;
@@ -50,47 +50,10 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     emptyTiles: new lru(4000),
     canvases: new lru(100),
 
+    startTime: undefined,
+
     // rtreeLCTilePoly: new lru(40),    
     BBAllPointLatlng: [-9999, -9999, -9999, -9999],
-
-    /**
-     * [updateCachedTile description]
-     * @param  {[type]} coords   [description]
-     * @param  {[type]} numPoint [description]
-     * @return {[type]}          [description]
-     */
-
-    //have not been complete
-    updateCachedTile: function(coords, numPoint) {
-        var id = this.getId(coords);
-
-        var tile = this.tiles.get(id) || this.hugeTiles.get(id);
-        if (tile) {
-            if (tile.numPoints)
-                tile.numPoints += tile.numPoints;
-            else tile.numPoints = numPoints;
-
-            if (tile.numPoints == 0) {
-                this.tiles.remove(id);
-                this.hugeTiles.remove(id);
-                this.emptyTiles.set(id, EMPTY);
-
-                if (tile.img)
-                    delete tile.img;
-            }
-
-            if (tile.numPoints > 0) {
-                var img = new Image();
-                img.src = this.canvases.get(id).toDataURL("image/png");
-                tile.img = img;
-            }
-        }
-
-        var db = this.options.db;
-
-
-    },
-
     initialize: function(options) {
         L.setOptions(this, options);
         var db = this.options.db;
@@ -317,6 +280,9 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     makeRtree: function() {
         var self = this;
 
+        if (!this.startTime)
+            this.startTime = new Date();
+
         // var promise = new Promise(function(res, rej) {
         //     if (self.rtree_loaded) {
         //         res(true)
@@ -362,19 +328,23 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         // })
 
         var promise = new Promise(function(res, rej) {
+
             // operative.setBaseURL('http://127.0.0.1:8000/demo/');
             // console.log(operative.getBaseURL());
+
             var craziness = operative({
                 doCrazy: function(rtree_loaded) {
                     var deferred = this.deferred();
                     if (!rtree_loaded) {
-                        // console.time('send');
+                        console.time('send');
 
                         var minXLatLng = 1000,
                             minYLatLng = 1000,
                             maxXLatLng = -1000,
                             maxYLatLng = -1000;
-                        var buffer = new ArrayBuffer(8 * dataset.length * 2);
+
+                        var numPoints = dataset.length;
+                        var buffer = new ArrayBuffer(8 * numPoints * 2);
                         var arr = new Float64Array(buffer, 0);
                         var j = 0;
                         for (var i = 0; i < dataset.length; ++i) {
@@ -398,12 +368,14 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                             'bb': BBAllPointLatlng
                         }, [buffer]);
 
-                        // console.timeEnd('send');
+                        console.timeEnd('send');
                     } else {
                         deferred.fulfill(undefined);
                     }
                 }
             }, ['data.js']);
+
+
 
             craziness.doCrazy(self.rtree_loaded).then(function(result) {
                 if (!self.rtree_loaded && result) {
@@ -442,7 +414,11 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             console.log(res);
 
             if (self._map) {
+                console.time('draw time');
+
                 self.redraw();
+
+                console.timeEnd('draw time');
             }
             console.log(self.rtree_loaded);
         }).catch(function(err) {
@@ -479,19 +455,12 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         // }
     },
 
-    //important function
     getStoreObj: function(id) {
-
-        /**
-         * @ general description This function try to get tile from db,
-         * if tile is founded, then it immediately set it up to lru head
-         */
-
         var db = this.options.db;
 
         var self = this;
         var promise = new Promise(function(res, rej) {
-            if (!self.ready) { //need to wait for all old data be deleted
+            if (!self.ready) {
                 rej("Not ready");
                 return;
             }
@@ -548,13 +517,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         return promise;
     },
 
-
-    //important function
     getTile: function(coords) {
-        /**
-         * @general description: this function check if tile in cache (lru or db)
-         * if tile is not founded, then we create tile data by RTREE, and then we cache this tile to lru immediately    
-         */
 
         var id = coords.z + "_" + coords.x + "_" + coords.y;
         var valid = this.iscollides(coords);
@@ -563,11 +526,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         var tile = this.hugeTiles.get(id) || this.tiles.get(id);
         var self = this;
         // if (tile) console.log("Status ",tile.status);
-
-        // if not found
         if (!tile || tile.status == UNLOAD) {
-            //use empty tiles( save almost empty tile) to prevent find empty tile in dabase many time, because
-            //query data in db is time comsuming , so we check if tile is empty by query it in memory first.
             if (self.emptyTiles.get(id))
                 return Promise.resolve(EMPTY);
 
@@ -634,6 +593,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                         return;
                     }
 
+
                     var numPoints = (pointCoordinates) ? pointCoordinates.length : 0;
                     tile = {
                         _id: id,
@@ -643,8 +603,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                         status: LOADED,
                         needSave: true
                     }
-
-                    //after create tile with RTREE, we save it down to lru cache and db immediately/
 
                     if (numPoints >= HUGETILE_THREADSHOLD) {
                         var nTile = self.hugeTiles.get(id);
@@ -774,46 +732,34 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         return point._subtract(this._map.getPixelOrigin());
     },
 
-    timeoutId: undefined,
-
-    //important function
     backupOne: function() {
-        //this function is excute after mouse cursor stop moving by 0ms
-
         var self = this;
+        var db = self.options.db;
+        if (db && self.needPersistents > 0) {
 
-        if (this.timeoutId) clearTimeout(this.timeoutId);
-
-        this.timeoutId = setTimeout(function() {
-            console.log("here");
-            this.timeoutId = 0;
-            var db = self.options.db;
-            if (db && self.needPersistents > 0) {
-
-                var node = self.tiles.head;
-                while (node) {
-                    var value = node.value;
-                    if (value.needSave) {
-                        self.backupToDb(db, value);
-                        // console.log("Backup once ",value);
-                        break;
-                    }
-                    node = node.next;
+            var node = self.tiles.head;
+            var i = 0;
+            while (node) {
+                var value = node.value;
+                if (value.needSave) {
+                    self.backupToDb(db, value);
+                    // console.log("Backup once ",value);
+                    break;
                 }
-                self.needPersistents--;
+                i++;
+                node = node.next;
             }
-        }, 0);
-
+            self.needPersistents = 0;
+        }
     },
 
     worker: undefined,
 
-    //important function
     backupToDb: function(db, tile) {
 
         if (tile.needSave && tile.status == LOADED && !tile.empty) {
             var self = this;
-            tile.needSave = false;   // change needSave field = false, so we know to don't duplicate save the same tile to db in later
+            tile.needSave = false;
             // console.log("Remove from memory 22, backup to DB ", tile);
             // var db = self.options.db;
             if (db) {
@@ -1136,7 +1082,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         }
     },
 
-    //important function
     store: function(id, tile) {
         var self = this;
 
@@ -1154,8 +1099,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
          */
 
         // if (self.rtree_loaded) {
-            // console.log("No tiles stored ",self.tiles.size);        
-            return self.tiles.set(id, tile, function(removed) {
+        // console.log("No tiles stored ",self.tiles.size);        
+        return self.tiles.set(id, tile, function(removed) {
                 self.backupToDb(self.options.db, removed.value);
             })
             // }
@@ -1167,8 +1112,11 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
      * @private
      */
 
-    //important function
+    timeDraws: [],
+
     _draw: function(canvas, coords) {
+        
+
         // var valid = this.iscollides(coords);
         // if (!valid) return;
         if (!this._rtree || !this._map) {
@@ -1176,6 +1124,9 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         }
 
         var id = this.getId(coords);
+
+        var strTime = new Date();
+
 
         var self = this;
 
@@ -1202,21 +1153,19 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             return vpolyCoordinates;
         }
 
-        var vpolyCoordinates = queryPolys(coords, this);
-
-        var id = this.getId(coords);
+        var vpolyCoordinates = queryPolys(coords, this);        
 
         this.canvases.set(id, canvas, function(removed, keyadd) {
             // console.log("add:", "removed: ",removed.key);
         });
 
 
-        // if (!this._rtree || !this._map) {
-        //     return;
-        // }
+        if (!this._rtree || !this._map) {
+            return;
+        }
 
         (function(self, canvas, coords) {
-            var id = self.getId(coords);
+            var id = coords.z + "_" + coords.x + "_" + coords.y;
 
             self.getTile(coords).then(function(tile) {
 
@@ -1230,7 +1179,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     // self.store(id, tile);
                     // }                    
 
-                    if (tile.img) {  //if tile containt img rendered in early, draw img and return
+                    if (tile.img) {
 
                         // console.log("Draw from saved tile ",tile);
                         // var nw = self._tilePoint(coords,tile.bb);
@@ -1308,9 +1257,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     tile.sorted = true;
 
                     if (tile.numPoints > 0) {
-                        /**
-                         * why don't use canvas directly instead of img ???                         
-                         */
                         var img = new Image();
                         img.src = canvas.toDataURL("image/png");
 
@@ -1318,12 +1264,12 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                         // img.onload = function(){
                         // console.log("Store Img to tile");
                         var nTile = self.tiles.get(id);
-                        if (!nTile || !nTile.img) { // neu khong co tile hoac tile khong chua img
+                        if (!nTile || !nTile.img) {
                             tile.img = img;
 
                             if (tile.numPoints >= HUGETILE_THREADSHOLD) {
                                 self.hugeTiles.set(id, tile);
-                                tile.needSave = false;  //hugetile don't need to save to cached.
+                                tile.needSave = false;
                             } else self.store(id, tile);
 
                             if (tile.needSave) {
@@ -1331,15 +1277,10 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                                 // console.log("Need persistent ",self.needPersistents,self.tiles.size);
                             }
 
-                        } else {        
-                            //never called                    
+                        } else {
                             console.log("OMG_________________________________________________________OMG");
 
                             nTile.canvas = canvas;
-                            /**
-                             * why needSave = false ?                             
-                             */
-                            
                             ntile.needSave = false;
                             if (tile.numPoints >= HUGETILE_THREADSHOLD) {
                                 self.hugeTiles.set(id, nTile);
@@ -1353,6 +1294,11 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                 }
             }).then(function() {
                 self._drawVPolys(canvas, coords, vpolyCoordinates);
+            }).then(function() {
+                var endtime = new Date();
+                var time = endtime - strTime;
+                // self.timeDraws.push(time);
+                console.log("time draw tile ", id ,"took", time, "ms");
             }).catch(function() {
                 // self.drawLinhTinh(canvas, coords, vpolyCoordinates);
             })
@@ -1366,7 +1312,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
      * @param {[{x: number, y: number, r: number}]} pointCoordinates
      * @private
      */
-
     _drawPoints: function(canvas, coords, pointCoordinates, sorted) {
 
         if (!sorted) pointCoordinates.sort(function(a, b) {

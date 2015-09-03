@@ -88,35 +88,38 @@ $(function() {
     map.fitBounds(coverageLayer.bounds);
 
     function alpha(point, canvas) {
+
         if (!canvas) {
-            // console.log("Here");
             return -1;
         }
 
         var context = canvas.getContext('2d');
 
+
         var buffer;
+        
         if (!canvas.imgData) {
             // console.log("Create new ImageData");
             var pix = context.getImageData(0, 0, TILESIZE, TILESIZE);
             canvas.imgData = new ImageBuffer(pix);
             buffer = canvas.imgData
-        } else {
+        } else {            
             buffer = canvas.imgData;
         }
 
         var x = (point.x + 0.5) >> 0;
         var y = (point.y + 0.5) >> 0;
 
-        var i = ~~(x + (y * TILESIZE));
+        var i = ~~(x + (y * TILESIZE)); //floor()
         var location = (i << 2) + 3;
 
-        var alpha = buffer.uint8[location]
-            // var color = ImageBuffer.createColor();
-            // buffer.getPixel(i,color);
-            // if (color.a) return color.a;
+        var alph = buffer.uint8[location];
 
-        return (!alpha) ? -1 : alpha;
+        // var color = ImageBuffer.createColor();
+        // buffer.getPixel(i,color);
+        // if (color.a) return color.a;
+
+        return (!alph) ? -1 : alph;
     }
 
     var MEM;
@@ -315,8 +318,6 @@ $(function() {
         var tileID = zoom + "_" + x + "_" + y;
 
         //get tile
-        //
-
 
         //calculate Point relative to Tile
         var tileTop = x * TILESIZE;
@@ -333,8 +334,11 @@ $(function() {
         result.intersectPolys = intersectPolys;
         // calculate alpha
 
+
         var tile = coverageLayer.tiles.get(tileID) || coverageLayer.hugeTiles.get(tileID);
-        var alph = (tile) ? alpha(tilePoint, tile.canvas) : -1;
+        // var alph = (tile) ? alpha(tilePoint, tile.canvas) : -1;
+
+        var alph = alpha(tilePoint, coverageLayer.canvases.get(tileID));
 
         //calculate points and top point.
         var pointslatlng = circleCentrePointCover(currentPoint);
@@ -544,12 +548,13 @@ $(function() {
                                         if (e.target.complete == true) {
                                             drawImage(self.ctx, self.img, minX, minY);
                                         } else {
+                                            console.log("here");
                                             self.img.src = self.img.src;
                                             retryLoadImage();
                                         }
                                     }
                                     countTimes++;
-                                }, 50);
+                                }, 100);
                             };
                             retryLoadImage();
                         }
@@ -571,6 +576,7 @@ $(function() {
     function onMouseMove(e) {
         coverageLayer.backupOne();
         var info = getInfo(e);
+
         var radius = coverageLayer.options.radius;
 
         insidePoly = false;
@@ -720,9 +726,9 @@ $(function() {
         return TopPoint;
     }
 
-    function onMouseClick(e) {
+    function onMouseClick_getID(e) {
         var currentPositionPoint = map.project(e.latlng);
-        var Points = circleCentrePointCover(currentPositionPoint);        
+        var Points = circleCentrePointCover(currentPositionPoint);
         if (!isInsideObject && !insidePoly) {
             alert("Not inside object");
             return;
@@ -753,25 +759,19 @@ $(function() {
 
     map.on('mousemove', onMouseMove);
 
-    function onMapClick(e) {
+    function onMouseClick_showLatLng(e) {
         popup
             .setLatLng(e.latlng)
             .setContent("You clicked the map at " + e.latlng.toString())
             .openOn(map);
     }
 
-    map.on('click', onMouseClick2);
-
-
-
-    // map.on('click');
+    map.on('click', onMouseClick_drawMarker);
 
     function drawMarker(marker) {
         var WIDTH, HEIGHT;
         WIDTH = HEIGHT = red_canvas.width;
-        var centerlatLng = [marker.lat, marker.lng];
-
-        // console.log(marker);
+        var centerlatLng = [marker.lat, marker.lng];                
 
         var currentlatlng = L.latLng(marker.lat, marker.lng);
         var currentPoint = map.project(currentlatlng);
@@ -789,28 +789,22 @@ $(function() {
         var coords = L.point(x, y);
         coords.z = zoom;
 
+        var canvas = coverageLayer.canvases.get(tileID);
+        if(canvas.imgData) delete canvas.imgData;
+
         draw(centerlatLng, WIDTH, HEIGHT, coords, red_canvas);
 
-        var item = [marker.lat, marker.lng];        
+        var item = [marker.lat, marker.lng];
         var x = item[0];
         var y = item[1];
-        var data = [x,y,x,y,item,0];
-        // console.log("???");
+        var data = [x, y, x, y, item, 0];
+        coverageLayer._rtree.insert(data);
 
-        // coverageLayer._rtree.insert(data);
-
-        // var tilePoint = coverageLayer._tilePoint(coords, [currentlatlng.lat, currentlatlng.lng]);
-
-        // console.log(tilePoint);
-
-        // var canvas = coverageLayer.canvases.get(tileID);
-        // var context = canvas.getContext('2d');
-
-        // context.drawImage(marker.img, tilePoint[0], tilePoint[1]);
+        coverageLayer.updateCachedTile(coords);
     }
 
-    function onMouseClick2(e) {
-        
+    function onMouseClick_drawMarker(e) {
+
         var marker = {
             lat: e.latlng.lat,
             lng: e.latlng.lng,
@@ -818,7 +812,7 @@ $(function() {
             data: {},
             title: 'title',
         };
-        
+
         drawMarker(marker);
     }
 });

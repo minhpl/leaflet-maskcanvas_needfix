@@ -177,7 +177,11 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         this._rtree = new rbush(32);
 
         var data = [];
-        for (var i = 0; i < dataset.length; ++i) {
+
+
+        // var numPoints = dataset.length;
+        var numPoints = 50000;
+        for (var i = 0; i < numPoints; ++i) {
             var item = dataset[i];
             var x = item[0];
             var y = item[1];
@@ -329,6 +333,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     },
 
     getStoreTile: function(id) {
+
+        return Promise.reject();
         // var tile = this.tiles.get(id);
         // return tile;
         var self = this;
@@ -397,7 +403,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                         img.src = canvas.toDataURL("image/png");
                         tile.img = img;
                     }
-                    self.storeTile(id, tile);
+                    // self.storeTile(id, tile);
                 }
 
                 res(tile);
