@@ -77,7 +77,8 @@ $(function() {
         img_on: img_redCircle,
         img_off: img_blueCircle,
         debug: true,
-        map: map
+        map: map,
+        TILESIZE: 256,
     });
 
     coverageLayer.setData(dataset);
@@ -116,16 +117,6 @@ $(function() {
         return (!alph) ? -1 : alph;
     }
 
-    var MEM;
-    /**
-     * [cropImage description]
-     * @param  {[type]} canvas      [description]
-     * @param  {[type]} centrePoint : point relative with tile
-     * @param  {[type]} WIDTH       [description]
-     * @param  {[type]} HEIGHT      [description]
-     * @param  {[type]} alph        [description]
-     * @return {[type]}             [description]
-     */
     function cropImage(canvas, centrePoint, WIDTH, HEIGHT, alph) {
         var context = canvas.getContext('2d');
         // w = w << 1;
@@ -136,15 +127,11 @@ $(function() {
         w = WIDTH >> 1;
         h = HEIGHT >> 1;
 
-        // var imgSize = (WIDTH * HEIGHT) << 2;
-
-        // if (!MEM || MEM.byteLength < imgSize)
-        //     MEM = new ArrayBuffer(imgSize);
 
         var minX = (centrePoint[0] - w);
         var minY = (centrePoint[1] - h);
-        minX = (minX < 0) ? (minX - 0.5) >> 0 : (minX + 0.5) >> 0;  //round();
-        minY = (minY < 0) ? (minY - 0.5) >> 0 : (minY + 0.5) >> 0;  //round();
+        minX = (minX < 0) ? (minX - 0.5) >> 0 : (minX + 0.5) >> 0; //round();
+        minY = (minY < 0) ? (minY - 0.5) >> 0 : (minY + 0.5) >> 0; //round();
 
 
         var maxX = minX + WIDTH;
@@ -423,7 +410,7 @@ $(function() {
             for (var j = minb; j <= maxb; j++) {
                 tileIDs.push(getID(zoom, tileIDX + i, tileIDY + j)) //8
             }
-        
+
         return tileIDs;
     }
 
@@ -785,8 +772,6 @@ $(function() {
 
     map.on('click', onMouseClick_drawMarker);
 
-    var markerID = dataset.length;
-
     function drawMarker(marker) {
         var WIDTH, HEIGHT;
         WIDTH = HEIGHT = red_canvas.width;
@@ -807,9 +792,9 @@ $(function() {
         var point = L.point(tileTop, tileLeft);
         var coords = L.point(x, y);
         coords.z = zoom;
-        
 
-        var tilePoint = coverageLayer._tilePoint(coords,[marker.lat,marker.lng]);
+
+        var tilePoint = coverageLayer._tilePoint(coords, [marker.lat, marker.lng]);
         // console.log(tilePoint);
 
         var tileIds = getTileIDs(tilePoint, WIDTH, HEIGHT, coords);
@@ -818,15 +803,21 @@ $(function() {
         draw(centerlatLng, WIDTH, HEIGHT, coords, red_canvas);
 
         for (var i = 0; i < tileIds.length; i++) {
-            var tileID = tileIds[i].id;            
+            var tileID = tileIds[i].id;
             var canvas = coverageLayer.canvases.get(tileID);
-               if (canvas && canvas.imgData) delete canvas.imgData;
+            if (canvas && canvas.imgData) delete canvas.imgData;
         }
 
         var item = [marker.lat, marker.lng];
         var x = item[0];
         var y = item[1];
-        var data = [x, y, x, y, item, ++markerID];
+
+        if (!coverageLayer.newMarkerID) {
+            coverageLayer.newMarkerID = 3000000;
+        } else {
+            console.log(coverageLayer.newMarkerID);
+        }
+        var data = [x, y, x, y, item, ++coverageLayer.newMarkerID];
         coverageLayer._rtree.insert(data);
 
         var pad = L.point(red_canvas.width >> 1, red_canvas.height >> 1);
@@ -836,7 +827,95 @@ $(function() {
         var se = map.unproject(bottomRight);
         var bb = [se.lat, nw.lng, nw.lat, se.lng];
 
-        coverageLayer.updateCachedTile(bb);
+        // coverageLayer.updateCachedTile(bb,marker);
+
+        if (coverageLayer.rtree_cachedTile) {
+            var result = coverageLayer.rtree_cachedTile.search(bb);
+
+            for (var i = 0; i < result.length; i++) {
+                var id = result[i][4];
+
+                var coords = coverageLayer.getCoords(id);
+                coverageLayer.emptyTiles.remove(id);
+                var tilePoint = coverageLayer._tilePoint(coords, [marker.lat, marker.lng]);
+
+                var tile = coverageLayer.tiles.get(id) || coverageLayer.hugeTiles.get(id);
+
+                var updateTile = function(tile) {
+                    tile.numPoints++;
+                    if (tile.data && !coverageLayer.options.useGlobalData)
+                        tile.data.push([marker.lat, marker.lng, marker.lat, marker.lng, marker, coverageLayer.newMarkerID]);
+
+                    if (tile.img) {
+
+                        var tempCanvas = document.createElement('canvas');
+                        tempCanvas.width = tempCanvas.height = TILESIZE;
+                        var context = tempCanvas.getContext('2d');
+
+                        var img = tile.img;
+
+                        if (img.complete) {
+                            context.drawImage(img, 0, 0);
+                            context.drawImage(red_canvas, tilePoint[0] - (WIDTH >> 1), tilePoint[1] - (HEIGHT >> 1));
+                            tile.img.src = tempCanvas.toDataURL("image/png");
+                        } else {
+                            tile.img.onload = function(e) {
+                                if (e.target.complete) {
+                                    context.drawImage(img, 0, 0);
+                                    context.drawImage(red_canvas, tilePoint[0] - (WIDTH >> 1), tilePoint[1] - (HEIGHT >> 1));
+                                    tile.img.src = tempCanvas.toDataURL("image/png");
+                                } else {
+                                    var maxTimes = 10;
+                                    var countTimes = 0;
+
+                                    function retryLoadImage() {
+                                        setTimeout(function() {
+                                            if (countTimes > maxTimes) {
+                                                // -- cannot load image.
+                                                return;
+                                            } else {
+                                                if (e.target.complete) {
+                                                    console.log("here");
+                                                    context.drawImage(img, 0, 0);
+                                                    context.drawImage(red_canvas, tilePoint[0] - (WIDTH >> 1), tilePoint[1] - (HEIGHT >> 1));
+                                                    tile.img.src = tempCanvas.toDataURL("image/png");
+                                                } else {
+                                                    retryLoadImage();
+                                                }
+                                            }
+                                            countTimes++;
+                                        }, 50);
+                                    };
+                                    retryLoadImage().then;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (tile) {
+                    updateTile(tile);
+
+                    tile.needSave = true;
+                    coverageLayer.tiles.set(id, tile);
+                    if (tile.numPoints > HUGETILE_THREADSHOLD) {
+                        coverageLayer.hugeTiles.set(id, tile);
+                    }
+                } else {
+                    coverageLayer.getStoreObj(id).then(function(tile) {
+                        console.log("here");
+
+                        updateTile(tile);
+
+                        tile.needSave = true;
+                        coverageLayer.tiles.set(id, tile);
+                        if (tile.numPoints > HUGETILE_THREADSHOLD) {
+                            coverageLayer.hugeTiles.set(id, tile);
+                        }
+                    });
+                }
+            }
+        }
     }
 
     function onMouseClick_drawMarker(e) {
@@ -851,4 +930,11 @@ $(function() {
 
         drawMarker(marker);
     }
+
+
+    function onMouseClick_removeMarker(e)
+    {
+        
+    }
+
 });

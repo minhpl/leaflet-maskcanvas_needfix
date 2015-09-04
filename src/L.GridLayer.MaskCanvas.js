@@ -55,29 +55,13 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     // rtreeLCTilePoly: new lru(40),    
     BBAllPointLatlng: [-9999, -9999, -9999, -9999],
 
-    /**
-     * [updateCachedTile description]
-     * @param  {[type]} coords   [description]
-     * @param  {[type]} numPoint [description]
-     * @return {[type]}          [description]
-     */
+    newMarkerID: undefined,
 
     //have not been complete
-    updateCachedTile: function(bb) {
 
-        if (this.rtree_cachedTile) {
-            var result = this.rtree_cachedTile.search(bb);
+    updateCachedTile: function(bb, marker) {
 
-            for (var i = 0; i < result.length; i++) {
-                var id = result[i][4];
 
-                console.log(id);
-
-                this.emptyTiles.remove(id);
-                this.tiles.remove(id);
-                this.hugeTiles.remove(id);
-            }
-        }
 
         // var id = this.getId(coords);
 
@@ -154,6 +138,14 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
     getId: function(coords) {
         return coords.z + "_" + coords.x + "_" + coords.y;
+    },
+
+    getCoords: function(id)
+    {
+        var res = id.split("_");
+        var coords = L.point(res[1],res[2]);
+        coords.z = res[0];
+        return coords;
     },
 
     iscollides: function(coords) {
@@ -434,6 +426,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                         var item = [x, y];
                         data.push([x, y, x, y, item, j++]);
                     }
+                    if (!self.newMarkerID)
+                        self.newMarkerID = arr.length >> 1;
                     self._rtree.clear().load(data);
                     self.rtree_loaded = true;
                     self.BBAllPointLatlng = result.bb;
@@ -503,7 +497,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
          * @ general description This function try to get tile from db,
          * if tile is founded, then it immediately set it up to lru head
          */
-
+        
         var db = this.options.db;
 
         var self = this;
@@ -640,11 +634,16 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     var pointCoordinates = (self.options.useGlobalData) ? null : self._rtree.search(bb);
 
 
-                    //Create RTREE_cached
+                    /**
+                     * Create rtree_cachedTile
+                     */
+
                     if (!self.all_tiles_id.get(id)) {
                         self.all_tiles_id.set(id, {});
-                        console.log(self.all_tiles_id.size);
-                        self.rtree_cachedTile.insert([bb[0], bb[1], bb[2], bb[3], id]);                        
+                        // console.log(self.all_tiles_id.size, id);
+                        self.rtree_cachedTile.insert([bb[0], bb[1], bb[2], bb[3], id]);
+                    } else {
+                        // console.log("duplicate", id);
                     }
 
 
