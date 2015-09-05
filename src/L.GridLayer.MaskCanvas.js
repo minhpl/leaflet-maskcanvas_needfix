@@ -57,40 +57,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
     newMarkerID: undefined,
 
-    //have not been complete
-
-    updateCachedTile: function(bb, marker) {
-
-
-
-        // var id = this.getId(coords);
-
-        // var tile = this.tiles.get(id) || this.hugeTiles.get(id);
-        // if (tile) {
-        //     if (tile.numPoints)
-        //         tile.numPoints += tile.numPoints;
-        //     else tile.numPoints = numPoints;
-
-        //     if (tile.numPoints == 0) {
-        //         this.tiles.remove(id);
-        //         this.hugeTiles.remove(id);
-        //         this.emptyTiles.set(id, EMPTY);
-
-        //         if (tile.img)
-        //             delete tile.img;
-        //     }
-
-        //     if (tile.numPoints > 0) {
-        //         var img = new Image();
-        //         img.src = this.canvases.get(id).toDataURL("image/png");
-        //         tile.img = img;
-        //     }
-        // }
-
-
-
-        // var db = this.options.db;
-    },
+    //have not been complete    
 
     initialize: function(options) {
         L.setOptions(this, options);

@@ -442,6 +442,36 @@ $(function() {
         }
     }
 
+    function putImageData(topPointlatlng, WIDTH, HEIGHT, coords, imgData) {
+        var w = WIDTH >> 1;
+        var h = HEIGHT >> 1;
+        var lat = topPointlatlng[0];
+        var lng = topPointlatlng[1];
+        var topPts = [lat, lng];
+
+        // var WIDTH,HEIGHT;
+        // WIDTH = HEIGHT = coverageLayer.options.radius;
+
+        var topPointTile = coverageLayer._tilePoint(coords, topPts);
+
+        var tileIDs = getTileIDs(topPointTile, WIDTH, HEIGHT, coords);
+
+        for (var i = 0; i < tileIDs.length; i++) {
+            var tile = tileIDs[i];
+            var canvas = tile.canvas;
+            var coords = tile.coords;
+            var tilePoint = coverageLayer._tilePoint(coords, topPts);
+            if (canvas) {
+                var ctx = canvas.getContext('2d');
+                // img.onload= function(){
+                // drawImage(ctx, img, tilePoint[0] - w, tilePoint[1] - h);
+                ctx.putImageData(imgData, tilePoint[0] - w, tilePoint[1] - h);
+            }
+        }
+    }
+
+
+
     function redraw(imgs) {
         for (var i = 0; i < imgs.length; i++) {
             var image = imgs[i];
@@ -742,7 +772,6 @@ $(function() {
             var intersectPolys = getIntersectPoly(e.latlng);
             if (!intersectPolys) return;
 
-
             var topPoly = intersectPolys.topPoly;
             var topPolyID = intersectPolys.topPolyID;
 
@@ -770,7 +799,154 @@ $(function() {
             .openOn(map);
     }
 
-    map.on('click', onMouseClick_drawMarker);
+    map.on('click', onMouseClick_removeMarker);
+
+    function onMouseClick_removeMarker(e) {
+
+        var width = red_canvas.width;
+        var height = red_canvas.height;
+
+        var zoom = map.getZoom();
+        var latlng = e.latlng;
+        var currentlatLng = L.latLng(latlng.lat, latlng.lng);
+
+        var currentPoint = map.project(currentlatLng, zoom);
+
+        var pad = L.point(red_canvas.width >> 1, red_canvas.height >> 1);
+        var topLeft = currentPoint.subtract(pad);
+        var bottomRight = currentPoint.add(pad);
+        var nw = map.unproject(topLeft, zoom);
+        var se = map.unproject(bottomRight, zoom);
+        var bb = [se.lat, nw.lng, nw.lat, se.lng];
+
+        var x = (currentPoint.x / TILESIZE) >> 0;
+        var y = (currentPoint.y / TILESIZE) >> 0;
+
+        var zoom = map.getZoom();
+        var coords = L.point(x, y);
+        coords.z = zoom;
+        var id = coverageLayer.getId(coords);
+
+        var items = coverageLayer._rtree.search(bb);
+        if (items.length == 0) return;
+
+        // console.log(items);
+        items.sort(function(a, b) {
+            return a[5] - b[5];
+        });
+
+        var item = items.pop();
+
+        // console.log(item);
+
+        coverageLayer._rtree.remove(item);
+
+        var itemPos = L.latLng(item[0], item[1]);
+        var itemPosPoint = map.project(itemPos, zoom);
+        var _pad = L.point(red_canvas.width, red_canvas.height);
+        var topLeftcv = itemPosPoint.subtract(pad);
+        var bottomRightcv = itemPosPoint.add(pad);
+        var nw_cv = map.unproject(topLeftcv, zoom);
+        var se_cv = map.unproject(bottomRightcv, zoom);
+
+        var topLeftBound = itemPosPoint.subtract(_pad);
+        var bottomRightBound = itemPosPoint.add(_pad);
+        var _nw = map.unproject(topLeftBound, zoom);
+        var _se = map.unproject(bottomRightBound, zoom);
+        var bound = [_se.lat, _nw.lng, _nw.lat, _se.lng];
+
+        var boundCV = [se_cv.lat, nw_cv.lng, nw_cv.lat, se_cv.lng];
+
+        // var marker = L.marker([_nw.lat, _nw.lng]).addTo(map);
+        // var marker2 = L.marker([_se.lat, _se.lng]).addTo(map);
+
+        var _items = coverageLayer._rtree.search(bound);
+        _items.sort(function(a, b) {
+            return a[5] - b[5];
+        });
+
+        var subCanvas = document.createElement('canvas');
+        subCanvas.width = red_canvas.width;
+        subCanvas.height = red_canvas.height;
+        var context = subCanvas.getContext('2d');
+
+        // var canvasPoint = coverageLayer._
+
+        // var _canvasPoint = function(topLeft, item) {
+        //     // console.log(zoom);
+        //     var p = map.project(new L.LatLng(item[0], item[1]), zoom);
+        //     // console.log(p);
+        //     // point to draw
+        //     var x = (p.x - topLeft.x);
+        //     x = (x < 0) ? (x - 0.5) >> 0 : (x + 0.5) >> 0; //Math.round
+        //     var y = (p.y - topLeft.y);
+        //     y = (y < 0) ? (y - 0.5) >> 0 : (y + 0.5) >> 0; //Math.round
+
+        //     return [x, y];
+        // };
+
+        var ll = map.unproject(topLeftcv, zoom);
+        pointTileCanvas = coverageLayer._tilePoint(coords, [ll.lat, ll.lng]);
+
+
+        for (var i = 0; i < _items.length; i++) {
+            // var p = _canvasPoint(topLeftcv, _items[i]);
+
+            var item = _items[i];
+            var tilePointItem = coverageLayer._tilePoint(coords, [item[0], item[1]]);
+            var _x = tilePointItem[0] - pointTileCanvas[0];
+            var _y = tilePointItem[1] - pointTileCanvas[1];
+
+            context.drawImage(red_canvas, _x - (red_canvas.width >> 1), _y - (red_canvas.height >> 1));
+
+            // context.strokeStyle = '#000';
+            // context.beginPath();
+            // context.moveTo(0, 0);
+            // context.lineTo(red_canvas.width, 0);
+            // context.lineTo(red_canvas.width, red_canvas.height);
+            // context.lineTo(0, red_canvas.height);
+            // context.closePath();
+            // context.stroke();
+        }
+
+
+        var imageData = context.getImageData(0, 0, subCanvas.width, subCanvas.height);
+
+        // var canvas = coverageLayer.canvases.get(id);
+        // var ctx = canvas.getContext('2d');
+
+        // ctx.clearRect(0, 0, subCanvas.width, subCanvas.height);
+        // ctx.drawImage(subCanvas, 0, 0);
+
+        // console.log(x, y);
+        // console.log(topLeftcv.x, topLeftcv.y);
+
+        // var x = (topLeftcv.x - x * TILESIZE);
+        // x = (x < 0) ? (x - 0.5) >> 0 : (x + 0.5) >> 0; //Math.round
+        // var y = (topLeftcv.y - y * TILESIZE);
+        // y = (y < 0) ? (y - 0.5) >> 0 : (y + 0.5) >> 0; //Math.round        
+
+        // console.log(x, y);
+
+        // ctx.clearRect(pointTileCanvas[0], pointTileCanvas[1], subCanvas.width, subCanvas.height);
+        // ctx.drawImage(subCanvas,pointTileCanvas[0],pointTileCanvas[1]);
+        // ctx.putImageData(imageData, pointTileCanvas[0], pointTileCanvas[1]);
+        
+        //update
+        putImageData([itemPos.lat, itemPos.lng], width, height, coords, imageData);
+
+        if (coverageLayer.rtree_cachedTile) {
+            var result = coverageLayer.rtree_cachedTile.search(boundCV);
+
+            for (var i = 0; i < result.length; i++) {
+                var id = result[i][4];
+
+
+
+            }
+        }
+
+    }
 
     function drawMarker(marker) {
         var WIDTH, HEIGHT;
@@ -783,13 +959,6 @@ $(function() {
         var x = (currentPoint.x / TILESIZE) >> 0;
         var y = (currentPoint.y / TILESIZE) >> 0;
         var zoom = map.getZoom();
-        //
-        var tileID = zoom + "_" + x + "_" + y;
-
-        //calculate Point relative to Tile
-        var tileTop = x * TILESIZE;
-        var tileLeft = y * TILESIZE;
-        var point = L.point(tileTop, tileLeft);
         var coords = L.point(x, y);
         coords.z = zoom;
 
@@ -814,9 +983,8 @@ $(function() {
 
         if (!coverageLayer.newMarkerID) {
             coverageLayer.newMarkerID = 3000000;
-        } else {
-            console.log(coverageLayer.newMarkerID);
         }
+
         var data = [x, y, x, y, item, ++coverageLayer.newMarkerID];
         coverageLayer._rtree.insert(data);
 
@@ -904,9 +1072,7 @@ $(function() {
                 } else {
                     coverageLayer.getStoreObj(id).then(function(tile) {
                         console.log("here");
-
                         updateTile(tile);
-
                         tile.needSave = true;
                         coverageLayer.tiles.set(id, tile);
                         if (tile.numPoints > HUGETILE_THREADSHOLD) {
@@ -919,7 +1085,7 @@ $(function() {
     }
 
     function onMouseClick_drawMarker(e) {
-
+        console.log("[" + e.latlng.lat + "," + e.latlng.lng + "] ,");
         var marker = {
             lat: e.latlng.lat,
             lng: e.latlng.lng,
@@ -927,14 +1093,7 @@ $(function() {
             data: {},
             title: 'title',
         };
-
         drawMarker(marker);
-    }
-
-
-    function onMouseClick_removeMarker(e)
-    {
-        
     }
 
 });
