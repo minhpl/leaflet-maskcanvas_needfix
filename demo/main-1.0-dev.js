@@ -1046,7 +1046,12 @@ $(function() {
                         coverageLayer.emptyTiles.set(id, EMPTY);
 
                 } else {
-                    coverageLayer.getStoreObj(id).then(function(tile) {
+                    /**
+                     *  potential unknown behavior, because this code block is asynchronous. 
+                     *  need not use asynchrnous or use promise to make sequence chaining 
+                     */
+                    
+                    coverageLayer.getStoreObj(id).then(function(tile) {   
                         console.log("here");
                         updateTile();
                         coverageLayer.store(id, tile);
