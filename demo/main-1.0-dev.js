@@ -813,6 +813,7 @@ $(function() {
         var currentPoint = map.project(currentlatLng, zoom);
 
         var pad = L.point(red_canvas.width >> 1, red_canvas.height >> 1);
+        var _pad = L.point(red_canvas.width, red_canvas.height);
         var topLeft = currentPoint.subtract(pad);
         var bottomRight = currentPoint.add(pad);
         var nw = map.unproject(topLeft, zoom);
@@ -835,82 +836,96 @@ $(function() {
             return a[5] - b[5];
         });
 
-        var item = items.pop();
+        var item = items.pop(); //item to be remove;
 
         // console.log(item);
 
         coverageLayer._rtree.remove(item);
 
         var itemPos = L.latLng(item[0], item[1]);
-        var itemPosPoint = map.project(itemPos, zoom);
-        var _pad = L.point(red_canvas.width, red_canvas.height);
-        var topLeftcv = itemPosPoint.subtract(pad);
-        var bottomRightcv = itemPosPoint.add(pad);
-        var nw_cv = map.unproject(topLeftcv, zoom);
-        var se_cv = map.unproject(bottomRightcv, zoom);
 
-        var topLeftBound = itemPosPoint.subtract(_pad);
-        var bottomRightBound = itemPosPoint.add(_pad);
-        var _nw = map.unproject(topLeftBound, zoom);
-        var _se = map.unproject(bottomRightBound, zoom);
-        var bound = [_se.lat, _nw.lng, _nw.lat, _se.lng];
+        // var itemPos = L.latLng(item[0], item[1]);
+        // var itemPosPoint = map.project(itemPos, zoom);
+        // var _pad = L.point(red_canvas.width, red_canvas.height);
+        // var topLeftcv = itemPosPoint.subtract(pad);
+        // // var bottomRightcv = itemPosPoint.add(pad);
+        // // var nw_cv = map.unproject(topLeftcv, zoom);
+        // // var se_cv = map.unproject(bottomRightcv, zoom);
 
-        var boundCV = [se_cv.lat, nw_cv.lng, nw_cv.lat, se_cv.lng];
+        // var topLeftBound = itemPosPoint.subtract(_pad);
+        // var bottomRightBound = itemPosPoint.add(_pad);
+        // var _nw = map.unproject(topLeftBound, zoom);
+        // var _se = map.unproject(bottomRightBound, zoom);
+        // var bound = [_se.lat, _nw.lng, _nw.lat, _se.lng];
 
-        // var marker = L.marker([_nw.lat, _nw.lng]).addTo(map);
-        // var marker2 = L.marker([_se.lat, _se.lng]).addTo(map);
+        // // var boundCV = [se_cv.lat, nw_cv.lng, nw_cv.lat, se_cv.lng];
 
-        var _items = coverageLayer._rtree.search(bound);
-        _items.sort(function(a, b) {
-            return a[5] - b[5];
-        });
+        // // var marker = L.marker([_nw.lat, _nw.lng]).addTo(map);
+        // // var marker2 = L.marker([_se.lat, _se.lng]).addTo(map);
 
-        var subCanvas = document.createElement('canvas');
-        subCanvas.width = red_canvas.width;
-        subCanvas.height = red_canvas.height;
-        var context = subCanvas.getContext('2d');
-
-        // var canvasPoint = coverageLayer._
-
-        // var _canvasPoint = function(topLeft, item) {
-        //     // console.log(zoom);
-        //     var p = map.project(new L.LatLng(item[0], item[1]), zoom);
-        //     // console.log(p);
-        //     // point to draw
-        //     var x = (p.x - topLeft.x);
-        //     x = (x < 0) ? (x - 0.5) >> 0 : (x + 0.5) >> 0; //Math.round
-        //     var y = (p.y - topLeft.y);
-        //     y = (y < 0) ? (y - 0.5) >> 0 : (y + 0.5) >> 0; //Math.round
-
-        //     return [x, y];
-        // };
-
-        var ll = map.unproject(topLeftcv, zoom);
-        pointTileCanvas = coverageLayer._tilePoint(coords, [ll.lat, ll.lng]);
+        // var _items = coverageLayer._rtree.search(bound); //all item to be redraw
+        // _items.sort(function(a, b) {
+        //     return a[5] - b[5];
+        // });
 
 
-        for (var i = 0; i < _items.length; i++) {
-            // var p = _canvasPoint(topLeftcv, _items[i]);
+        var createImageData = function(coords) {
+            var zoom = coords.z;
+            var itemPosPoint = map.project(itemPos, zoom);
+            var topLeftcv = itemPosPoint.subtract(pad);
 
-            var item = _items[i];
-            var tilePointItem = coverageLayer._tilePoint(coords, [item[0], item[1]]);
-            var _x = tilePointItem[0] - pointTileCanvas[0];
-            var _y = tilePointItem[1] - pointTileCanvas[1];
+            var topLeftBound = itemPosPoint.subtract(_pad);
+            var bottomRightBound = itemPosPoint.add(_pad);
 
-            context.drawImage(red_canvas, _x - (red_canvas.width >> 1), _y - (red_canvas.height >> 1));
+            var _nw = map.unproject(topLeftBound, zoom);
+            var _se = map.unproject(bottomRightBound, zoom);
+            var bound = [_se.lat, _nw.lng, _nw.lat, _se.lng];
 
-            // context.strokeStyle = '#000';
-            // context.beginPath();
-            // context.moveTo(0, 0);
-            // context.lineTo(red_canvas.width, 0);
-            // context.lineTo(red_canvas.width, red_canvas.height);
-            // context.lineTo(0, red_canvas.height);
-            // context.closePath();
-            // context.stroke();
+            // var boundCV = [se_cv.lat, nw_cv.lng, nw_cv.lat, se_cv.lng];
+
+            // var marker = L.marker([_nw.lat, _nw.lng]).addTo(map);
+            // var marker2 = L.marker([_se.lat, _se.lng]).addTo(map);
+
+            var _items = coverageLayer._rtree.search(bound); //all item to be redraw
+            _items.sort(function(a, b) {
+                return a[5] - b[5];
+            });
+
+            var subCanvas = document.createElement('canvas');
+            subCanvas.width = red_canvas.width;
+            subCanvas.height = red_canvas.height;
+            var context = subCanvas.getContext('2d');
+
+            var ll = map.unproject(topLeftcv, zoom);
+            pointTileCanvas = coverageLayer._tilePoint(coords, [ll.lat, ll.lng]);
+
+            for (var i = 0; i < _items.length; i++) {
+                // var p = _canvasPoint(topLeftcv, _items[i]);
+
+                var _item = _items[i];
+                var tilePointItem = coverageLayer._tilePoint(coords, [_item[0], _item[1]]);
+                var _x = tilePointItem[0] - pointTileCanvas[0];
+                var _y = tilePointItem[1] - pointTileCanvas[1];
+
+                context.drawImage(red_canvas, _x - (red_canvas.width >> 1), _y - (red_canvas.height >> 1));
+
+                // context.strokeStyle = '#000';
+                // context.beginPath();
+                // context.moveTo(0, 0);
+                // context.lineTo(red_canvas.width, 0);
+                // context.lineTo(red_canvas.width, red_canvas.height);
+                // context.lineTo(0, red_canvas.height);
+                // context.closePath();
+                // context.stroke();
+            }
+
+            var imageData = context.getImageData(0, 0, subCanvas.width, subCanvas.height);
+
+            return {
+                'imageData': imageData,
+                'pointTileCanvas': pointTileCanvas,
+            }
         }
-
-
-        var imageData = context.getImageData(0, 0, subCanvas.width, subCanvas.height);
 
         // var canvas = coverageLayer.canvases.get(id);
         // var ctx = canvas.getContext('2d');
@@ -931,18 +946,114 @@ $(function() {
         // ctx.clearRect(pointTileCanvas[0], pointTileCanvas[1], subCanvas.width, subCanvas.height);
         // ctx.drawImage(subCanvas,pointTileCanvas[0],pointTileCanvas[1]);
         // ctx.putImageData(imageData, pointTileCanvas[0], pointTileCanvas[1]);
-        
+
         //update
+        var imageData = createImageData(coords).imageData;
         putImageData([itemPos.lat, itemPos.lng], width, height, coords, imageData);
 
         if (coverageLayer.rtree_cachedTile) {
-            var result = coverageLayer.rtree_cachedTile.search(boundCV);
+
+            var result = coverageLayer.rtree_cachedTile.search([itemPos.lat, itemPos.lng, itemPos.lat, itemPos.lng]);
 
             for (var i = 0; i < result.length; i++) {
                 var id = result[i][4];
+                var coords = coverageLayer.getCoords(id);
+                // console.log(coords);
+                var updateTile = function(tile) {
+                    tile.numPoints--;
 
+                    if (tile.data && !coverageLayer.options.useGlobalData) {
+                        if (tile.sorted)
+                            data.pop();
+                        else {
+                            var index = data.lastIndexOf(item); //Note: browser support for indexOf is limited; it is not supported in Internet Explorer 7 and 8.
+                            if (index > -1) {
+                                data.splice(index, 1);
+                            }
+                        }
+                    }
 
+                    if (tile.img) {
+                        var canvas = document.createElement('canvas');
+                        canvas.width = canvas.height = TILESIZE;
+                        var ctx = canvas.getContext('2d');
+                        var img = tile.img;
 
+                        if (img.complete) {
+                            ctx.drawImage(img, 0, 0);
+
+                            var obj = createImageData(coords);
+                            var _imageData = obj.imageData;
+                            var pos = obj.pointTileCanvas;
+                            ctx.putImageData(_imageData, pos[0], pos[1]);
+
+                            tile.img.src = canvas.toDataURL("image/png");
+                        } else {
+                            tile.img.onload = function(e) {
+                                console.log("here");
+                                if (e.target.complete) {
+                                    ctx.drawImage(img, 0, 0);
+
+                                    var obj = createImageData(coords);
+                                    var imageData = obj.imageData;
+                                    var pos = obj.pointTileCanvas;
+                                    ctx.putImageData(imageData, pos[0], pos[1]);
+
+                                    tile.img.src = canvas.toDataURL("image/png");
+                                } else {
+                                    var maxTimes = 10;
+                                    var countTimes = 0;
+
+                                    function retryLoadImage() {
+                                        setTimeout(function() {
+                                            if (countTimes > maxTimes) {
+                                                // -- cannot load image.
+                                                return;
+                                            } else {
+                                                if (e.target.complete) {
+                                                    console.log("here2");
+                                                    ctx.drawImage(img, 0, 0);
+
+                                                    var obj = createImageData(coords);
+                                                    var imageData = obj.imageData;
+                                                    var pos = obj.pointTileCanvas;
+                                                    ctx.putImageData(imageData, pos[0], pos[1]);
+
+                                                    tile.img.src = canvas.toDataURL("image/png");
+                                                } else {
+                                                    retryLoadImage();
+                                                }
+                                            }
+                                            countTimes++;
+                                        }, 50);
+                                    };
+
+                                    retryLoadImage();
+                                }
+                            }
+                        }
+                    }
+                }
+
+                var tile = coverageLayer.tiles.get(id) || coverageLayer.hugeTiles.get(id);
+                if (tile) {
+                    updateTile(tile);
+                    tile.needSave == true;
+                    coverageLayer.store(id, tile);
+                    if (tile.numPoints < HUGETILE_THREADSHOLD)
+                        coverageLayer.hugeTiles.remove(id);
+                    else if (tile.numPoints == 0)
+                        coverageLayer.emptyTiles.set(id, EMPTY);
+
+                } else {
+                    coverageLayer.getStoreObj(id).then(function(tile) {
+                        console.log("here");
+                        updateTile();
+                        coverageLayer.store(id, tile);
+                        if (tile.numPoints == 0)
+                            coverageLayer.emptyTiles.set(id, EMPTY);
+                    });
+                }
             }
         }
 
@@ -988,17 +1099,17 @@ $(function() {
         var data = [x, y, x, y, item, ++coverageLayer.newMarkerID];
         coverageLayer._rtree.insert(data);
 
-        var pad = L.point(red_canvas.width >> 1, red_canvas.height >> 1);
-        var topLeft = currentPoint.subtract(pad);
-        var bottomRight = currentPoint.add(pad);
-        var nw = map.unproject(topLeft);
-        var se = map.unproject(bottomRight);
-        var bb = [se.lat, nw.lng, nw.lat, se.lng];
+        // var pad = L.point(red_canvas.width >> 1, red_canvas.height >> 1);
+        // var topLeft = currentPoint.subtract(pad);
+        // var bottomRight = currentPoint.add(pad);
+        // var nw = map.unproject(topLeft);
+        // var se = map.unproject(bottomRight);
+        // var bb = [se.lat, nw.lng, nw.lat, se.lng];
 
         // coverageLayer.updateCachedTile(bb,marker);
 
         if (coverageLayer.rtree_cachedTile) {
-            var result = coverageLayer.rtree_cachedTile.search(bb);
+            var result = coverageLayer.rtree_cachedTile.search([marker.lat, marker.lng, marker.lat, marker.lng]);
 
             for (var i = 0; i < result.length; i++) {
                 var id = result[i][4];
@@ -1054,7 +1165,7 @@ $(function() {
                                             countTimes++;
                                         }, 50);
                                     };
-                                    retryLoadImage().then;
+                                    retryLoadImage();
                                 }
                             }
                         }
@@ -1063,9 +1174,9 @@ $(function() {
 
                 if (tile) {
                     updateTile(tile);
-
                     tile.needSave = true;
-                    coverageLayer.tiles.set(id, tile);
+                    // coverageLayer.tiles.set(id, tile);
+                    coverageLayer.store(id, tile);
                     if (tile.numPoints > HUGETILE_THREADSHOLD) {
                         coverageLayer.hugeTiles.set(id, tile);
                     }
@@ -1074,7 +1185,8 @@ $(function() {
                         console.log("here");
                         updateTile(tile);
                         tile.needSave = true;
-                        coverageLayer.tiles.set(id, tile);
+                        // coverageLayer.tiles.set(id, tile);
+                        coverageLayer.store(id, tile);
                         if (tile.numPoints > HUGETILE_THREADSHOLD) {
                             coverageLayer.hugeTiles.set(id, tile);
                         }
