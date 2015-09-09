@@ -1116,16 +1116,16 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
     backupToDb: function(db, tile) {
         if (this.userAgent != FIREFOX) {
-            this.backupToDbOtherBR(db, tile);
+            return this.backupToDbOtherBR(db, tile);
         } else {
-            this.backupToDbFF(db, tile);
+            return this.backupToDbFF(db, tile);
         }
     },
 
     //important function
     store: function(id, tile) {
         var self = this;
-
+        
         /**
          *No need to wait for rtree_loaded 
          *rtree_loaded is actually global map data
@@ -1141,10 +1141,22 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
         // if (self.rtree_loaded) {
         // console.log("No tiles stored ",self.tiles.size);        
-        return self.tiles.set(id, tile, function(removed) {
-                self.backupToDb(self.options.db, removed.value);
+        // return self.tiles.set(id, tile, function(removed) {                
+        //         self.backupToDb(self.options.db, removed.value);
+        //     })
+        // }
+
+        return new Promise(function(resolve, reject) {
+            self.tiles.set(id, tile, function(removed) {
+                if (!removed) {
+                    resolved();
+                } else {
+                    self.backupToDb(self.options.db, removed.value).then(function() {
+                        resolved();
+                    });
+                }
             })
-            // }
+        })
     },
 
     /**

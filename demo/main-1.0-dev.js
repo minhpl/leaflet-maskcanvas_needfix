@@ -807,8 +807,8 @@ $(function() {
     map.on('click', onMouseClick_removeMarker);
 
     function onMouseClick_removeMarker(e) {
-        
-        var zoom = map.getZoom();        
+
+        var zoom = map.getZoom();
         var latlng = e.latlng;
 
         var currentlatLng = L.latLng(latlng.lat, latlng.lng);
@@ -824,7 +824,7 @@ $(function() {
 
         var x = (currentPoint.x / TILESIZE) >> 0;
         var y = (currentPoint.y / TILESIZE) >> 0;
-        
+
         var coords = L.point(x, y);
         coords.z = zoom;
         var id = coverageLayer.getId(coords);
@@ -855,7 +855,7 @@ $(function() {
 
             var _nw = map.unproject(topLeftBound, zoom);
             var _se = map.unproject(bottomRightBound, zoom);
-            var bound = [_se.lat, _nw.lng, _nw.lat, _se.lng];            
+            var bound = [_se.lat, _nw.lng, _nw.lat, _se.lng];
 
             // var marker = L.marker([_nw.lat, _nw.lng]).addTo(map);
             // var marker2 = L.marker([_se.lat, _se.lng]).addTo(map);
@@ -899,7 +899,7 @@ $(function() {
             var result = coverageLayer.rtree_cachedTile.search([itemPos.lat, itemPos.lng, itemPos.lat, itemPos.lng]);
 
             for (var i = 0; i < result.length; i++) {
-                console.log(result.length);
+                // console.log(result.length);
                 var id = result[i][4];
                 var coords = coverageLayer.getCoords(id);
                 // console.log(coords);
@@ -926,7 +926,7 @@ $(function() {
                         var img = tile.img;
 
                         if (img.complete) {
-                            console.log("img complete", id);
+                            // console.log("img complete", id);
                             ctx.drawImage(img, 0, 0);
 
                             var obj = createImageData(coords);
@@ -935,7 +935,7 @@ $(function() {
                             ctx.putImageData(_imageData, pos[0], pos[1]);
 
                             // tile.img.src = canvas.toDataURL("image/png");
-                            tile.img = new Image();   //prevent fire loading function recursively 
+                            tile.img = new Image(); //prevent fire loading function recursively 
                             tile.img.src = canvas.toDataURL("image/png");
                         } else {
                             tile.img.onload = function(e) {
@@ -947,11 +947,11 @@ $(function() {
                                     var imageData = obj.imageData;
                                     var pos = obj.pointTileCanvas;
                                     ctx.putImageData(imageData, pos[0], pos[1]);
-                                    
+
                                     // tile.img.src = canvas.toDataURL("image/png");
                                     tile.img = new Image();
-                                    tile.img.src = canvas.toDataURL("image/png");                                
-                                } else {                                    
+                                    tile.img.src = canvas.toDataURL("image/png");
+                                } else {
                                     var maxTimes = 10;
                                     var countTimes = 0;
 
@@ -988,7 +988,7 @@ $(function() {
                 }
 
                 var tile = coverageLayer.tiles.get(id) || coverageLayer.hugeTiles.get(id);
-                if (tile) {                    
+                if (tile) {
                     updateTile(tile);
                     tile.needSave == true;
                     coverageLayer.store(id, tile);
@@ -1001,14 +1001,19 @@ $(function() {
                     /**
                      *  potential unknown behavior, because this code block is asynchronous. 
                      *  need not use asynchrnous or use promise to make sequence chaining 
+
+                     * error likely inccur when remove points in the same one tile when click with hight speed
                      */
-                    console.log(i);
-                    coverageLayer.getStoreObj(id).then(function(tile) {                        
+                    console.log("update tile in db", i);
+                    coverageLayer.getStoreObj(id).then(function(tile) {
+                        console.log("update tile in db", i);
                         updateTile(tile);
                         tile.needSave = true;
-                        coverageLayer.store(id, tile);
                         if (tile.numPoints == 0)
                             coverageLayer.emptyTiles.set(id, EMPTY);
+                        return coverageLayer.store(id, tiles);
+                    }).then(function() {
+                        console.log("never call???");
                     });
 
                     // break;
