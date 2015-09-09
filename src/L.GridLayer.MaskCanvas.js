@@ -20,6 +20,13 @@ const VPOLY = 1;
 const BPOLY = 2;
 const HUGETILE_THREADSHOLD = 5000;
 
+
+const CHROME = 1;
+const OPERA = 2;
+const FIREFOX = 3;
+const IE = 4;
+const UNKOWNBR = 5;
+
 L.GridLayer.MaskCanvas = L.GridLayer.extend({
     options: {
         db: new PouchDB('vmts'),
@@ -55,12 +62,35 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     // rtreeLCTilePoly: new lru(40),    
     BBAllPointLatlng: [-9999, -9999, -9999, -9999],
 
-    newMarkerID: undefined,  //ID when add new marker 
+    newMarkerID: undefined, //ID when add new marker 
+
+    userAgent: undefined,
 
     initialize: function(options) {
         L.setOptions(this, options);
         var db = this.options.db;
         var self = this;
+
+        if (!self.userAgent) {
+            if (navigator.userAgent.indexOf("Chrome") != -1) {
+                console.log("Chrome");
+                self.userAgent = CHROME;
+            } else if (navigator.userAgent.indexOf("Opera") != -1) {
+                console.log("OPERA");
+                self.userAgent = OPERA;
+            } else if (navigator.userAgent.indexOf("Firefox") != -1) {
+                console.log("Firefox");
+                self.userAgent = FIREFOX
+            } else if ((navigator.userAgent.indexOf("MSIE") != -1) || (!!document.documentMode == true)) //IF IE > 10
+            {
+                console.log("IE");
+                self.userAgent = IE;
+            } else {
+                console.log("Unknown");
+                self.userAgent = UNKOWNBR;
+            }
+        }
+
         if (db) {
 
             // var refreshDB = function(self) {
@@ -105,10 +135,9 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         return coords.z + "_" + coords.x + "_" + coords.y;
     },
 
-    getCoords: function(id)
-    {
+    getCoords: function(id) {
         var res = id.split("_");
-        var coords = L.point(res[1],res[2]);
+        var coords = L.point(res[1], res[2]);
         coords.z = res[0];
         return coords;
     },
@@ -456,13 +485,14 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     },
 
     //important function
-    getStoreObj: function(id) {
+
+    getStoreObjOtherBR: function(id) {
 
         /**
          * @ general description This function try to get tile from db,
          * if tile is founded, then it immediately set it up to lru head
          */
-        
+
         var db = this.options.db;
 
         var self = this;
@@ -489,7 +519,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
                     doc.status = LOADED;
                     doc.needSave = false;
-                    if (!doc.img && doc.numPoints > 0) {
+                    if (!doc.img && doc.numPoints > 0 && doc.image) {
                         var blob = doc.image;
                         var blobURL = blobUtil.createObjectURL(blob);
 
@@ -519,10 +549,93 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     rej(err);
                 });
             } else rej(new Error("No DB found"));
+
+
         });
 
         return promise;
     },
+
+    getStoreObjFF: function(id) {
+        var db = this.options.db;
+        // console.log("getStoreObj ",id);
+        var self = this;
+        var promise = new Promise(function(res, rej) {
+            if (!self.ready) {
+                rej("Not ready");
+                return;
+            }
+            if (db) {
+
+                db.get(id, {
+                    attachments: false
+                }).then(function(doc) {
+                    // console.log("Found ", doc);
+                    // var tile = {
+                    //     _id: doc._id,
+                    //     status : LOADED,
+                    //     data: doc.data,
+                    //     bb: doc.bb,
+                    //     _rev : doc._rev,
+                    //     needSave: false
+                    // };
+                    // var id = doc._id;
+                    doc.status = LOADED;
+                    doc.needSave = false;
+
+                    if (!doc.img && doc.numPoints > 0) {
+
+                        var db = self.options.db;
+                        // console.log("Get Attachment from ",doc);
+                        db.getAttachment(id, "image", {
+                            rev: doc._rev
+                        }).then(function(blob) {
+                            // console.log("Loaded image tile ", id + "/image : ",  blob);
+                            var blobURL = blobUtil.createObjectURL(blob);
+
+                            var newImg = new Image();
+                            newImg.src = blobURL;
+
+                            // newImg.onload = function(){
+                            doc.img = newImg;
+                            if (doc.numPoints < HUGETILE_THREADSHOLD) {
+                                var nTile = self.tiles.get(id);
+                                if (!nTile || !nTile.img)
+                                    self.store(id, doc);
+                            } else {
+                                var nTile = self.hugeTiles.get(id);
+                                if (!nTile || !nTile.img)
+                                    self.hugeTiles.set(id, doc);
+                            }
+                            // resolve(res);  
+                            // }
+
+
+                        }, function(err) {
+                            // console.log(id, err);
+                            // res.status = LOADED;
+                            // resolve(res);
+                        });
+                    }
+
+                    res(doc);
+                }).catch(function(err) {
+                    // console.log(err);
+                    rej(err);
+                });
+            } else rej(new Error("No DB found"));
+        });
+        return promise;
+    },
+
+    getStoreObj: function(id) {
+        if (this.userAgent != FIREFOX) {
+            return this.getStoreObjOtherBR(id);
+        } else {
+            return this.getStoreObjFF(id);
+        }
+    },
+
 
     all_tiles_id: new lru(4000),
 
@@ -802,14 +915,18 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
     worker: undefined,
 
+
     //important function
-    backupToDb: function(db, tile) {
+
+    backupToDbOtherBR: function(db, tile) {
 
         if (tile.needSave && tile.status == LOADED && !tile.empty) {
             var self = this;
             tile.needSave = false; // change needSave field = false, so we know to don't duplicate save the same tile to db in later
             // console.log("Remove from memory 22, backup to DB ", tile);
             // var db = self.options.db;
+
+
             if (db) {
                 // console.log('Back up to DB',db);
                 if (self.needPersistents > 0) self.needPersistents--;
@@ -917,6 +1034,91 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
                 });
             }
+
+
+        }
+    },
+
+    backupToDbFF: function(db, tile) {
+        // console.log("Remove from memory, backup to DB ", tile);
+        if (tile.needSave && tile.status == LOADED && !tile.empty) {
+            var self = this;
+            tile.needSave = false;
+            // console.log("Remove from memory 22, backup to DB ", tile);
+            // var db = self.options.db;
+            if (db) {
+                if (self.needPersistents > 0) self.needPersistents--;
+
+                function retryUntilWritten(id, name, rev, blob, type, callback) {
+                    var count = 0;
+                    db.putAttachment(id, name, rev, blob, type, function(e, r) {
+                        if (e) {
+                            if (e.status === 409 && count++ < 20) {
+                                console.log("Stored blob", e);
+                                retryUntilWritten(id, name, rev, blob, type, callback);
+                            } else console.log("Error ", e);
+                        } else {
+                            // console.log("Store blob successfully", r);
+                            if (callback) callback(r);
+                        }
+                    });
+                }
+
+
+                var simpleTile = {
+                    _id: tile._id,
+                    numPoints: tile.numPoints,
+                    data: self.options.useGlobalData ? undefined : tile.data,
+                    bb: tile.bb,
+                    status: LOADED,
+                    needSave: false
+                }
+
+                if (self.options.useGlobalData) delete simpleTile.data;
+
+                if (!self.prev) self.prev = Promise.resolve();
+                self.prev = self.prev.then(function() {
+
+                    return new Promise(function(resolve, reject) {
+                        db.upsert(tile._id, function(doc) {
+                            // console.log("Upsert ", doc, simpleTile);
+                            if (doc._rev) simpleTile._rev = doc._rev;
+                            return simpleTile;
+                        }).then(function(response) {
+                            // console.log("upserted ", response);
+                            tile._rev = response.rev; //Updating revision                    
+                            if (tile.numPoints > 0 && tile.canvas) {
+                                // console.log(tile.data.length, tile._id);
+                                return blobUtil.canvasToBlob(tile.canvas).then(function(blob) {
+                                    retryUntilWritten(tile._id, "image", response.rev, blob, 'image/png', function(r) {
+                                        // console.log("Store blob successfully", r);
+                                        resolve();
+                                    });
+                                    // success
+                                }).catch(function(err) {
+                                    // error
+                                    console.log(err);
+                                    reject(err);
+                                });
+                            } else resolve();
+                            // console.log("Resolved");
+                        }).catch(function(err) {
+                            // console.log("Reject : ", err);
+                            reject(err);
+                        })
+                    });
+
+                });
+
+            }
+        }
+    },
+
+    backupToDb: function(db, tile) {
+        if (this.userAgent != FIREFOX) {
+            this.backupToDbOtherBR(db, tile);
+        } else {
+            this.backupToDbFF(db, tile);
         }
     },
 

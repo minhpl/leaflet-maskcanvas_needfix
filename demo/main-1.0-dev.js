@@ -892,7 +892,7 @@ $(function() {
 
         //update
         var imageData = createImageData(coords).imageData;
-        putImageData([itemPos.lat, itemPos.lng], width, height, coords, imageData);
+        putImageData([itemPos.lat, itemPos.lng], red_canvas.width, red_canvas.height, coords, imageData);
 
         if (coverageLayer.rtree_cachedTile) {
 
@@ -951,9 +951,7 @@ $(function() {
                                     // tile.img.src = canvas.toDataURL("image/png");
                                     tile.img = new Image();
                                     tile.img.src = canvas.toDataURL("image/png");                                
-                                } else {
-                                    console.log("else");
-
+                                } else {                                    
                                     var maxTimes = 10;
                                     var countTimes = 0;
 
@@ -990,8 +988,7 @@ $(function() {
                 }
 
                 var tile = coverageLayer.tiles.get(id) || coverageLayer.hugeTiles.get(id);
-                if (tile) {
-                    console.log("get tile from lru");
+                if (tile) {                    
                     updateTile(tile);
                     tile.needSave == true;
                     coverageLayer.store(id, tile);
@@ -1006,9 +1003,9 @@ $(function() {
                      *  need not use asynchrnous or use promise to make sequence chaining 
                      */
                     console.log(i);
-                    coverageLayer.getStoreObj(id).then(function(tile) {
-                        console.log("get tile from DB");
+                    coverageLayer.getStoreObj(id).then(function(tile) {                        
                         updateTile(tile);
+                        tile.needSave = true;
                         coverageLayer.store(id, tile);
                         if (tile.numPoints == 0)
                             coverageLayer.emptyTiles.set(id, EMPTY);
