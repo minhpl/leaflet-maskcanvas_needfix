@@ -33,16 +33,21 @@ $(function() {
     const TILESIZE = 256;
 
     var numCircles = 10000;
-    var WIDTH = 2000;
-    var HEIGHT = 2000;
+    // var WIDTH = 2000;
+    // var HEIGHT = 2000;
 
     red_canvas.width = RADIUS << 1;
     red_canvas.height = RADIUS << 1;
     var red_context = red_canvas.getContext('2d');
+
+    // ctx.rect(0,0,red_canvas.width,red_canvas.height);
+    // red_context.fillRect(0,0,red_canvas.width,red_canvas.height);
+
+    red_context.fillStyle = 'red';
     red_context.beginPath();
 
     red_context.arc(RADIUS, RADIUS, RADIUS, 0, 2 * Math.PI, true);
-    red_context.fillStyle = 'red';
+
     red_context.fill();
     red_context.lineWidth = 1;
 
@@ -802,14 +807,11 @@ $(function() {
     map.on('click', onMouseClick_removeMarker);
 
     function onMouseClick_removeMarker(e) {
-
-        var width = red_canvas.width;
-        var height = red_canvas.height;
-
-        var zoom = map.getZoom();
+        
+        var zoom = map.getZoom();        
         var latlng = e.latlng;
-        var currentlatLng = L.latLng(latlng.lat, latlng.lng);
 
+        var currentlatLng = L.latLng(latlng.lat, latlng.lng);
         var currentPoint = map.project(currentlatLng, zoom);
 
         var pad = L.point(red_canvas.width >> 1, red_canvas.height >> 1);
@@ -822,8 +824,7 @@ $(function() {
 
         var x = (currentPoint.x / TILESIZE) >> 0;
         var y = (currentPoint.y / TILESIZE) >> 0;
-
-        var zoom = map.getZoom();
+        
         var coords = L.point(x, y);
         coords.z = zoom;
         var id = coverageLayer.getId(coords);
@@ -844,31 +845,6 @@ $(function() {
 
         var itemPos = L.latLng(item[0], item[1]);
 
-        // var itemPos = L.latLng(item[0], item[1]);
-        // var itemPosPoint = map.project(itemPos, zoom);
-        // var _pad = L.point(red_canvas.width, red_canvas.height);
-        // var topLeftcv = itemPosPoint.subtract(pad);
-        // // var bottomRightcv = itemPosPoint.add(pad);
-        // // var nw_cv = map.unproject(topLeftcv, zoom);
-        // // var se_cv = map.unproject(bottomRightcv, zoom);
-
-        // var topLeftBound = itemPosPoint.subtract(_pad);
-        // var bottomRightBound = itemPosPoint.add(_pad);
-        // var _nw = map.unproject(topLeftBound, zoom);
-        // var _se = map.unproject(bottomRightBound, zoom);
-        // var bound = [_se.lat, _nw.lng, _nw.lat, _se.lng];
-
-        // // var boundCV = [se_cv.lat, nw_cv.lng, nw_cv.lat, se_cv.lng];
-
-        // // var marker = L.marker([_nw.lat, _nw.lng]).addTo(map);
-        // // var marker2 = L.marker([_se.lat, _se.lng]).addTo(map);
-
-        // var _items = coverageLayer._rtree.search(bound); //all item to be redraw
-        // _items.sort(function(a, b) {
-        //     return a[5] - b[5];
-        // });
-
-
         var createImageData = function(coords) {
             var zoom = coords.z;
             var itemPosPoint = map.project(itemPos, zoom);
@@ -879,9 +855,7 @@ $(function() {
 
             var _nw = map.unproject(topLeftBound, zoom);
             var _se = map.unproject(bottomRightBound, zoom);
-            var bound = [_se.lat, _nw.lng, _nw.lat, _se.lng];
-
-            // var boundCV = [se_cv.lat, nw_cv.lng, nw_cv.lat, se_cv.lng];
+            var bound = [_se.lat, _nw.lng, _nw.lat, _se.lng];            
 
             // var marker = L.marker([_nw.lat, _nw.lng]).addTo(map);
             // var marker2 = L.marker([_se.lat, _se.lng]).addTo(map);
@@ -900,23 +874,12 @@ $(function() {
             pointTileCanvas = coverageLayer._tilePoint(coords, [ll.lat, ll.lng]);
 
             for (var i = 0; i < _items.length; i++) {
-                // var p = _canvasPoint(topLeftcv, _items[i]);
-
                 var _item = _items[i];
                 var tilePointItem = coverageLayer._tilePoint(coords, [_item[0], _item[1]]);
                 var _x = tilePointItem[0] - pointTileCanvas[0];
                 var _y = tilePointItem[1] - pointTileCanvas[1];
 
                 context.drawImage(red_canvas, _x - (red_canvas.width >> 1), _y - (red_canvas.height >> 1));
-
-                // context.strokeStyle = '#000';
-                // context.beginPath();
-                // context.moveTo(0, 0);
-                // context.lineTo(red_canvas.width, 0);
-                // context.lineTo(red_canvas.width, red_canvas.height);
-                // context.lineTo(0, red_canvas.height);
-                // context.closePath();
-                // context.stroke();
             }
 
             var imageData = context.getImageData(0, 0, subCanvas.width, subCanvas.height);
@@ -927,26 +890,6 @@ $(function() {
             }
         }
 
-        // var canvas = coverageLayer.canvases.get(id);
-        // var ctx = canvas.getContext('2d');
-
-        // ctx.clearRect(0, 0, subCanvas.width, subCanvas.height);
-        // ctx.drawImage(subCanvas, 0, 0);
-
-        // console.log(x, y);
-        // console.log(topLeftcv.x, topLeftcv.y);
-
-        // var x = (topLeftcv.x - x * TILESIZE);
-        // x = (x < 0) ? (x - 0.5) >> 0 : (x + 0.5) >> 0; //Math.round
-        // var y = (topLeftcv.y - y * TILESIZE);
-        // y = (y < 0) ? (y - 0.5) >> 0 : (y + 0.5) >> 0; //Math.round        
-
-        // console.log(x, y);
-
-        // ctx.clearRect(pointTileCanvas[0], pointTileCanvas[1], subCanvas.width, subCanvas.height);
-        // ctx.drawImage(subCanvas,pointTileCanvas[0],pointTileCanvas[1]);
-        // ctx.putImageData(imageData, pointTileCanvas[0], pointTileCanvas[1]);
-
         //update
         var imageData = createImageData(coords).imageData;
         putImageData([itemPos.lat, itemPos.lng], width, height, coords, imageData);
@@ -956,6 +899,7 @@ $(function() {
             var result = coverageLayer.rtree_cachedTile.search([itemPos.lat, itemPos.lng, itemPos.lat, itemPos.lng]);
 
             for (var i = 0; i < result.length; i++) {
+                console.log(result.length);
                 var id = result[i][4];
                 var coords = coverageLayer.getCoords(id);
                 // console.log(coords);
@@ -974,12 +918,15 @@ $(function() {
                     }
 
                     if (tile.img) {
+                        // console.log("--------------------------------------------------------------------");
+
                         var canvas = document.createElement('canvas');
                         canvas.width = canvas.height = TILESIZE;
                         var ctx = canvas.getContext('2d');
                         var img = tile.img;
 
                         if (img.complete) {
+                            console.log("img complete", id);
                             ctx.drawImage(img, 0, 0);
 
                             var obj = createImageData(coords);
@@ -987,10 +934,12 @@ $(function() {
                             var pos = obj.pointTileCanvas;
                             ctx.putImageData(_imageData, pos[0], pos[1]);
 
+                            // tile.img.src = canvas.toDataURL("image/png");
+                            tile.img = new Image();   //prevent fire loading function recursively 
                             tile.img.src = canvas.toDataURL("image/png");
                         } else {
                             tile.img.onload = function(e) {
-                                console.log("here");
+                                console.log("here", id);
                                 if (e.target.complete) {
                                     ctx.drawImage(img, 0, 0);
 
@@ -998,9 +947,13 @@ $(function() {
                                     var imageData = obj.imageData;
                                     var pos = obj.pointTileCanvas;
                                     ctx.putImageData(imageData, pos[0], pos[1]);
-
-                                    tile.img.src = canvas.toDataURL("image/png");
+                                    
+                                    // tile.img.src = canvas.toDataURL("image/png");
+                                    tile.img = new Image();
+                                    tile.img.src = canvas.toDataURL("image/png");                                
                                 } else {
+                                    console.log("else");
+
                                     var maxTimes = 10;
                                     var countTimes = 0;
 
@@ -1019,6 +972,7 @@ $(function() {
                                                     var pos = obj.pointTileCanvas;
                                                     ctx.putImageData(imageData, pos[0], pos[1]);
 
+                                                    tile.img = new Image();
                                                     tile.img.src = canvas.toDataURL("image/png");
                                                 } else {
                                                     retryLoadImage();
@@ -1037,6 +991,7 @@ $(function() {
 
                 var tile = coverageLayer.tiles.get(id) || coverageLayer.hugeTiles.get(id);
                 if (tile) {
+                    console.log("get tile from lru");
                     updateTile(tile);
                     tile.needSave == true;
                     coverageLayer.store(id, tile);
@@ -1050,14 +1005,17 @@ $(function() {
                      *  potential unknown behavior, because this code block is asynchronous. 
                      *  need not use asynchrnous or use promise to make sequence chaining 
                      */
-                    
-                    coverageLayer.getStoreObj(id).then(function(tile) {   
-                        console.log("here");
-                        updateTile();
+                    console.log(i);
+                    coverageLayer.getStoreObj(id).then(function(tile) {
+                        console.log("get tile from DB");
+                        updateTile(tile);
                         coverageLayer.store(id, tile);
                         if (tile.numPoints == 0)
                             coverageLayer.emptyTiles.set(id, EMPTY);
                     });
+
+                    // break;
+
                 }
             }
         }
@@ -1141,12 +1099,14 @@ $(function() {
                         if (img.complete) {
                             context.drawImage(img, 0, 0);
                             context.drawImage(red_canvas, tilePoint[0] - (WIDTH >> 1), tilePoint[1] - (HEIGHT >> 1));
+                            tile.img = new Image();
                             tile.img.src = tempCanvas.toDataURL("image/png");
                         } else {
                             tile.img.onload = function(e) {
                                 if (e.target.complete) {
                                     context.drawImage(img, 0, 0);
                                     context.drawImage(red_canvas, tilePoint[0] - (WIDTH >> 1), tilePoint[1] - (HEIGHT >> 1));
+                                    tile.img = new Image();
                                     tile.img.src = tempCanvas.toDataURL("image/png");
                                 } else {
                                     var maxTimes = 10;
@@ -1162,6 +1122,7 @@ $(function() {
                                                     console.log("here");
                                                     context.drawImage(img, 0, 0);
                                                     context.drawImage(red_canvas, tilePoint[0] - (WIDTH >> 1), tilePoint[1] - (HEIGHT >> 1));
+                                                    tile.img = new Image();
                                                     tile.img.src = tempCanvas.toDataURL("image/png");
                                                 } else {
                                                     retryLoadImage();

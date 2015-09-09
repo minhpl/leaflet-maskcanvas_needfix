@@ -55,9 +55,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     // rtreeLCTilePoly: new lru(40),    
     BBAllPointLatlng: [-9999, -9999, -9999, -9999],
 
-    newMarkerID: undefined,
-
-    //have not been complete    
+    newMarkerID: undefined,  //ID when add new marker 
 
     initialize: function(options) {
         L.setOptions(this, options);
