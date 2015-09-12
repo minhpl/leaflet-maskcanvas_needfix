@@ -408,7 +408,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                         deferred.fulfill(undefined);
                     }
                 }
-            }, ['data.js']);
+            }, ['data-light.js']);
 
             craziness.doCrazy(self.rtree_loaded).then(function(result) {
                 if (!self.rtree_loaded && result) {
@@ -704,6 +704,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
                     // padding
                     var pad = new L.Point(self._getMaxRadius(coords.z), self._getMaxRadius(coords.z));
+                    // console.log(pad);
                     nwPoint = nwPoint.subtract(pad);
                     sePoint = sePoint.add(pad);
 
@@ -906,14 +907,14 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     var value = node.value;
                     if (value.needSave) {
                         self.backupToDb(db, value);
-                        // console.log("Backup once ",value);
+                        console.log("Backup once ", value);
                         break;
                     }
                     node = node.next;
                 }
                 self.needPersistents--;
             }
-        }, 0);
+        }, 100);
 
     },
 
@@ -999,12 +1000,12 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                                                 this.db.put(simpleTile).then(function(res) {
                                                     // console.log('successfully store object 2', res);
                                                     callback('ok');
-                                                }).catch(function(err) {
-                                                    console.log('other err2');
+                                                }).catch(function(err2) {
+                                                    console.log('other err2', err2);
                                                     callback(undefined);
                                                 });
                                             } else {
-                                                console.log('other err1');
+                                                console.log('other err1', err);
                                                 callback(undefined);
                                             }
                                         });
@@ -1149,11 +1150,9 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
         // if (self.rtree_loaded) {        
         return self.tiles.set(id, tile, function(removed) {
-            if (removed){
+            if (removed) {
                 return self.backupToDb(self.options.db, removed.value);
-            }
-            else
-            {
+            } else {
                 return Promise.resolve();
             }
         });
@@ -1384,8 +1383,11 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         if (pointCoordinates) {
             // var w = ((this.options.radius+ 0.5) >> 1) | 0;
             // var h = ((this.options.radius+0.5) >> 1) | 0;
-            var w = this.options.radius >> 1;
-            var h = this.options.radius >> 1;
+            // var w = this.options.radius >> 1;
+            // var h = this.options.radius >> 1;
+            var w = this.options.radius;
+            var h = this.options.radius;
+
             for (var index = 0; index < pointCoordinates.length; ++index) {
                 tilePoint = this._tilePoint(coords, pointCoordinates[index]);
                 // console.log(tilePoint[0],tilePoint[1]);

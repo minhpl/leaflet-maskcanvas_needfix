@@ -1,3 +1,4 @@
+0
 $(function() {
 
     var map = new L.Map('map', {
@@ -77,7 +78,7 @@ $(function() {
 
     var coverageLayer = new L.GridLayer.MaskCanvas({
         opacity: 0.5,
-        radius: red_canvas.width,
+        radius: RADIUS,
         useAbsoluteRadius: false,
         img_on: img_redCircle,
         img_off: img_blueCircle,
@@ -470,6 +471,7 @@ $(function() {
                 var ctx = canvas.getContext('2d');
                 // img.onload= function(){
                 // drawImage(ctx, img, tilePoint[0] - w, tilePoint[1] - h);
+                console.log(w, h);
                 ctx.putImageData(imgData, tilePoint[0] - w, tilePoint[1] - h);
             }
         }
@@ -605,6 +607,10 @@ $(function() {
 
     var timeoutID = undefined;
 
+    function onMouseMove_backUpOne(e) {
+        coverageLayer.backupOne();
+    }
+
     function onMouseMove(e) {
         if (timeoutID) clearTimeout(timeoutID);
 
@@ -715,7 +721,6 @@ $(function() {
                 $('.leaflet-container').css('cursor', 'auto');
             }
         }, 10);
-
     }
 
     function squaredistance(point1, point2) {
@@ -796,6 +801,7 @@ $(function() {
     $('.leaflet-container').css('cursor', 'auto');
 
     // map.on('mousemove', onMouseMove);
+    map.on('mousemove', onMouseMove_backUpOne);
 
     function onMouseClick_showLatLng(e) {
         popup
@@ -809,8 +815,9 @@ $(function() {
     var prev = Promise.resolve();
 
     function onMouseClick_removeMarker(e) {
-
         var zoom = map.getZoom();
+
+        console.log(zoom);
         var latlng = e.latlng;
 
         var currentlatLng = L.latLng(latlng.lat, latlng.lng);
@@ -818,8 +825,9 @@ $(function() {
 
         var pad = L.point(red_canvas.width >> 1, red_canvas.height >> 1);
         var _pad = L.point(red_canvas.width, red_canvas.height);
-        var topLeft = currentPoint.subtract(pad);
+        var topLeft = currentPoint.subtract(pad);        
         var bottomRight = currentPoint.add(pad);
+        console.log(pad);
         var nw = map.unproject(topLeft, zoom);
         var se = map.unproject(bottomRight, zoom);
         var bb = [se.lat, nw.lng, nw.lat, se.lng];
@@ -831,24 +839,30 @@ $(function() {
         coords.z = zoom;
         var id = coverageLayer.getId(coords);
 
-        var items = coverageLayer._rtree.search(bb);
-        if (items.length == 0) return;
+        console.log(bb);
 
-        // console.log(items);
+        var items = coverageLayer._rtree.search(bb);        
+        if (items.length == 0) {
+            console.log("not found",coverageLayer._rtree);
+            return;
+        }
+
         items.sort(function(a, b) {
             return a[5] - b[5];
         });
 
         var item = items.pop(); //item to be remove;
 
-        // console.log(item);
-
+        console.log(item);
         coverageLayer._rtree.remove(item);
 
         var itemPos = L.latLng(item[0], item[1]);
 
+        console.log("hereeeeeeeeeee");
+
         var createImageData = function(coords) {
             var zoom = coords.z;
+            console.log("here", zoom);
             var itemPosPoint = map.project(itemPos, zoom);
             var topLeftcv = itemPosPoint.subtract(pad);
 
@@ -863,7 +877,7 @@ $(function() {
             // var marker2 = L.marker([_se.lat, _se.lng]).addTo(map);
 
             var _items = coverageLayer._rtree.search(bound); //all item to be redraw
-            _items.sort(function(a, b) {
+            _items.sort(function(a, b) {                
                 return a[5] - b[5];
             });
 
@@ -874,6 +888,7 @@ $(function() {
 
             var ll = map.unproject(topLeftcv, zoom);
             pointTileCanvas = coverageLayer._tilePoint(coords, [ll.lat, ll.lng]);
+            console.log("pointTileCanvas", pointTileCanvas);
 
             for (var i = 0; i < _items.length; i++) {
                 var _item = _items[i];
@@ -884,6 +899,15 @@ $(function() {
                 context.drawImage(red_canvas, _x - (red_canvas.width >> 1), _y - (red_canvas.height >> 1));
             }
 
+            // context.strokeStyle = '#000';
+            // context.beginPath();
+            // context.moveTo(0, 0);
+            // context.lineTo(red_canvas.width, 0);
+            // context.lineTo(red_canvas.width, red_canvas.height);
+            // context.lineTo(0, red_canvas.height);
+            // context.closePath();
+            // context.stroke();
+
             var imageData = context.getImageData(0, 0, subCanvas.width, subCanvas.height);
 
             return {
@@ -892,204 +916,219 @@ $(function() {
             }
         }
 
-        //update
-        var imageData = createImageData(coords).imageData;
+        //update gui immediately
+        console.log("hereeeeeeeeeee");
+        var obj = createImageData(coords);
+        var imageData = obj.imageData;
+
         putImageData([itemPos.lat, itemPos.lng], red_canvas.width, red_canvas.height, coords, imageData);
 
+        //update cache and db
+        console.log("here");
+        if (coverageLayer.rtree_cachedTile) {
 
-        var p = new Promise(function(resolve2, resject2) {
-            if (coverageLayer.rtree_cachedTile) {
+            var result = coverageLayer.rtree_cachedTile.search([itemPos.lat, itemPos.lng, itemPos.lat, itemPos.lng]);
+            result.sort(function(a, b) {
+                var za = coverageLayer.getCoords(a[4]).z;
+                var zb = coverageLayer.getCoords(b[4]).z;
+                // console.log(za, zb);
+                return za - zb;
+            })
 
-                var result = coverageLayer.rtree_cachedTile.search([itemPos.lat, itemPos.lng, itemPos.lat, itemPos.lng]);
+            console.log(result.length, result);
 
-                var ids = [];
-                for (var i = 0; i < result.length; i++) {
-                    // console.log(result.length);
-                    var id = result[i][4];
+            // var ids = [];
+            // for (var i = 0; i < result.length; i++) {
+            //     // console.log(result.length);
+            //     var id = result[i][4];
 
-                    // console.log(coords);
-                    var updateTile = function(tile) {
-                        var coords = coverageLayer.getCoords(tile._id);
-                        tile.numPoints--;
+            //     // console.log(coords);
+            //     var updateTile = function(tile) {
+            //         var coords = coverageLayer.getCoords(tile._id);
+            //         tile.numPoints--;
 
-                        if (tile.data && !coverageLayer.options.useGlobalData) {
-                            if (tile.sorted)
-                                data.pop();
-                            else {
-                                var index = data.lastIndexOf(item); //Note: browser support for indexOf is limited; it is not supported in Internet Explorer 7 and 8.
-                                if (index > -1) {
-                                    data.splice(index, 1);
-                                }
-                            }
-                        }
+            //         if (tile.data && !coverageLayer.options.useGlobalData) {
+            //             if (tile.sorted)
+            //                 data.pop();
+            //             else {
+            //                 var index = data.lastIndexOf(item); //Note: browser support for indexOf is limited; it is not supported in Internet Explorer 7 and 8.
+            //                 if (index > -1) {
+            //                     data.splice(index, 1);
+            //                 }
+            //             }
+            //         }
 
-                        if (tile.img) {
-                            // console.log("--------------------------------------------------------------------");
+            //         if (tile.img) {
+            //             // console.log("--------------------------------------------------------------------");
 
-                            var canvas = document.createElement('canvas');
-                            canvas.width = canvas.height = TILESIZE;
-                            var ctx = canvas.getContext('2d');
-                            var img = tile.img;
+            //             var canvas = document.createElement('canvas');
+            //             canvas.width = canvas.height = TILESIZE;
+            //             var ctx = canvas.getContext('2d');
+            //             var img = tile.img;
 
-                            if (img.complete) {
-                                // console.log("img complete", id);
-                                ctx.drawImage(img, 0, 0);
+            //             if (img.complete) {
+            //                 // console.log("img complete", id);
+            //                 ctx.drawImage(img, 0, 0);
 
-                                var obj = createImageData(coords);
-                                var imageData = obj.imageData;
-                                var pos = obj.pointTileCanvas;
-                                ctx.putImageData(imageData, pos[0], pos[1]);
-                                // ctx.putImageData(imageData, 0, 0);
-                                // tile.img.src = canvas.toDataURL("image/png");
-                                tile.img = new Image(); //prevent fire loading function recursively 
-                                tile.img.src = canvas.toDataURL("image/png");
-                            } else {
-                                tile.img.onload = function(e) {
-                                    // console.log("here", tile._id);
-                                    if (e.target.complete) {
-                                        ctx.drawImage(img, 0, 0);
+            //                 var obj = createImageData(coords);
+            //                 var imageData = obj.imageData;
+            //                 var pos = obj.pointTileCanvas;
+            //                 ctx.putImageData(imageData, pos[0], pos[1]);
+            //                 // ctx.putImageData(imageData, 0, 0);
+            //                 // tile.img.src = canvas.toDataURL("image/png");
+            //                 tile.img = new Image(); //prevent fire loading function recursively 
+            //                 tile.img.src = canvas.toDataURL("image/png");
+            //             } else {
+            //                 tile.img.onload = function(e) {
+            //                     // console.log("here", tile._id);
+            //                     if (e.target.complete) {
+            //                         ctx.drawImage(img, 0, 0);
 
-                                        var obj = createImageData(coords);
-                                        var imageData = obj.imageData;
-                                        var pos = obj.pointTileCanvas;
-                                        ctx.putImageData(imageData, pos[0], pos[1]);
-                                        // ctx.putImageData(imageData, 0, 0);
+            //                         var obj = createImageData(coords);
+            //                         var imageData = obj.imageData;
+            //                         var pos = obj.pointTileCanvas;
+            //                         ctx.putImageData(imageData, pos[0], pos[1]);
+            //                         // ctx.putImageData(imageData, 0, 0);
 
-                                        // tile.img.src = canvas.toDataURL("image/png");
-                                        tile.img = new Image();
-                                        tile.img.src = canvas.toDataURL("image/png");
-                                    } else {
-                                        var maxTimes = 10;
-                                        var countTimes = 0;
+            //                         // tile.img.src = canvas.toDataURL("image/png");
+            //                         tile.img = new Image();
+            //                         tile.img.src = canvas.toDataURL("image/png");
+            //                     } else {
+            //                         var maxTimes = 10;
+            //                         var countTimes = 0;
 
-                                        function retryLoadImage() {
-                                            setTimeout(function() {
-                                                if (countTimes > maxTimes) {
-                                                    // -- cannot load image.
-                                                    return;
-                                                } else {
-                                                    if (e.target.complete) {
-                                                        // console.log("here2");
-                                                        ctx.drawImage(img, 0, 0);
+            //                         function retryLoadImage() {
+            //                             setTimeout(function() {
+            //                                 if (countTimes > maxTimes) {
+            //                                     // -- cannot load image.
+            //                                     return;
+            //                                 } else {
+            //                                     if (e.target.complete) {
+            //                                         // console.log("here2");
+            //                                         ctx.drawImage(img, 0, 0);
 
-                                                        var obj = createImageData(coords);
-                                                        var imageData = obj.imageData;
-                                                        var pos = obj.pointTileCanvas;
-                                                        ctx.putImageData(imageData, pos[0], pos[1]);
-                                                        // ctx.putImageData(imageData, 0, 0);
-                                                        tile.img = new Image();
-                                                        tile.img.src = canvas.toDataURL("image/png");
-                                                    } else {
-                                                        retryLoadImage();
-                                                    }
-                                                }
-                                                countTimes++;
-                                            }, 50);
-                                        };
+            //                                         var obj = createImageData(coords);
+            //                                         var imageData = obj.imageData;
+            //                                         var pos = obj.pointTileCanvas;
+            //                                         ctx.putImageData(imageData, pos[0], pos[1]);
+            //                                         // ctx.putImageData(imageData, 0, 0);
+            //                                         tile.img = new Image();
+            //                                         tile.img.src = canvas.toDataURL("image/png");
+            //                                     } else {
+            //                                         retryLoadImage();
+            //                                     }
+            //                                 }
+            //                                 countTimes++;
+            //                             }, 50);
+            //                         };
 
-                                        retryLoadImage();
-                                    }
-                                }
-                            }
-                        }
-                    }
+            //                         retryLoadImage();
+            //                     }
+            //                 }
+            //             }
+            //         }
+            //     }
 
-                    var tile = coverageLayer.tiles.get(id) || coverageLayer.hugeTiles.get(id);
-
-
-                    if (tile) {
-                        updateTile(tile);
-                        tile.needSave == true;
-                        coverageLayer.store(id, tile);
-                        if (tile.numPoints < HUGETILE_THREADSHOLD)
-                            coverageLayer.hugeTiles.remove(id);
-                        else if (tile.numPoints == 0)
-                            coverageLayer.emptyTiles.set(id, EMPTY);
-
-                    } else {
-                        ids.push(id);
-                        /**
-                         *  potential unknown behavior, because this code block is asynchronous. 
-                         *  need not use asynchrnous or use promise to make sequence chaining 
-
-                         * error likely inccur when remove points in the same one tile when click with hight speed
-                         */
-
-                        // console.log(id);
-                        // coverageLayer.getStoreObj(id).then(function(_tile) {
-                        //     console.log("update tile in db", i, _tile);
-                        //     updateTile(_tile);
-                        //     _tile.needSave = true;
-                        //     if (_tile.numPoints == 0)
-                        //         coverageLayer.emptyTiles.set(_tile._id, EMPTY);
-                        //     coverageLayer.store(_tile._id, _tile);
-                        // }).catch(function(err) {
-                        //     console.log("Not Found", err);
-                        // });
-                    }
-
-                    var prev = Promise.resolve();
-                }
-
-                console.log("---------------------------------------------------");
-                console.log(ids.length);
-                console.log("---------------------------------------------------");
+            //     var tile = coverageLayer.tiles.get(id) || coverageLayer.hugeTiles.get(id);
 
 
-                if (ids.length == 0) {
-                    resolve2();
-                    return;
-                }
+            //     if (tile) {
+            //         updateTile(tile);
+            //         tile.needSave == true;
+            //         coverageLayer.store(id, tile);
+            //         if (tile.numPoints < HUGETILE_THREADSHOLD)
+            //             coverageLayer.hugeTiles.remove(id);
+            //         else if (tile.numPoints == 0)
+            //             coverageLayer.emptyTiles.set(id, EMPTY);
 
-                var f = function(index) {
+            //     } else {
+            //         ids.push(id);
+            //         /**
+            //          *  potential unknown behavior, because this code block is asynchronous. 
+            //          *  need not use asynchrnous or use promise to make sequence chaining 
 
-                    var promise = new Promise(function(resolve, reject) {
+            //          * error likely inccur when remove points in the same one tile when click with hight speed
+            //          */
 
-                        console.log(index);
-                        coverageLayer.getStoreObj(index).then(function(_tile) {
-                            console.log("update tile in db", index, _tile);
-                            updateTile(_tile);
-                            _tile.needSave = true;
-                            if (_tile.numPoints == 0)
-                                coverageLayer.emptyTiles.set(_tile._id, EMPTY);
-                            return coverageLayer.store(_tile._id, _tile);
-                        }).then(function(res) {
-                            console.log("success", index);
-                            resolve(index);
-                        }).catch(function(err) {
-                            console.log("Err", index);
-                            resolve(index);
-                        });
-                    });
+            //         // console.log(id);
+            //         // coverageLayer.getStoreObj(id).then(function(_tile) {
+            //         //     console.log("update tile in db", i, _tile);
+            //         //     updateTile(_tile);
+            //         //     _tile.needSave = true;
+            //         //     if (_tile.numPoints == 0)
+            //         //         coverageLayer.emptyTiles.set(_tile._id, EMPTY);
+            //         //     coverageLayer.store(_tile._id, _tile);
+            //         // }).catch(function(err) {
+            //         //     console.log("Not Found", err);
+            //         // });
+            //     }
 
-                    return promise;
-                }
+            //     var prev = Promise.resolve();
+            // }
 
-                var prevPromise = Promise.resolve();
+            console.log("---------------------------------------------------");
+            // console.log(ids.length);
+            console.log("---------------------------------------------------");
 
-                ids.forEach(function(id) {
-                    prevPromise = prevPromise.then(function() {
-                        return f(id);
-                    }).then(function(res) {
-                        console.log(res);
-                        if (res == ids[ids.length - 1]) {
-                            resolve2();
-                        }
-                    }).catch(function(err) {
-                        console.log("err");
-                    })
-                });
 
-            } else {
-                resolve2();
-            }
-        });
+            // if (ids.length == 0) {
+            //     resolve2();
+            //     return;
+            // }
 
-        prev = prev.then(function()
-        {
-            return p;
-        })
-        
+            // var f = function(index) {
+
+            //     var promise = new Promise(function(resolve, reject) {
+
+            //         console.log(index);
+            //         coverageLayer.getStoreObj(index).then(function(_tile) {
+            //             console.log("update tile in db", index, _tile);
+            //             updateTile(_tile);
+            //             _tile.needSave = true;
+            //             if (_tile.numPoints == 0)
+            //                 coverageLayer.emptyTiles.set(_tile._id, EMPTY);
+            //             return coverageLayer.store(_tile._id, _tile);
+            //         }).then(function(res) {
+            //             console.log("success", index);
+            //             resolve(index);
+            //         }).catch(function(err) {
+            //             console.log("Err", index);
+            //             resolve(index);
+            //         });
+            //     });
+
+            //     return promise;
+            // }
+
+            // var prevPromise = Promise.resolve();
+
+            // ids.forEach(function(id) {
+            //     prevPromise = prevPromise.then(function() {
+            //         return f(id);
+            //     }).then(function(res) {
+            //         console.log(res);
+            //         if (res == ids[ids.length - 1]) {
+            //             resolve2();
+            //         }
+            //     }).catch(function(err) {
+            //         console.log("err");
+            //     })
+            // });
+
+        }
+
+
+        // var p = new Promise(function(resolve2, resject2) {
+        //     else {
+        //         resolve2();
+        //     }
+        // });
+
+        // prev = prev.then(function() {
+        //     console.log("here2");
+        //     return p;
+        // })
+
     }
 
     function drawMarker(marker) {
