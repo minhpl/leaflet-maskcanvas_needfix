@@ -907,7 +907,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     var value = node.value;
                     if (value.needSave) {
                         self.backupToDb(db, value);
-                        console.log("Backup once ", value);
+                        // console.log("Backup once ", value);
                         break;
                     }
                     node = node.next;
