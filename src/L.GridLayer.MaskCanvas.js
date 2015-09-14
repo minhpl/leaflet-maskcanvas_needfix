@@ -1048,7 +1048,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     });
 
                 } else {
-                    resolve("DB is undefined");
+                    reject("DB is undefined");
                 }
             } else {
                 resolve("Don't need save to DB");

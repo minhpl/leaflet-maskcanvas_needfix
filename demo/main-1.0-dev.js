@@ -890,7 +890,6 @@ $(function() {
             //update cache and db
             // console.log("here", item);
 
-
             // var promise = new Promise(function(resolve2, reject2) {
             if (coverageLayer.rtree_cachedTile) {
 
@@ -909,6 +908,10 @@ $(function() {
                     var promise2 = new Promise(function(resolve, reject) {
                         var coords = coverageLayer.getCoords(tile._id);
                         tile.numPoints--;
+
+                        // console.log("------", tile);
+                        // resolve(tile);
+                        // return;
 
                         if (tile.data && !coverageLayer.options.useGlobalData) {
                             if (tile.sorted)
@@ -963,13 +966,17 @@ $(function() {
                                     } else {
                                         var maxTimes = 10;
                                         var countTimes = 0;
+                                        var resolved = false;
 
                                         function retryLoadImage() {
                                             setTimeout(function() {
                                                 if (countTimes > maxTimes) {
                                                     // -- cannot load image.
                                                     console.log("cannot load image");
-                                                    reject("cannot load image");
+                                                    if (!resolved) {
+                                                        reject("cannot load image")
+                                                        resolved = true;
+                                                    };
                                                     return;
                                                 } else {
                                                     if (e.target.complete) {
@@ -984,9 +991,12 @@ $(function() {
                                                         tile.img = new Image();
                                                         tile.img.src = canvas.toDataURL("image/png");
                                                         console.log("retryLoadImage");
-                                                        resolve(tile);
+                                                        if (!resolved) {
+                                                            resolve(tile);
+                                                            resolved = true;
+                                                        }
                                                     } else {
-                                                        retryLoadImage();
+                                                        if (!resolved) retryLoadImage();
                                                     }
                                                 }
                                                 countTimes++;
@@ -1018,43 +1028,49 @@ $(function() {
                     }
                 }
 
-                Promise.all(tiles.map(function(tile) {
-                    console.log("before update", tile);
-                    return updateTile(tile);
-                })).then(function(tiles) {
-                    console.log("after update", tiles);
-                    return Promise.all(tiles.map(function(tile) {
-                        if (tile.numPoints < HUGETILE_THREADSHOLD)
-                            coverageLayer.hugeTiles.remove(id);
-                        else if (tile.numPoints == 0)
-                            coverageLayer.emptyTiles.set(id, EMPTY);
-                        return coverageLayer.store(id, tile);
-                    }));
-                }).then(function(arr) {
-                    console.log(arr);
-                    resolve2("ok");
-                }).catch(function(err) {
-                    console.log(err);
-                    reject2();
-                })
+                if (tiles.length > 0) {
+                    Promise.all(tiles.map(function(tile) {
+                        console.log("before update", tile);
+                        return updateTile(tile);
+                    })).then(function(tiles) {
+                        console.log("after update", tiles);
+                        return Promise.all(tiles.map(function(tile) {
+                            if (tile.numPoints < HUGETILE_THREADSHOLD)
+                                coverageLayer.hugeTiles.remove(id);
+                            else if (tile.numPoints == 0)
+                                coverageLayer.emptyTiles.set(id, EMPTY);
+                            return coverageLayer.store(id, tile);
+                        }));
+                    }).then(function(arr) {
+                        console.log(arr);
+                        resolve2("ok");
+                    }).catch(function(err) {
+                        console.log(err);
+                        reject2();
+                    })
+                } else {
+                    resolve2("tiles empty");
+                }
 
             } else
                 resolve2("coverageLayer.rtree_cachedTile undefined");
         });
 
-
         // promise.then(function(response) {
         //     console.log("----------", response);
         // });
-        console.log(prev);
-        prev = prev.then(function(response) {
-            // console.log("in here", response);
-            return p;
-        }).then(function(response) {
-            console.log("end------------", response);
-        }).catch(function(err) {
-            console.log("err-------", err);
-        });
+
+
+        return p;
+        // console.log(prev);
+        // prev = prev.then(function(response) {
+        //     console.log("in here", item);
+        //     return p;
+        // }).then(function(response) {
+        //     console.log("end------------", response);
+        // }).catch(function(err) {
+        //     console.log("err-------", err);
+        // });
     }
 
     function onMouseClick_removeMarker(e) {
@@ -1106,18 +1122,19 @@ $(function() {
 
         // console.log("here", items);
 
-
+        var prev = Promise.resolve();
         items.forEach(function(item) {
             // console.log("iddddddddddddd", item[5]);
-            removeMarker(item, coords);
+            prev = prev.then(function(response) {
+                return removeMarker(item, coords);
+            })
         })
 
 
         // for (var i = 0; i < items.length; i++) {
-
+            // removeMarker(item, coords);
         // }
 
-        // removeMarker(item, coords);
 
         // console.log("hereeeeeeeeeee");
 
