@@ -52,6 +52,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     prev: undefined,
 
     tiles: new lru(40),
+    tiles_needRecreate: new lru(1000),
     hugeTiles: new lru(40),
 
     rtree_cachedTile: rbush(32),
@@ -494,7 +495,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
          * @ general description This function try to get tile from db,
          * if tile is founded, then it immediately set it up to lru head
          */
-
         var db = this.options.db;
 
         var self = this;
@@ -508,7 +508,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                 db.get(id, {
                     attachments: false
                 }).then(function(doc) {
-                    if (self.options.debug) console.log("Found ------------------- ", doc);
+                    // if (self.options.debug) console.log("Found ------------------- ", doc);
                     // var tile = {
                     //     _id: doc._id,
                     //     status : LOADED,
@@ -547,7 +547,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     // resolve(res);  
                     res(doc);
                 }).catch(function(err) {
-                    // console.log(err);
+                    console.log("get stored object err", id, err);
                     rej(err);
                 });
             } else rej(new Error("No DB found"));
@@ -620,7 +620,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
                     res(doc);
                 }).catch(function(err) {
-                    // console.log(err);
+                    console.log("get stored object err", err);
                     rej(err);
                 });
             } else rej(new Error("No DB found"));
@@ -656,6 +656,9 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         var tile = this.hugeTiles.get(id) || this.tiles.get(id);
         var self = this;
         // if (tile) console.log("Status ",tile.status);
+
+
+
 
         // if not found
         if (!tile || tile.status == UNLOAD) {
@@ -1023,14 +1026,14 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                                             // if (self.options.debug) console.log("Successfully update stored object: ",results);
                                             resolved("successfully stored object to db");
                                         } else {
-                                            console.log('err');
+                                            console.log('err in backup to DB');
                                             reject(err);
                                         }
                                     })
                                 }
 
                             }).catch(function(err) {
-                                console.log(err);
+                                console.log("err convert canvas to blob", err);
                                 reject();
                             })
                         } else {
@@ -1043,7 +1046,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     }).then(function(res) {
                         resolve(res);
                     }).catch(function(err) {
-                        console.log(err);
+                        console.log("Err in back up to db", err);
                         reject(err);
                     });
 
@@ -1174,7 +1177,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                 if (!removed) {
                     resolve("not removed");
                 } else {
-                    self.backupToDb(self.options.db, removed.value).then(function(res) {                        
+                    self.backupToDb(self.options.db, removed.value).then(function(res) {
                         resolve(res);
                     });
                 }
@@ -1190,6 +1193,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
      */
 
     //important function
+
     _draw: function(canvas, coords) {
         // var valid = this.iscollides(coords);
         // if (!valid) return;  
@@ -1198,6 +1202,11 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         }
 
         var id = this.getId(coords);
+
+        // console.log(this.a);
+
+
+
 
         var self = this;
 
@@ -1234,6 +1243,77 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
         (function(self, canvas, coords) {
             var id = self.getId(coords);
+
+            if (self.tiles_needRecreate.get(id)) {
+                var tile = {};
+                if (!tile.data && self.options.useGlobalData) {
+                    var data = self._rtree.search(tile.bb);
+                    tile.numPoints = data.length;
+                    // console.log("TILE + ",tile);
+                    if (tile.numPoints > 0) {
+                        self._drawPoints(canvas, coords, data, false);
+                    } else {
+                        if (self.rtree_loaded) {
+                            // console.log("Store empty tile ", self.emptyTiles.size);
+                            /**                            
+                             * @description if rtree_loeaded = false, because rtree_loaded in asynchronous manner,
+                             * so data have not been loaded in tile.
+                             * and we cannot store tile to empty tile                                
+                             */
+
+                            self.emptyTiles.set(id, {});
+                            self.tiles.remove(id);
+                            if (self.needPersistents > self.tiles.size)
+                                self.needPersistents--;
+                            // console.log("Remove empty tile from current saved tiles",self.tiles.size);                                                                                       
+                        }
+                    }
+                } else self._drawPoints(canvas, coords, tile.data, tile.sorted);
+                tile.sorted = true;
+
+                if (tile.numPoints > 0) {
+                    /**
+                     * why don't use canvas directly instead of img ???                         
+                     */
+                    var img = new Image();
+                    img.src = canvas.toDataURL("image/png");
+
+                    // img.onload = function(){
+                    // console.log("Store Img to tile");
+
+                    //sau khi ve xong phai luu lai vao lru  hoac cache.
+                    var nTile = self.tiles.get(id);
+                    if (!nTile || !nTile.img) { // neu khong co tile hoac tile khong chua img
+                        tile.img = img;
+
+                        if (tile.numPoints >= HUGETILE_THREADSHOLD) {
+                            self.hugeTiles.set(id, tile);
+                            tile.needSave = false; //hugetile don't need to save to cached.
+                        } else self.store(id, tile);
+
+                        if (tile.needSave) {
+                            self.needPersistents++;
+                            // console.log("Need persistent ",self.needPersistents,self.tiles.size);
+                        }
+
+                    } else {
+                        //never called                    
+                        console.log("OMG_________________________________________________________OMG");
+
+                        nTile.canvas = canvas;
+                        /**
+                         * why needSave = false ?                             
+                         */
+                        ntile.needSave = false;
+                        if (tile.numPoints >= HUGETILE_THREADSHOLD) {
+                            self.hugeTiles.set(id, nTile);
+                        } else self.store(id, nTile);
+                    }
+                    // };
+                }
+
+                return;
+            }
 
             self.getTile(coords).then(function(tile) {
 
@@ -1295,6 +1375,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                         }
                         return;
                     }
+
 
                     if (!tile.data && self.options.useGlobalData) {
                         var data = self._rtree.search(tile.bb);

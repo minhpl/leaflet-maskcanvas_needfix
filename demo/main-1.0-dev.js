@@ -1030,7 +1030,10 @@ $(function() {
 
 
                 var updateInDb = function(id) {
+
                     var promise = new Promise(function(resolve, reject) {
+
+                        var resolved = false;
                         // console.log(id);
                         coverageLayer.getStoreObj(id).then(function(tile) {
                             console.log("update tile in db", id, tile);
@@ -1041,11 +1044,30 @@ $(function() {
                                 coverageLayer.emptyTiles.set(tile.id, EMPTY);
                             return coverageLayer.store(tile._id, tile);
                         }).then(function(res) {
-                            console.log("success", res, id);
-                            resolve(id);
+                            console.log("update tile in db", res, id);
+                            if (!resolved) {
+                                resolve(id);
+                                resolved = true;
+                            }
                         }).catch(function(err) {
                             console.log("Err", err, id);
-                            resolve(id);
+                            // resolve(id);
+                            console.log("ididid", id);
+                            var tile = {};
+                            tile.needReCreate = true;
+                            tile._id = id;
+                            coverageLayer.tiles_needRecreate.set(tile._id, tile);
+                            if (!resolved) {
+                                resolve(id);
+                                resolved = true;
+                            }
+                        }).then(function(response) {
+                            if (!resolved) {
+                                resolve(id);
+                                resolved = true;
+                            }
+                        }).catch(function(err) {
+                            console.log("Err------------------------OMG", err);
                         });
                     });
 
@@ -1072,7 +1094,8 @@ $(function() {
                         return Promise.all(ids.map(function(id) {
                             return updateInDb(id);
                         }));
-                    }).then(function() {
+                    }).then(function(arr) {
+                        console.log(arr);
                         resolve2("ok");
                     }).
                     catch(function(err) {
@@ -1141,11 +1164,11 @@ $(function() {
         console.log(tile);
 
         if (tile)
-        // bb = tile.bb;
+            bb = tile.bb;
 
         // console.log("boundary", bb);
 
-            var items = coverageLayer._rtree.search(bb);
+        var items = coverageLayer._rtree.search(bb);
 
         if (items.length == 0) {
             console.log("not found", coverageLayer._rtree);
@@ -1156,21 +1179,21 @@ $(function() {
             return a[5] - b[5];
         });
 
-        var item = items.pop(); //item to be remove;
+        // var item = items.pop(); //item to be remove;
 
-        removeMarker(item, coords);
+        // removeMarker(item, coords);
 
         // console.log("here", items);
 
-        // var prev = Promise.resolve();
-        // items.forEach(function(item) {
-        //     // console.log("iddddddddddddd", item[5]);
-        //     prev = prev.then(function(response) {
-        //         return removeMarker(item, coords);
-        //     }).then(function(response) {
-        //         console.log(response);
-        //     })
-        // });
+        var prev = Promise.resolve();
+        items.forEach(function(item) {
+            // console.log("iddddddddddddd", item[5]);
+            prev = prev.then(function(response) {
+                return removeMarker(item, coords);
+            }).then(function(response) {
+                console.log(response);
+            })
+        });
 
 
         // for (var i = 0; i < items.length; i++) {
