@@ -821,75 +821,77 @@ $(function() {
 
         // console.log("------------------------", item);
 
-        coverageLayer._rtree.remove(item);
-        var itemPos = L.latLng(item[0], item[1]);
+        var p = new Promise(function(resolve2, reject2) {
 
-        var createImageData = function(coords) {
-            var zoom = coords.z;
-            // console.log("here", zoom);
-            var itemPosPoint = map.project(itemPos, zoom);
-            var topLeftcv = itemPosPoint.subtract(pad);
+            coverageLayer._rtree.remove(item);
+            var itemPos = L.latLng(item[0], item[1]);
 
-            var topLeftBound = itemPosPoint.subtract(_pad);
-            var bottomRightBound = itemPosPoint.add(_pad);
+            var createImageData = function(coords) {
+                var zoom = coords.z;
+                // console.log("here", zoom);
+                var itemPosPoint = map.project(itemPos, zoom);
+                var topLeftcv = itemPosPoint.subtract(pad);
 
-            var _nw = map.unproject(topLeftBound, zoom);
-            var _se = map.unproject(bottomRightBound, zoom);
-            var bound = [_se.lat, _nw.lng, _nw.lat, _se.lng];
+                var topLeftBound = itemPosPoint.subtract(_pad);
+                var bottomRightBound = itemPosPoint.add(_pad);
 
-            // var marker = L.marker([_nw.lat, _nw.lng]).addTo(map);
-            // var marker2 = L.marker([_se.lat, _se.lng]).addTo(map);
+                var _nw = map.unproject(topLeftBound, zoom);
+                var _se = map.unproject(bottomRightBound, zoom);
+                var bound = [_se.lat, _nw.lng, _nw.lat, _se.lng];
 
-            var _items = coverageLayer._rtree.search(bound); //all item to be redraw
-            _items.sort(function(a, b) {
-                return a[5] - b[5];
-            });
+                // var marker = L.marker([_nw.lat, _nw.lng]).addTo(map);
+                // var marker2 = L.marker([_se.lat, _se.lng]).addTo(map);
 
-            var subCanvas = document.createElement('canvas');
-            subCanvas.width = red_canvas.width;
-            subCanvas.height = red_canvas.height;
-            var context = subCanvas.getContext('2d');
+                var _items = coverageLayer._rtree.search(bound); //all item to be redraw
+                _items.sort(function(a, b) {
+                    return a[5] - b[5];
+                });
 
-            var ll = map.unproject(topLeftcv, zoom);
-            pointTileCanvas = coverageLayer._tilePoint(coords, [ll.lat, ll.lng]);
-            // console.log("pointTileCanvas", pointTileCanvas);
+                var subCanvas = document.createElement('canvas');
+                subCanvas.width = red_canvas.width;
+                subCanvas.height = red_canvas.height;
+                var context = subCanvas.getContext('2d');
 
-            for (var i = 0; i < _items.length; i++) {
-                var _item = _items[i];
-                var tilePointItem = coverageLayer._tilePoint(coords, [_item[0], _item[1]]);
-                var _x = tilePointItem[0] - pointTileCanvas[0];
-                var _y = tilePointItem[1] - pointTileCanvas[1];
+                var ll = map.unproject(topLeftcv, zoom);
+                pointTileCanvas = coverageLayer._tilePoint(coords, [ll.lat, ll.lng]);
+                // console.log("pointTileCanvas", pointTileCanvas);
 
-                context.drawImage(red_canvas, _x - (red_canvas.width >> 1), _y - (red_canvas.height >> 1));
+                for (var i = 0; i < _items.length; i++) {
+                    var _item = _items[i];
+                    var tilePointItem = coverageLayer._tilePoint(coords, [_item[0], _item[1]]);
+                    var _x = tilePointItem[0] - pointTileCanvas[0];
+                    var _y = tilePointItem[1] - pointTileCanvas[1];
+
+                    context.drawImage(red_canvas, _x - (red_canvas.width >> 1), _y - (red_canvas.height >> 1));
+                }
+
+                // context.strokeStyle = '#000';
+                // context.beginPath();
+                // context.moveTo(0, 0);
+                // context.lineTo(red_canvas.width, 0);
+                // context.lineTo(red_canvas.width, red_canvas.height);
+                // context.lineTo(0, red_canvas.height);
+                // context.closePath();
+                // context.stroke();
+
+                var imageData = context.getImageData(0, 0, subCanvas.width, subCanvas.height);
+
+                return {
+                    'imageData': imageData,
+                    'pointTileCanvas': pointTileCanvas,
+                }
             }
 
-            // context.strokeStyle = '#000';
-            // context.beginPath();
-            // context.moveTo(0, 0);
-            // context.lineTo(red_canvas.width, 0);
-            // context.lineTo(red_canvas.width, red_canvas.height);
-            // context.lineTo(0, red_canvas.height);
-            // context.closePath();
-            // context.stroke();
 
-            var imageData = context.getImageData(0, 0, subCanvas.width, subCanvas.height);
+            var obj = createImageData(coords);
+            var imageData = obj.imageData;
+            putImageData([itemPos.lat, itemPos.lng], red_canvas.width, red_canvas.height, coords, imageData);
 
-            return {
-                'imageData': imageData,
-                'pointTileCanvas': pointTileCanvas,
-            }
-        }
+            //update cache and db
+            // console.log("here", item);
 
 
-        var obj = createImageData(coords);
-        var imageData = obj.imageData;
-        putImageData([itemPos.lat, itemPos.lng], red_canvas.width, red_canvas.height, coords, imageData);
-
-        //update cache and db
-        // console.log("here", item);
-
-
-        var promise = new Promise(function(resolve2, reject2) {
+            // var promise = new Promise(function(resolve2, reject2) {
             if (coverageLayer.rtree_cachedTile) {
 
                 var result = coverageLayer.rtree_cachedTile.search([itemPos.lat, itemPos.lng, itemPos.lat, itemPos.lng]);
@@ -939,7 +941,7 @@ $(function() {
                                 // tile.img.src = canvas.toDataURL("image/png");
                                 tile.img = new Image(); //prevent fire loading function recursively 
                                 tile.img.src = canvas.toDataURL("image/png");
-                                resolve("complete");
+                                resolve(tile);
                             } else {
                                 tile.img.onload = function(e) {
                                     console.log("img onload", tile._id);
@@ -956,7 +958,8 @@ $(function() {
                                         console.log("img onload2")
                                         tile.img = new Image();
                                         tile.img.src = canvas.toDataURL("image/png");
-                                        resolve("imgonload");
+                                        console.log("hereeeeeeeeeeeeeee");
+                                        resolve(tile);
                                     } else {
                                         var maxTimes = 10;
                                         var countTimes = 0;
@@ -981,7 +984,7 @@ $(function() {
                                                         tile.img = new Image();
                                                         tile.img.src = canvas.toDataURL("image/png");
                                                         console.log("retryLoadImage");
-                                                        resolve("retryLoadImage");
+                                                        resolve(tile);
                                                     } else {
                                                         retryLoadImage();
                                                     }
@@ -995,7 +998,7 @@ $(function() {
                                 }
                             }
                         } else {
-                            resolve("tile.imgundefined");
+                            resolve(tile);
                         }
 
                     });
@@ -1003,8 +1006,8 @@ $(function() {
                     return promise2;
                 }
 
-                var ids = [];
-                var tiles = [];
+                var ids = []; //id of tile not in cache
+                var tiles = []; //tiles containt all tile from cache
                 for (var i = 0; i < result.length; i++) {
                     var id = result[i][4];
                     var tile = coverageLayer.tiles.get(id) || coverageLayer.hugeTiles.get(id);
@@ -1015,93 +1018,26 @@ $(function() {
                     }
                 }
 
-                var prev1 = Promise.resolve();
+                Promise.all(tiles.map(function(tile) {
+                    console.log("before update", tile);
+                    return updateTile(tile);
+                })).then(function(tiles) {
+                    console.log("after update", tiles);
+                    return Promise.all(tiles.map(function(tile) {
+                        if (tile.numPoints < HUGETILE_THREADSHOLD)
+                            coverageLayer.hugeTiles.remove(id);
+                        else if (tile.numPoints == 0)
+                            coverageLayer.emptyTiles.set(id, EMPTY);
+                        return coverageLayer.store(id, tile);
+                    }));
+                }).then(function(arr) {
+                    console.log(arr);
+                    resolve2("ok");
+                }).catch(function(err) {
+                    console.log(err);
+                    reject2();
+                })
 
-                if (tiles.length > 0) {
-                    var lastID = tiles[tiles.length - 1]._id;
-                    var count = 0;
-                    tiles.forEach(function(tile) {
-                        console.log("before update", tile);
-                        if (tile) {
-                            prev1 = prev1.then(function(res1) {
-                                return updateTile(tile);
-                            }).then(function(res2) {
-                                console.log("res2", res2, tile);
-                                // console.log("tile", tile._id);
-                                tile.needSave == true;
-                                coverageLayer.store(id, tile);
-                                if (tile.numPoints < HUGETILE_THREADSHOLD)
-                                    coverageLayer.hugeTiles.remove(id);
-                                else if (tile.numPoints == 0)
-                                    coverageLayer.emptyTiles.set(id, EMPTY);
-                                count++;
-                                if (tile._id == lastID) {
-                                    if (count == tiles.length) {
-                                        // console.log(lastID + "," + item[5], "end " + (count == tiles.length));
-                                        resolve2(lastID + "," + item[5], "end");
-                                    } else {
-                                        console.log("?????????????????????????///");
-                                    }
-                                }
-                                // resolve2("????");
-                            }).catch(function(err) {
-                                console.log("Err", err);
-                                reject2(err);
-                            })
-                        }
-                    })
-                } else {
-                    resolve2("tiles is empty");
-                }
-
-                // for (var i = 0; i < result.length; i++) {
-                //     // console.log(result.length);
-                //     var id = result[i][4];
-
-                //     // console.log(coords);
-
-                //     var tile = coverageLayer.tiles.get(id) || coverageLayer.hugeTiles.get(id);
-
-                //     if (tile) {
-
-                //         prev1 = prev1.then(function(response) {
-                //             return updateTile(tile);
-                //         }).then(function() {
-                //             tile.needSave == true;
-                //             coverageLayer.store(id, tile);
-                //             if (tile.numPoints < HUGETILE_THREADSHOLD)
-                //                 coverageLayer.hugeTiles.remove(id);
-                //             else if (tile.numPoints == 0)
-                //                 coverageLayer.emptyTiles.set(id, EMPTY);
-                //         })
-                //         catch (function(err) {
-                //             console.log("Err", err);
-                //         })
-
-
-                //     } else {
-                //         ids.push(id);
-                //         /**
-                //          *  potential unknown behavior, because this code block is asynchronous. 
-                //          *  need not use asynchrnous or use promise to make sequence chaining 
-
-                //          * error likely inccur when remove points in the same one tile when click with hight speed
-                //          */
-
-                //         // console.log(id);
-                //         // coverageLayer.getStoreObj(id).then(function(_tile) {
-                //         //     console.log("update tile in db", i, _tile);
-                //         //     updateTile(_tile);
-                //         //     _tile.needSave = true;
-                //         //     if (_tile.numPoints == 0)
-                //         //         coverageLayer.emptyTiles.set(_tile._id, EMPTY);
-                //         //     coverageLayer.store(_tile._id, _tile);
-                //         // }).catch(function(err) {
-                //         //     console.log("Not Found", err);
-                //         // });
-                //     }
-
-                // }
             } else
                 resolve2("coverageLayer.rtree_cachedTile undefined");
         });
@@ -1110,13 +1046,12 @@ $(function() {
         // promise.then(function(response) {
         //     console.log("----------", response);
         // });
-
+        console.log(prev);
         prev = prev.then(function(response) {
             // console.log("in here", response);
-            return promise;
+            return p;
         }).then(function(response) {
             console.log("end------------", response);
-            return Promise.resolve();
         }).catch(function(err) {
             console.log("err-------", err);
         });
@@ -1148,7 +1083,10 @@ $(function() {
         var id = coverageLayer.getId(coords);
 
         var tile = coverageLayer.tiles.get(id);
-        // bb = tile.bb;
+        console.log(tile);
+
+        if (tile)
+            bb = tile.bb;
 
         // console.log("boundary", bb);
 
@@ -1162,17 +1100,17 @@ $(function() {
             return a[5] - b[5];
         });
 
-        var item = items.pop(); //item to be remove;
+        // var item = items.pop(); //item to be remove;
 
-        removeMarker(item, coords);
+        // removeMarker(item, coords);
 
         // console.log("here", items);
 
 
-        // items.forEach(function(item) {
-        //     // console.log("iddddddddddddd", item[5]);
-        //     removeMarker(item, coords);
-        // })
+        items.forEach(function(item) {
+            // console.log("iddddddddddddd", item[5]);
+            removeMarker(item, coords);
+        })
 
 
         // for (var i = 0; i < items.length; i++) {
