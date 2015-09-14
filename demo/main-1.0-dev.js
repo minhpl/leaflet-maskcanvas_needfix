@@ -1028,6 +1028,31 @@ $(function() {
                     }
                 }
 
+
+                var updateInDb = function(id) {
+                    var promise = new Promise(function(resolve, reject) {
+                        // console.log(id);
+                        coverageLayer.getStoreObj(id).then(function(tile) {
+                            console.log("update tile in db", id, tile);
+                            return updateTile(tile);
+                        }).then(function(tile) {
+                            tile.needSave = true;
+                            if (tile.numPoints == 0)
+                                coverageLayer.emptyTiles.set(tile.id, EMPTY);
+                            return coverageLayer.store(tile._id, tile);
+                        }).then(function(res) {
+                            console.log("success", res, id);
+                            resolve(id);
+                        }).catch(function(err) {
+                            console.log("Err", err, id);
+                            resolve(id);
+                        });
+                    });
+
+                    return promise;
+                }
+
+
                 if (tiles.length > 0) {
                     Promise.all(tiles.map(function(tile) {
                         console.log("before update", tile);
@@ -1043,14 +1068,29 @@ $(function() {
                         }));
                     }).then(function(arr) {
                         console.log(arr);
+                        // resolve2("ok");
+                        return Promise.all(ids.map(function(id) {
+                            return updateInDb(id);
+                        }));
+                    }).then(function() {
                         resolve2("ok");
-                    }).catch(function(err) {
-                        console.log(err);
+                    }).
+                    catch(function(err) {
+                        console.log("Errrr", err);
                         reject2();
                     })
                 } else {
                     resolve2("tiles empty");
                 }
+
+                // if (ids.length > 0) {
+                //     Promise.all(ids.map(function(id) {
+                //         return f(id);
+                //     })).then(function(arr) {
+
+                //     })
+                // };
+
 
             } else
                 resolve2("coverageLayer.rtree_cachedTile undefined");
@@ -1059,7 +1099,6 @@ $(function() {
         // promise.then(function(response) {
         //     console.log("----------", response);
         // });
-
 
         return p;
         // console.log(prev);
@@ -1102,11 +1141,12 @@ $(function() {
         console.log(tile);
 
         if (tile)
-            bb = tile.bb;
+        // bb = tile.bb;
 
         // console.log("boundary", bb);
 
-        var items = coverageLayer._rtree.search(bb);
+            var items = coverageLayer._rtree.search(bb);
+
         if (items.length == 0) {
             console.log("not found", coverageLayer._rtree);
             return;
@@ -1116,23 +1156,25 @@ $(function() {
             return a[5] - b[5];
         });
 
-        // var item = items.pop(); //item to be remove;
+        var item = items.pop(); //item to be remove;
 
-        // removeMarker(item, coords);
+        removeMarker(item, coords);
 
         // console.log("here", items);
 
-        var prev = Promise.resolve();
-        items.forEach(function(item) {
-            // console.log("iddddddddddddd", item[5]);
-            prev = prev.then(function(response) {
-                return removeMarker(item, coords);
-            })
-        })
+        // var prev = Promise.resolve();
+        // items.forEach(function(item) {
+        //     // console.log("iddddddddddddd", item[5]);
+        //     prev = prev.then(function(response) {
+        //         return removeMarker(item, coords);
+        //     }).then(function(response) {
+        //         console.log(response);
+        //     })
+        // });
 
 
         // for (var i = 0; i < items.length; i++) {
-            // removeMarker(item, coords);
+        // removeMarker(item, coords);
         // }
 
 
