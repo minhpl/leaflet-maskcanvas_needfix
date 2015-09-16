@@ -1068,9 +1068,9 @@ $(function() {
                             tiles.forEach(function(tile) {
                                 prev = prev.then(function(response) {
                                     if (tile) {
-                                        if (tile.numPoints > 0)
+                                        if (tile.numPoints > 0 && tile.numPoints < HUGETILE_THREADSHOLD)
                                             return coverageLayer.store(tile._id, tile);
-                                        else {
+                                        else if (tile.numPoints == 0) {
                                             coverageLayer.tiles.remove(id);
                                             coverageLayer.emptyTiles.set(id, EMPTY);
                                             return removeDB(tile);
@@ -1093,6 +1093,25 @@ $(function() {
                         });
 
                         return promise;
+                    }
+
+
+                    var backUptoDBSequentlyNotSequence = function(tiles) {
+                        return Promise.all(tiles.map(function(tile) {
+                            if (tile) {
+                                if (tile.numPoints > 0 && tile.numPoints < HUGETILE_THREADSHOLD)
+                                    return coverageLayer.store(tile._id, tile);
+                                else if (tile.numPoints == 0) {
+                                    coverageLayer.tiles.remove(id);
+                                    coverageLayer.emptyTiles.set(id, EMPTY);
+                                    return removeDB(tile);
+                                }
+                            } else {
+                                console.log("here", tile);
+                                return Promise.resolve();
+                            }
+                        }));
+
                     }
 
                     var updateInDb = function(id) {
@@ -1138,6 +1157,7 @@ $(function() {
                             }
 
                             return backUptoDBSequently(tiles);
+                            // return backUptoDBSequentlyNotSequence(tiles);
 
                             // return Promise.all(tiles.map(function(tile) {
                             //     tile.needSave = true;
@@ -1156,6 +1176,7 @@ $(function() {
                             }));
                         }).then(function(tiles) {
                             return backUptoDBSequently(tiles);
+                            // return backUptoDBSequentlyNotSequence(tiles);
                         }).then(function(response) {
                             console.log(response);
                             resolve2("ok");
@@ -1246,10 +1267,10 @@ $(function() {
             return a[5] - b[5];
         });
 
-        // items.pop();
-        // items.pop();
-        // items.pop();
-        // items.pop();        
+        items.pop();
+        items.pop();
+        items.pop();
+        items.pop();
         // removeMarker(item, coords);
 
 

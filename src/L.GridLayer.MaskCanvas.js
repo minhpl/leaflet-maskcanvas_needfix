@@ -659,9 +659,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         var self = this;
         // if (tile) console.log("Status ",tile.status);
 
-
-
-
         // if not found
         if (!tile || tile.status == UNLOAD) {
             //use empty tiles( save almost empty tile) to prevent find empty tile in dabase many time, because
@@ -909,8 +906,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                 while (node) {
                     var value = node.value;
                     if (value.needSave) {
-                        self.backupToDb(db, value).then(function(res) {                            
-                        });                        
+                        self.backupToDb(db, value).then(function(res) {});
                         break;
                     }
                     node = node.next;
@@ -1021,27 +1017,30 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                                 if (self.worker) {
                                     self.worker.backup(simpleTile, function(results) {
                                         if (results) {
-                                            // if (self.options.debug) console.log("Successfully update stored object: ",results);
-                                            resolved("successfully stored object to db");
+                                            if (self.options.debug) console.log("backupToDbOtherBR", "Successfully update stored object: ", results);
+                                            resolved("backupToDbOtherBR", "successfully stored object to db");
                                         } else {
-                                            console.log('err in backup to DB');
+                                            console.log('backupToDbOtherBR', 'err in backup to DB');
                                             reject(err);
                                         }
                                     })
                                 }
 
                             }).catch(function(err) {
-                                console.log("err convert canvas to blob", err);
+                                console.log('backupToDbOtherBR', "err convert canvas to blob", err);
                                 reject(err);
                             })
                         } else {
-                            resolved("tile is empty");
+                            console.log("backupToDbOtherBR", "tile is empty");
+                            resolved("backupToDbOtherBR", "tile is empty");
                         }
                     });
 
                     self.prev = self.prev.then(function() {
+                        console.log("backupToDbOtherBR", "before promise");
                         return promise;
                     }).then(function(res) {
+                        console.log("backupToDbOtherBR", "after promise");
                         resolve(res);
                     }).catch(function(err) {
                         console.log("Err in back up to db", err);
@@ -1059,11 +1058,11 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         return promise2;
     },
 
-    backupToDbFF: function(db, tile) {        
+    backupToDbFF: function(db, tile) {
         if (tile.needSave && tile.status == LOADED && !tile.empty) {
             var self = this;
             tile.needSave = false;
-            
+
             if (db) {
                 if (self.needPersistents > 0) self.needPersistents--;
 
@@ -1075,7 +1074,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                                 console.log("Stored blob", e);
                                 retryUntilWritten(id, name, rev, blob, type, callback);
                             } else console.log("Error ", e);
-                        } else {    
+                        } else {
                             if (callback) callback(r);
                         }
                     });
@@ -1101,19 +1100,19 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                             // console.log("Upsert ", doc, simpleTile);
                             if (doc._rev) simpleTile._rev = doc._rev;
                             return simpleTile;
-                        }).then(function(response) {                            
+                        }).then(function(response) {
                             tile._rev = response.rev; //Updating revision                    
-                            if (tile.numPoints > 0 && tile.canvas) {                                
+                            if (tile.numPoints > 0 && tile.canvas) {
                                 return blobUtil.canvasToBlob(tile.canvas).then(function(blob) {
-                                    retryUntilWritten(tile._id, "image", response.rev, blob, 'image/png', function(r) {                                        
+                                    retryUntilWritten(tile._id, "image", response.rev, blob, 'image/png', function(r) {
                                         resolve();
-                                    });                                    
-                                }).catch(function(err) {                                    
+                                    });
+                                }).catch(function(err) {
                                     console.log(err);
                                     reject(err);
                                 });
-                            } else resolve();                            
-                        }).catch(function(err) {                            
+                            } else resolve();
+                        }).catch(function(err) {
                             reject(err);
                         })
                     });
