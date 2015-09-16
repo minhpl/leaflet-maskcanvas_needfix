@@ -1070,7 +1070,11 @@ $(function() {
                                     if (tile) {
                                         if (tile.numPoints > 0)
                                             return coverageLayer.store(tile._id, tile);
-                                        else return removeDB(tile);
+                                        else {
+                                            coverageLayer.tiles.remove(id);
+                                            coverageLayer.emptyTiles.set(id, EMPTY);
+                                            return removeDB(tile);
+                                        }
                                     } else {
                                         console.log("here", tile);
                                         return Promise.resolve();
@@ -1101,8 +1105,10 @@ $(function() {
                                 return updateTile(tile);
                             }).then(function(tile) {
                                 tile.needSave = true;
-                                if (tile.numPoints == 0)
+                                if (tile.numPoints == 0) {
                                     coverageLayer.emptyTiles.set(tile._id, EMPTY);
+                                    coverageLayer.tiles.remove(id);
+                                }
                                 resolve(tile);
                             }).catch(function(err) {
                                 console.log("Err", err, id);
@@ -1125,8 +1131,10 @@ $(function() {
                                 tile.needSave = true;
                                 if (tile.numPoints < HUGETILE_THREADSHOLD)
                                     coverageLayer.hugeTiles.remove(id);
-                                else if (tile.numPoints == 0)
+                                else if (tile.numPoints == 0) {
                                     coverageLayer.emptyTiles.set(id, EMPTY);
+                                    coverageLayer.tiles.remove(id);
+                                }
                             }
 
                             return backUptoDBSequently(tiles);
