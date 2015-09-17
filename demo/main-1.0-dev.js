@@ -616,7 +616,7 @@ $(function() {
         timeoutID = setTimeout(function() {
             timeoutID = 0;
 
-            coverageLayer.backupOne();
+            // coverageLayer.backupOne();
             var info = getInfo(e);
 
             var radius = coverageLayer.options.radius;
@@ -868,14 +868,14 @@ $(function() {
                         context.drawImage(red_canvas, _x - (red_canvas.width >> 1), _y - (red_canvas.height >> 1));
                     }
 
-                    // context.strokeStyle = '#000';
-                    // context.beginPath();
-                    // context.moveTo(0, 0);
-                    // context.lineTo(red_canvas.width, 0);
-                    // context.lineTo(red_canvas.width, red_canvas.height);
-                    // context.lineTo(0, red_canvas.height);
-                    // context.closePath();
-                    // context.stroke();
+                    context.strokeStyle = '#000';
+                    context.beginPath();
+                    context.moveTo(0, 0);
+                    context.lineTo(red_canvas.width, 0);
+                    context.lineTo(red_canvas.width, red_canvas.height);
+                    context.lineTo(0, red_canvas.height);
+                    context.closePath();
+                    context.stroke();
 
                     var imageData = context.getImageData(0, 0, subCanvas.width, subCanvas.height);
 
@@ -1073,7 +1073,7 @@ $(function() {
                                             return removeDB(tile);
                                         }
                                     } else {
-                                        console.log("here", tile);
+                                        // console.log("here", tile);
                                         return Promise.resolve();
                                     }
                                 }).then(function(response) {

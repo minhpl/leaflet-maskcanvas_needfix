@@ -15,7 +15,7 @@ const EMPTY = {
 
 const MAXRADIUSPOLY = 256;
 const NUMPOLYGON = 100;
-const NUMCELL = 100;
+const NUMCELL = 200;
 const NUMBPOLYGON = 10;
 const VPOLY = 1;
 const BPOLY = 2;
@@ -1531,7 +1531,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                 }).then(function() {
                     self._drawVPolys(canvas, coords, vpolyCoordinates);
                 }).then(function() {
-                    self.drawCells(canvas, coords, cells);
+                    // self.drawCells(canvas, coords, cells);
                 }).catch(function() {
                     // self.drawLinhTinh(canvas, coords, vpolyCoordinates);
                 })
@@ -1552,9 +1552,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     },
 
     drawCell: function(ctx, pos, cell, radius) {
-
-        console.log(radius);
-
         var start = this.degreeToRadian(cell.startingAngle);
         var end = this.degreeToRadian(cell.startingAngle + cell.arcSize);
         var x = pos[0];
