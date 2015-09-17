@@ -15,6 +15,7 @@ const EMPTY = {
 
 const MAXRADIUSPOLY = 256;
 const NUMPOLYGON = 100;
+const NUMCELL = 100;
 const NUMBPOLYGON = 10;
 const VPOLY = 1;
 const BPOLY = 2;
@@ -27,9 +28,16 @@ const FIREFOX = 3;
 const IE = 4;
 const UNKOWNBR = 5;
 
+const RED = "#FF0066";
+const BLUE = "#6666FF";
+
+const BASERADIUS = 10;
+
 L.GridLayer.MaskCanvas = L.GridLayer.extend({
     options: {
-        db: new PouchDB('vmts'),
+        db: new PouchDB('vmts', {
+            auto_compaction: true
+        }),
         radius: 5, // this is the default radius (specific radius values may be passed with the data)
         useAbsoluteRadius: false, // true: radius in meters, false: radius in pixels
         color: '#000',
@@ -295,6 +303,38 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         return dPoly;
     },
 
+    makeDataCell: function() {
+        // var segment = {
+        //     radius: 100,
+        //     x: 200,
+        //     y: 200,
+        //     startingAngle: 200,
+        //     arcSize: 100,
+        //     color: "#FF0066"
+        // }
+        var segments = [];
+        for (var i = 0; i < NUMCELL; i++) {
+            var lat = 20.76831 + Math.random() * (21.15176 - 20.76831);
+            var lng = 105.25108 + Math.random() * (105.65826 - 105.25108);
+
+            var rand = Math.random();
+
+            var item = {};
+            item.lat = lat;
+            item.lng = lng;
+            item.startingAngle = 360 * rand;
+            item.arcSize = 65;
+
+            var colorcode = (rand * 2) >> 0;
+            item.color = colorcode == 0 ? RED : BLUE;
+            // console.log(item);
+            var segment = [lat, lng, lat, lng, item, i];
+            segments.push(segment);
+        }
+
+        return segments;
+    },
+
     // makeBDataPoly: function() {
     //     var dlength = dataset.length;
     //     var interval = (dlength / NUMBPOLYGON) >> 0;
@@ -479,6 +519,9 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
         this._rtreePolygon = new rbush(32);
         this._rtreePolygon.load(this.makeDataPoly());
+
+        this._rtreeCell = new rbush(32);
+        this._rtreeCell.load(this.makeDataCell());
 
         this._maxRadius = this.options.radius;
 
@@ -923,7 +966,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     backupToDbOtherBR: function(db, tile) {
         var self = this;
 
-        var promise2 = new Promise(function(resolve, reject) {
+        var promise2 = new Promise(function(resolve2, reject2) {
 
             if (tile.needSave && tile.status == LOADED && !tile.empty) {
 
@@ -953,7 +996,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
                     if (!self.prev) self.prev = Promise.resolve();
 
-                    var promise = new Promise(function(resolved, reject) {
+                    var promise = new Promise(function(resolve, reject) {
                         if (tile.numPoints > 0 && tile.canvas) {
                             blobUtil.canvasToBlob(tile.canvas).then(function(blob) {
 
@@ -1009,7 +1052,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                                                 }
                                             });
                                         }
-                                    }, ['pouchdb-4.0.1.min.js', 'pouchdb.upsert.js']);
+                                    }, ['pouchdb-4.0.3.min.js', 'pouchdb.upsert.js']);
                                 }
 
                                 //********invoke web worker******
@@ -1018,10 +1061,10 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                                     self.worker.backup(simpleTile, function(results) {
                                         if (results) {
                                             if (self.options.debug) console.log("backupToDbOtherBR", "Successfully update stored object: ", results);
-                                            resolved("backupToDbOtherBR", "successfully stored object to db");
+                                            resolve("backupToDbOtherBR", "successfully stored object to db");
                                         } else {
                                             console.log('backupToDbOtherBR', 'err in backup to DB');
-                                            reject(err);
+                                            reject('err in backup to DB');
                                         }
                                     })
                                 }
@@ -1032,7 +1075,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                             })
                         } else {
                             console.log("backupToDbOtherBR", "tile is empty");
-                            resolved("backupToDbOtherBR", "tile is empty");
+                            resolve("backupToDbOtherBR", "tile is empty");
                         }
                     });
 
@@ -1041,17 +1084,20 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                         return promise;
                     }).then(function(res) {
                         console.log("backupToDbOtherBR", "after promise");
-                        resolve(res);
+                        resolve2(res);
                     }).catch(function(err) {
                         console.log("Err in back up to db", err);
-                        reject(err);
+                        reject2(err);
                     });
 
+                    // promise.then(function(res) {
+                    //     resolve(res);
+                    // });
                 } else {
-                    reject("DB is undefined");
+                    reject2("DB is undefined");
                 }
             } else {
-                resolve("Don't need save to DB");
+                resolve2("Don't need save to DB");
             }
         });
 
@@ -1175,7 +1221,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
     //important function
 
-    getBB: function(coords) {
+    getBB: function(coords, padSize) {
         self = this;
         var tileSize = self.options.tileSize;
         var nwPoint = coords.multiplyBy(tileSize);
@@ -1187,7 +1233,12 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         }
 
         // padding
-        var pad = new L.Point(self._getMaxRadius(coords.z), self._getMaxRadius(coords.z));
+        var pad;
+        if (!padSize)
+            pad = new L.Point(self._getMaxRadius(coords.z), self._getMaxRadius(coords.z));
+        else
+            pad = new L.Point(padSize, padSize);
+
         // console.log(pad);
         nwPoint = nwPoint.subtract(pad);
         sePoint = sePoint.add(pad);
@@ -1238,6 +1289,23 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         }
 
         var vpolyCoordinates = queryPolys(coords, this);
+
+        var queryCells = function(coords, self) {
+
+            var bb = self.getBB(coords, coords.z * coords.z);
+
+            var cellCoordinates = self._rtreeCell.search(bb);
+
+            // if (cellCoordinates.length > 0)
+            // console.log("---------------------??", cellCoordinates);
+
+            cellCoordinates.sort(function(a, b) {
+                return a[5] - b[5];
+            })
+            return cellCoordinates;
+        }
+
+        var cells = queryCells(coords, self);
 
         var id = this.getId(coords);
 
@@ -1462,6 +1530,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     }
                 }).then(function() {
                     self._drawVPolys(canvas, coords, vpolyCoordinates);
+                }).then(function() {
+                    self.drawCells(canvas, coords, cells);
                 }).catch(function() {
                     // self.drawLinhTinh(canvas, coords, vpolyCoordinates);
                 })
@@ -1476,6 +1546,44 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
      * @param {[{x: number, y: number, r: number}]} pointCoordinates
      * @private
      */
+
+    degreeToRadian: function(degree) {
+        return (degree * Math.PI) / 180;
+    },
+
+    drawCell: function(ctx, pos, cell, radius) {
+
+        console.log(radius);
+
+        var start = this.degreeToRadian(cell.startingAngle);
+        var end = this.degreeToRadian(cell.startingAngle + cell.arcSize);
+        var x = pos[0];
+        var y = pos[1];
+
+        // console.log(start, end, ctx, x, y);
+
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.arc(x, y, radius, start, end, false);
+        ctx.closePath();
+
+        ctx.fillStyle = cell.color;
+        ctx.stroke();
+        ctx.fill();
+
+    },
+
+    drawCells: function(canvas, coords, cells) {
+
+        var ctx = canvas.getContext('2d');
+        for (var i = 0; i < cells.length; i++) {
+            var cell = cells[i][4];
+            var pos = this._tilePoint(coords, [cell.lat, cell.lng]);
+            // console.log(coords.z, "-----------");
+
+            this.drawCell(ctx, pos, cell, coords.z * coords.z);
+        }
+    },
 
     _drawPoints: function(canvas, coords, pointCoordinates, sorted) {
 

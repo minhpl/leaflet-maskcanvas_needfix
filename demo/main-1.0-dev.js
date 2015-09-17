@@ -1,4 +1,3 @@
-0
 $(function() {
 
     var map = new L.Map('map', {
@@ -1040,9 +1039,7 @@ $(function() {
                                 console.log("removeDBt", tile);
                                 return db.remove(tile);
                             }).then(function(response) {
-
                                 console.log("removeDB", response);
-
                                 resolve();
                             }).catch(function(err) {
                                 console.log("removeDB", err);
@@ -1111,6 +1108,11 @@ $(function() {
                                 return Promise.resolve();
                             }
                         }));
+
+                    }
+
+
+                    var getStoreObjs = function(ids) {
 
                     }
 
