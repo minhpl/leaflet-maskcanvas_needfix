@@ -143,8 +143,8 @@ $(function() {
 
         var minX = (centrePoint[0] - w);
         var minY = (centrePoint[1] - h);
-        minX = (minX < 0) ? (minX - 0.5) >> 0 : (minX + 0.5) >> 0;  //round();
-        minY = (minY < 0) ? (minY - 0.5) >> 0 : (minY + 0.5) >> 0;  //round();
+        minX = (minX < 0) ? (minX - 0.5) >> 0 : (minX + 0.5) >> 0; //round();
+        minY = (minY < 0) ? (minY - 0.5) >> 0 : (minY + 0.5) >> 0; //round();
 
 
         var maxX = minX + WIDTH;
@@ -423,7 +423,7 @@ $(function() {
             for (var j = minb; j <= maxb; j++) {
                 tileIDs.push(getID(zoom, tileIDX + i, tileIDY + j)) //8
             }
-        
+
         return tileIDs;
     }
 
@@ -671,12 +671,10 @@ $(function() {
 
                 if (topPointTile) {
                     var WIDTH, HEIGHT;
-                    WIDTH = HEIGHT = radius;
+                    WIDTH = HEIGHT = radius << 1;
                     var imgs = cropImgBoxs(info.topPointlatlng, WIDTH, HEIGHT, info.coords);
                     info.img = imgs;
-                    // console.log("Draw ",++count);
-                    var WIDTH, HEIGHT;
-                    WIDTH = HEIGHT = radius;
+                    // console.log("Draw ",++count);                    
                     draw(info.topPointlatlng, WIDTH, HEIGHT, info.coords, img_blueCircle);
                 }
 
@@ -776,6 +774,16 @@ $(function() {
 
     // map.on('mousemove', onMouseMove);
 
+
+
+    function onMouseMove_backUpOne(e) {
+        // coverageLayer.backupOne();
+    }
+
+    map.on('mousemove', onMouseMove_backUpOne);
+
+
+
     function onMouseClick_showLatLng(e) {
         popup
             .setLatLng(e.latlng)
@@ -807,9 +815,9 @@ $(function() {
         var point = L.point(tileTop, tileLeft);
         var coords = L.point(x, y);
         coords.z = zoom;
-        
 
-        var tilePoint = coverageLayer._tilePoint(coords,[marker.lat,marker.lng]);
+
+        var tilePoint = coverageLayer._tilePoint(coords, [marker.lat, marker.lng]);
         // console.log(tilePoint);
 
         var tileIds = getTileIDs(tilePoint, WIDTH, HEIGHT, coords);
@@ -818,9 +826,9 @@ $(function() {
         draw(centerlatLng, WIDTH, HEIGHT, coords, red_canvas);
 
         for (var i = 0; i < tileIds.length; i++) {
-            var tileID = tileIds[i].id;            
+            var tileID = tileIds[i].id;
             var canvas = coverageLayer.canvases.get(tileID);
-               if (canvas && canvas.imgData) delete canvas.imgData;
+            if (canvas && canvas.imgData) delete canvas.imgData;
         }
 
         var item = [marker.lat, marker.lng];
