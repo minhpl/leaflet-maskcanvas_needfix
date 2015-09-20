@@ -1,7 +1,7 @@
 /* Initialize LRU cache with default limit being 10 items */
 function lru(limit) {
     this.size = 0;
-    (typeof limit == "number") ? this.limit = limit : this.limit = 10;
+    (typeof limit == "number") ? this.limit = limit: this.limit = 10;
     this.map = {};
     this.head = null;
     this.tail = null;
@@ -35,22 +35,30 @@ lru.prototype.setHead = function(node) {
 /* Change or add a new value in the cache
  * We overwrite the entry if it already exists
  */
-lru.prototype.set = function(key, value,callback) {
+lru.prototype.set = function(key, value, callback) {
     var node = new lru.prototype.lrunode(key, value);
     if (this.map[key]) {
         this.map[key].value = node.value;
         this.remove(node.key);
+
+        if (callback) {
+            callback(undefined);
+        }
     } else {
         if (this.size >= this.limit) {
-            var k = this.tail.key;               
-            var val = this.map[k]; 
-            
+            var k = this.tail.key;
+            var val = this.map[k];
+
             delete this.map[this.tail.key];
             this.size--;
             this.tail = this.tail.prev;
             this.tail.next = null;
-            if (callback){
-                callback(val,key,value);
+            if (callback) {
+                callback(val, key, value);
+            }
+        } else {
+            if (callback) {
+                callback(undefined);
             }
         }
     }
@@ -65,7 +73,7 @@ lru.prototype.get = function(key) {
         this.remove(key);
         this.setHead(node);
         return value;
-    } 
+    }
     // else {
     //     console.log("Key " + key + " does not exist in the cache.")
     // }
@@ -74,7 +82,7 @@ lru.prototype.get = function(key) {
 /* Remove a single entry from the cache */
 lru.prototype.remove = function(key) {
     var node = this.map[key];
-    if (node){
+    if (node) {
         if (node.prev !== null) {
             node.prev.next = node.next;
         } else {
@@ -88,7 +96,7 @@ lru.prototype.remove = function(key) {
         this.size--;
     }
     delete this.map[key];
-    
+
 };
 
 /* Resets the entire cache - Argument limit is optional to be reset */
@@ -121,8 +129,8 @@ lru.prototype.toJSON = function() {
     var node = this.head;
     while (node) {
         json.push({
-            key : node.key, 
-            value : node.value
+            key: node.key,
+            value: node.value
         });
         node = node.next;
     }
@@ -134,7 +142,7 @@ lru.prototype.toString = function() {
     var s = '';
     var node = this.head;
     while (node) {
-        s += String(node.key)+':'+node.value;
+        s += String(node.key) + ':' + node.value;
         node = node.next;
         if (node) {
             s += '\n';
