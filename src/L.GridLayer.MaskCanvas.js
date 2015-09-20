@@ -68,33 +68,33 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         var self = this;
         if (db) {
 
-            // var refreshDB = function(self) {
-            //     db.destroy().then(function(response) {
-            //         db = new PouchDB('vmts');
-            //         console.log("Refresh database");                    
-            //         self.ready = true;
-            //     }).catch(function(err) {
-            //         console.log(err);
-            //     })
-            // }
-
-            // refreshDB(this);
-
-            db.allDocs({
-                include_docs: true,
-                attachments: true
-            }).then(function(result) {
-                // handle result
-                return Promise.all(result.rows.map(function(row) {
-                    return db.remove(row.id, row.value.rev);
-                })).then(function() {
+            var refreshDB = function(self) {
+                db.destroy().then(function(response) {
+                    db = new PouchDB('vmts');
+                    console.log("Refresh database");                    
                     self.ready = true;
-                    console.log("Remove all temporary tiles");
-                });
+                }).catch(function(err) {
+                    console.log(err);
+                })
+            }
 
-            }).catch(function(err) {
-                console.log(err);
-            });
+            refreshDB(this);
+
+            // db.allDocs({
+            //     include_docs: true,
+            //     attachments: true
+            // }).then(function(result) {
+            //     // handle result
+            //     return Promise.all(result.rows.map(function(row) {
+            //         return db.remove(row.id, row.value.rev);
+            //     })).then(function() {
+            //         self.ready = true;
+            //         console.log("Remove all temporary tiles");
+            //     });
+
+            // }).catch(function(err) {
+            //     console.log(err);
+            // });
         }
     },
 
