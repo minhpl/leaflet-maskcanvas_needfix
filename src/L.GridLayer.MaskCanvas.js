@@ -304,7 +304,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                         deferred.fulfill(undefined);
                     }
                 }
-            }, ['data.js']);
+            }, ['data-light.js']);
 
             craziness.doCrazy(self.rtree_loaded).then(function(result) {
                 if (!self.rtree_loaded && result) {
@@ -523,7 +523,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     //Create RTREE_cached
                     if (!self.all_tiles_id.get(id)) {
                         self.all_tiles_id.set(id, {});
-                        console.log(self.all_tiles_id.size);
                         self.rtree_cachedTile.insert([bb[0], bb[1], bb[2], bb[3], id]);
                     }
 
