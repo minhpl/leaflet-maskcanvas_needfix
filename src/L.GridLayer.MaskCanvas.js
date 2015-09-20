@@ -698,8 +698,10 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
     worker: undefined,
 
+
     //important function
     backupToDb: function(db, tile) {
+
 
         if (tile.needSave && tile.status == LOADED && !tile.empty) {
             var self = this;
@@ -707,117 +709,136 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             // console.log("Remove from memory 22, backup to DB ", tile);
             // var db = self.options.db;
             if (db) {
-                // console.log('Back up to DB',db);
-                if (self.needPersistents > 0) self.needPersistents--;
-                // function retryUntilWritten(id, name, rev, blob, type, callback) {
 
-                var simpleTile = {
-                    _id: tile._id,
-                    numPoints: tile.numPoints,
-                    data: self.options.useGlobalData ? undefined : tile.data,
-                    bb: tile.bb,
-                    status: LOADED,
-                    needSave: false
-                }
+                var promise2 = new Promise(function(resolve2, reject2) {
+                    var resolved2 = false;
 
-                if (self.options.useGlobalData) {
-                    delete simpleTile.data;
-                    delete simpleTile.sorted;
-                }
+                    // console.log('Back up to DB',db);
+                    if (self.needPersistents > 0) self.needPersistents--;
+                    // function retryUntilWritten(id, name, rev, blob, type, callback) {
 
-                var promise = new Promise(function(resolved, reject) {
-                    if (tile.numPoints > 0 && tile.canvas) {
-                        blobUtil.canvasToBlob(tile.canvas).then(function(blob) {
-
-                            simpleTile.image = blob;
-
-                            if (!self.worker) {
-
-                                //********Web worker******
-                                //**************************
-
-                                /**
-                                 * I hope that operative will fallback to setTimeout in case of no web-worker support.
-                                 */
-
-                                /**
-                                 * @description  web worker only see variable and function in worker scope (
-                                 * because web worker be written on individual blob or file), -> cannot see
-                                 * any variable or function in outer scope
-                                 *
-                                 *  but why if replace this by self, this code still work correct ? 
-                                 */
-
-                                self.worker = operative({
-                                    db: undefined,
-
-                                    backup: function(simpleTile, callback) {
-
-                                        //Only need to create DB object only once
-                                        if (!this.db) {
-                                            this.db = new PouchDB('vmts');
-                                        }
-
-                                        this.db.get(simpleTile._id).then(function(doc) {
-                                            //doc._rev co khi len toi 3, tuc la da duoc update lai 3 lan
-                                            console.log(doc._rev, doc.needSave);
-                                            simpleTile._rev = doc._rev;
-                                            return this.db.put(simpleTile);
-                                        }).then(function() {
-                                            callback('ok');
-                                            return this.db.get(simpleTile._id);
-                                        }).then(function(doc) {
-                                            console.log("successfully update stored object: ", doc);
-                                        }).catch(function(err) {
-                                            if (err.status == 404) {
-                                                this.db.put(simpleTile).then(function(res) {
-                                                    console.log('successfully save new object ', res);
-                                                    callback('ok');
-                                                }).catch(function(err) {
-                                                    console.log('other err2');
-                                                    callback(undefined);
-                                                });
-                                            } else {
-                                                console.log('other err1');
-                                                callback(undefined);
-                                            }
-                                        });
-                                    }
-                                }, ['pouchdb-4.0.0.min.js', 'pouchdb.upsert.js']);
-                            }
-
-                            //********invoke web worker******
-                            //*********************************
-                            if (self.worker) {
-                                self.worker.backup(simpleTile, function(results) {
-                                    if (results) {
-                                        // if (self.options.debug) console.log("Successfully update stored object: ", tile._id);
-                                        resolved();
-                                    } else {
-                                        console.log('err');
-                                        reject();
-                                    }
-                                })
-                            }
-
-                        }).catch(function(err) {
-                            console.log(err);
-                            reject();
-                        })
-                    } else {
-                        resolved();
+                    var simpleTile = {
+                        _id: tile._id,
+                        numPoints: tile.numPoints,
+                        data: self.options.useGlobalData ? undefined : tile.data,
+                        bb: tile.bb,
+                        status: LOADED,
+                        needSave: false
                     }
+
+                    if (self.options.useGlobalData) {
+                        delete simpleTile.data;
+                        delete simpleTile.sorted;
+                    }
+
+                    var promise = new Promise(function(resolved, reject) {
+                        if (tile.numPoints > 0 && tile.canvas) {
+                            blobUtil.canvasToBlob(tile.canvas).then(function(blob) {
+
+                                simpleTile.image = blob;
+
+                                if (!self.worker) {
+
+                                    //********Web worker******
+                                    //**************************
+
+                                    /**
+                                     * I hope that operative will fallback to setTimeout in case of no web-worker support.
+                                     */
+
+                                    /**
+                                     * @description  web worker only see variable and function in worker scope (
+                                     * because web worker be written on individual blob or file), -> cannot see
+                                     * any variable or function in outer scope
+                                     *
+                                     *  but why if replace this by self, this code still work correct ? 
+                                     */
+
+                                    self.worker = operative({
+                                        db: undefined,
+
+                                        backup: function(simpleTile, callback) {
+
+                                            //Only need to create DB object only once
+                                            if (!this.db) {
+                                                this.db = new PouchDB('vmts');
+                                            }
+
+                                            this.db.get(simpleTile._id).then(function(doc) {
+                                                //doc._rev co khi len toi 3, tuc la da duoc update lai 3 lan
+                                                console.log(doc._rev, doc.needSave);
+                                                simpleTile._rev = doc._rev;
+                                                return this.db.put(simpleTile);
+                                            }).then(function() {
+                                                callback('ok');
+                                                return this.db.get(simpleTile._id);
+                                            }).then(function(doc) {
+                                                console.log("successfully update stored object: ", doc);
+                                            }).catch(function(err) {
+                                                if (err.status == 404) {
+                                                    this.db.put(simpleTile).then(function(res) {
+                                                        console.log('successfully save new object ', res);
+                                                        callback('ok');
+                                                    }).catch(function(err) {
+                                                        console.log('other err2');
+                                                        callback(undefined);
+                                                    });
+                                                } else {
+                                                    console.log('other err1');
+                                                    callback(undefined);
+                                                }
+                                            });
+                                        }
+                                    }, ['pouchdb-4.0.0.min.js', 'pouchdb.upsert.js']);
+                                }
+
+                                //********invoke web worker******
+                                //*********************************
+                                if (self.worker) {
+                                    self.worker.backup(simpleTile, function(results) {
+                                        if (results) {
+                                            // if (self.options.debug) console.log("Successfully update stored object: ", tile._id);
+                                            resolved();
+                                        } else {
+                                            console.log('err');
+                                            reject();
+                                        }
+                                    })
+                                }
+
+                            }).catch(function(err) {
+                                console.log(err);
+                                reject();
+                            })
+                        } else {
+                            resolved();
+                        }
+                    });
+
+                    if (!self.prev) self.prev = Promise.resolve();
+                    self.prev = self.prev.then(function() {
+                        console.log("before promise");
+                        return promise;
+                    }).then(function(response) {
+                        console.log("after promise");
+                        if (!resolved2) {
+                            console.log("here");
+                            resolve2();
+                            resolved2 = true;
+                        }
+                    }).catch(function(err) {
+                        console.log("Err", err);
+                        reject2();
+                    });
+
                 });
 
-                if (!self.prev) self.prev = Promise.resolve();
-                self.prev = self.prev.then(function() {
-                    console.log("before promise");
-                    return promise;
-                }).then(function(response) {
-                    console.log("after promise");
-                });
+                return promise2;
             }
         }
+
+
+        return Promise.resolve();
     },
 
     //important function
