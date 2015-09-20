@@ -759,17 +759,19 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                                         }
 
                                         this.db.get(simpleTile._id).then(function(doc) {
+                                            //doc._rev co khi len toi 3, tuc la da duoc update lai 3 lan
+                                            console.log(doc._rev, doc.needSave);
                                             simpleTile._rev = doc._rev;
                                             return this.db.put(simpleTile);
                                         }).then(function() {
                                             callback('ok');
                                             return this.db.get(simpleTile._id);
                                         }).then(function(doc) {
-                                            // console.log("successfully update stored object: ", doc);
+                                            console.log("successfully update stored object: ", doc);
                                         }).catch(function(err) {
                                             if (err.status == 404) {
                                                 this.db.put(simpleTile).then(function(res) {
-                                                    // console.log('successfully store object 2', res);
+                                                    console.log('successfully save new object ', res);
                                                     callback('ok');
                                                 }).catch(function(err) {
                                                     console.log('other err2');
@@ -789,7 +791,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                             if (self.worker) {
                                 self.worker.backup(simpleTile, function(results) {
                                     if (results) {
-                                        if (self.options.debug) console.log("Successfully update stored object: ", tile._id);
+                                        // if (self.options.debug) console.log("Successfully update stored object: ", tile._id);
                                         resolved();
                                     } else {
                                         console.log('err');

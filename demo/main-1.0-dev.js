@@ -791,7 +791,7 @@ $(function() {
             .openOn(map);
     }
 
-    map.on('click', onMouseClick_drawMarker);
+    // map.on('click', onMouseClick_drawMarker);
 
     var markerID = dataset.length;
 
@@ -844,7 +844,6 @@ $(function() {
         var se = map.unproject(bottomRight);
         var bb = [se.lat, nw.lng, nw.lat, se.lng];
 
-        coverageLayer.updateCachedTile(bb);
     }
 
     function onMouseClick_drawMarker(e) {
