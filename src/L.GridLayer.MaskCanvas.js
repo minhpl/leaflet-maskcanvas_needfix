@@ -62,52 +62,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
      * @return {[type]}          [description]
      */
 
-    //have not been complete
-    updateCachedTile: function(bb) {
-
-        if (this.rtree_cachedTile) {
-            var result = this.rtree_cachedTile.search(bb);
-
-            for (var i = 0; i < result.length; i++) {
-                var id = result[i][4];
-
-                console.log(id);
-
-                this.emptyTiles.remove(id);
-                this.tiles.remove(id);
-                this.hugeTiles.remove(id);
-            }
-        }
-
-        // var id = this.getId(coords);
-
-        // var tile = this.tiles.get(id) || this.hugeTiles.get(id);
-        // if (tile) {
-        //     if (tile.numPoints)
-        //         tile.numPoints += tile.numPoints;
-        //     else tile.numPoints = numPoints;
-
-        //     if (tile.numPoints == 0) {
-        //         this.tiles.remove(id);
-        //         this.hugeTiles.remove(id);
-        //         this.emptyTiles.set(id, EMPTY);
-
-        //         if (tile.img)
-        //             delete tile.img;
-        //     }
-
-        //     if (tile.numPoints > 0) {
-        //         var img = new Image();
-        //         img.src = this.canvases.get(id).toDataURL("image/png");
-        //         tile.img = img;
-        //     }
-        // }
-
-
-
-        // var db = this.options.db;
-    },
-
     initialize: function(options) {
         L.setOptions(this, options);
         var db = this.options.db;
@@ -306,81 +260,11 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         return dPoly;
     },
 
-    // makeBDataPoly: function() {
-    //     var dlength = dataset.length;
-    //     var interval = (dlength / NUMBPOLYGON) >> 0;
-    //     // console.log("interval ", interval);
-    //     var dPoly = [];
-    //     var id = 0;
-
-
-    //     for (var i = 0, j = 0; i < dlength && j < NUMPOLYGON; i += interval, j++) {
-    //         var posL = dataset[i];
-
-    //         var poly = makeBPolygons();
-    //         poly.posL = posL;
-
-    //         this.getVertexAndBoundinLatLng(poly);
-
-    //         lBounds = poly.lBounds;
-    //         var a = [lBounds.getSouth(), lBounds.getWest(), lBounds.getNorth(), lBounds.getEast(), poly, id++];
-    //         dPoly.push(a);
-
-    //         console.log(poly);
-    //     }
-    //     return dPoly;
-    // },  
-
     makeRtree: function() {
         var self = this;
 
-        // var promise = new Promise(function(res, rej) {
-        //     if (self.rtree_loaded) {
-        //         res(true)
-        //         return;
-        //     }
-
-        //     var worker = new Worker('WorkerLoadData.js');
-
-        //     var data = [];
-
-        //     var count = 0;
-        //     worker.addEventListener('message', function(e) {
-        //         count++;
-        //         var rec = e.data;
-
-        //         if (!rec.flag && rec.data) {
-        //             var buffer = rec.data;
-        //             var arr = new Float64Array(buffer, 0);
-        //             var j = 0;
-        //             for (var i = 0; i < arr.length; i += 2) {
-        //                 var x = arr[i];
-        //                 var y = arr[i + 1];
-        //                 var item = [x, y];
-        //                 data.push([x, y, x, y, item, j++]);
-        //             }
-
-        //             if (!self._rtree.Loaded) {
-        //                 self._rtree = new rbush(32);
-        //                 self._rtree.load(data);
-        //                 self.rtree_loaded = true;
-        //                 self.BBAllPointLatlng = rec.bb;
-        //             }
-
-        //             // worker.terminate();
-        //             console.log("here")
-        //             res(true);
-
-        //         } else {
-        //             if (count == 2)
-        //                 res(undefined);
-        //         }
-        //     }, false);
-        // })
-
         var promise = new Promise(function(res, rej) {
-            // operative.setBaseURL('http://127.0.0.1:8000/demo/');
-            // console.log(operative.getBaseURL());
+
             var craziness = operative({
                 doCrazy: function(rtree_loaded) {
                     var deferred = this.deferred();
@@ -437,10 +321,10 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     self._rtree.clear().load(data);
                     self.rtree_loaded = true;
                     self.BBAllPointLatlng = result.bb;
-                    res(true);
+                    res();
                     craziness.terminate();
                 } else {
-                    res(true);
+                    reject();
                 }
             });
         });
@@ -456,12 +340,11 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         this.rtree_loaded = false;
 
         this.makeRtree(self.rtree_loaded).then(function(res) {
-            console.log(res);
-
+            // console.log(res);
             if (self._map) {
                 self.redraw();
             }
-            console.log(self.rtree_loaded);
+            // console.log(self.rtree_loaded);
         }).catch(function(err) {
             console.log(err);
         })
@@ -491,9 +374,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
         this._maxRadius = this.options.radius;
 
-        // if (this._map) {
-        //     this.redraw();
-        // }
     },
 
     //important function
@@ -644,7 +524,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     if (!self.all_tiles_id.get(id)) {
                         self.all_tiles_id.set(id, {});
                         console.log(self.all_tiles_id.size);
-                        self.rtree_cachedTile.insert([bb[0], bb[1], bb[2], bb[3], id]);                        
+                        self.rtree_cachedTile.insert([bb[0], bb[1], bb[2], bb[3], id]);
                     }
 
 
