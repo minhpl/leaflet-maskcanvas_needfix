@@ -349,25 +349,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             console.log(err);
         })
 
-        // var minXLatLng = 10000,
-        //     minYLatLng = 10000,
-        //     maxXLatLng = -1000,
-        //     maxYLatLng = -1000;
-        // var data = [];
-        // for (var i = 0; i < dataset.length; ++i) {
-        //     var item = dataset[i];
-        //     var x = item[0];
-        //     var y = item[1];
-        //     data.push([x, y, x, y, item, i]);
-        //     if (x < minXLatLng) minXLatLng = x;
-        //     if (y < minYLatLng) minYLatLng = y;
-        //     if (x > maxXLatLng) maxXLatLng = x;
-        //     if (y > maxYLatLng) maxYLatLng = y;
-        // }
-        // this.BBGlobalLatlng = [minXLatLng, minYLatLng, maxXLatLng, maxYLatLng];
-
-        // this._rtree.load(data);
-        // this.rtree_loaded = true;
 
         this._rtreePolygon = new rbush(32);
         this._rtreePolygon.load(this.makeDataPoly());
@@ -1073,8 +1054,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         if (pointCoordinates) {
             // var w = ((this.options.radius+ 0.5) >> 1) | 0;
             // var h = ((this.options.radius+0.5) >> 1) | 0;
-            var w = this.options.radius >> 1;
-            var h = this.options.radius >> 1;
+            var w = this.options.radius;
+            var h = this.options.radius;
             for (var index = 0; index < pointCoordinates.length; ++index) {
                 tilePoint = this._tilePoint(coords, pointCoordinates[index]);
                 // console.log(tilePoint[0],tilePoint[1]);

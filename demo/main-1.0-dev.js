@@ -72,7 +72,7 @@ $(function() {
 
     var coverageLayer = new L.GridLayer.MaskCanvas({
         opacity: 0.5,
-        radius: red_canvas.width,
+        radius: RADIUS,
         useAbsoluteRadius: false,
         img_on: img_redCircle,
         img_off: img_blueCircle,
