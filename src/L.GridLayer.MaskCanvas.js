@@ -1202,7 +1202,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         return new Promise(function(resolve, reject) {
             self.tiles.set(id, tile, function(removed) {
                 if (!removed) {
-                    resolve("not removed");
+                    resolve();
                 } else {
                     self.backupToDb(self.options.db, removed.value).then(function(res) {
                         resolve(res);
