@@ -55,7 +55,7 @@ function makeVPolygon2(lat, lng, maxwidth, maxheight) {
     maxwidth = 20.80618784724327 - 20.803620355329002;
     maxheight = 106.05514526367189 - 106.02767944335939;
 
-    console.log(maxwidth, maxheight);
+    // console.log(maxwidth, maxheight);
 
     var w = maxwidth / 2;
     var h = maxheight / 2;

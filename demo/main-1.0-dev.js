@@ -455,6 +455,36 @@ $(function() {
         }
     }
 
+    function putImageData(topPointlatlng, WIDTH, HEIGHT, coords, imgData) {
+        var w = WIDTH >> 1;
+        var h = HEIGHT >> 1;
+        var lat = topPointlatlng[0];
+        var lng = topPointlatlng[1];
+        var topPts = [lat, lng];
+
+        // var WIDTH,HEIGHT;
+        // WIDTH = HEIGHT = coverageLayer.options.radius;
+
+        var topPointTile = coverageLayer._tilePoint(coords, topPts);
+
+        var tileIDs = getTileIDs(topPointTile, WIDTH, HEIGHT, coords);
+
+        for (var i = 0; i < tileIDs.length; i++) {
+            var tile = tileIDs[i];
+            var canvas = tile.canvas;
+            var coords = tile.coords;
+            var tilePoint = coverageLayer._tilePoint(coords, topPts);
+            if (canvas) {
+                var ctx = canvas.getContext('2d');
+                // img.onload= function(){
+                // drawImage(ctx, img, tilePoint[0] - w, tilePoint[1] - h);
+                // console.log(w, h);
+                ctx.putImageData(imgData, tilePoint[0] - w, tilePoint[1] - h);
+            }
+        }
+    }
+
+
     function redraw(imgs) {
         for (var i = 0; i < imgs.length; i++) {
             var image = imgs[i];
@@ -791,7 +821,379 @@ $(function() {
             .openOn(map);
     }
 
-    // map.on('click', onMouseClick_drawMarker);
+    map.on('click', onMouseClick_removeMarker);
+
+    var pad = L.point(red_canvas.width >> 1, red_canvas.height >> 1);
+    var _pad = L.point(red_canvas.width, red_canvas.height);
+
+    function removeMarker(item, coords) {
+        coverageLayer._rtree.remove(item);
+        var itemPos = L.latLng(item[0], item[1]);
+
+        var createImageData = function(coords) {
+            var zoom = coords.z;
+
+            var itemPosPoint = map.project(itemPos, zoom);
+            var tlCanvas = itemPosPoint.subtract(pad);
+
+            var tlBoundQuery = itemPosPoint.subtract(_pad);
+            var brBoundQuery = itemPosPoint.add(_pad);
+
+            var nwBoundQuery = map.unproject(tlBoundQuery, zoom);
+            var seBoundQuery = map.unproject(brBoundQuery, zoom);
+            var boundQuery = [seBoundQuery.lat, nwBoundQuery.lng, nwBoundQuery.lat, seBoundQuery.lng];
+
+            var _items = coverageLayer._rtree.search(boundQuery);
+            _items.sort(function(a, b) {
+                return a[5] - b[5];
+            });
+
+            var subCanvas = document.createElement('canvas');
+            subCanvas.width = red_canvas.width;
+            subCanvas.height = red_canvas.height;
+            var context = subCanvas.getContext('2d');
+
+            var ll = map.unproject(tlCanvas, zoom);
+            var pointTileCanvas = coverageLayer._tilePoint(coords, [ll.lat, ll.lng]);
+
+            for (var i = 0; i < _items.length; i++) {
+                var _item = _items[i];
+                var tilePointItem = coverageLayer._tilePoint(coords, [_item[0], _item[1]]);
+
+                var _x = tilePointItem[0] - pointTileCanvas[0];
+                var _y = tilePointItem[1] - pointTileCanvas[1];
+
+                context.drawImage(red_canvas, _x - (red_canvas.width >> 1), _y - (red_canvas.height >> 1));
+            }
+
+            context.strokeStyle = '#000';
+            context.beginPath();
+            context.moveTo(0, 0);
+            context.lineTo(red_canvas.width, 0);
+            context.lineTo(red_canvas.width, red_canvas.height);
+            context.lineTo(0, red_canvas.height);
+            context.closePath();
+            context.stroke();
+
+            var imageData = context.getImageData(0, 0, subCanvas.width, subCanvas.height);
+
+            return {
+                'imageData': imageData,
+                'pointTileCanvas': pointTileCanvas,
+            }
+        }
+
+
+        var obj = createImageData(coords);
+        var imageData = obj.imageData;
+        putImageData([itemPos.lat, itemPos.lng], red_canvas.width, red_canvas.height, coords, imageData);
+
+        if (coverageLayer.rtree_cachedTile) {
+            var result = coverageLayer.rtree_cachedTile.search([itemPos.lat, itemPos.lng, itemPos.lat, itemPos.lng]);
+            result.sort(function(a, b) {
+                var za = coverageLayer.getCoords(a[4]).z;
+                var zb = coverageLayer.getCoords(b[4]).z;
+                // console.log(za, zb);
+                return za - zb;
+            })
+
+            console.log(result.length, result);
+
+            var updateTile = function(tile) {
+
+                console.log(tile);
+
+                var promise = new Promise(function(resolve, reject) {
+
+                    var coords = coverageLayer.getCoords(tile._id);
+                    tile.numPoints--;
+                    // console.log("------", tile);
+                    // resolve(tile);
+                    // return;
+
+                    if (tile.data && !coverageLayer.options.useGlobalData) {
+                        if (tile.sorted)
+                            data.pop();
+                        else {
+                            var index = data.lastIndexOf(item); //Note: browser support for indexOf is limited; it is not supported in Internet Explorer 7 and 8.
+                            if (index > -1) {
+                                data.splice(index, 1);
+                            }
+                        }
+                    }
+
+                    // var promise = new Promise(resolve, response) {
+                    if (tile.img) {
+                        // console.log("--------------------------------------------------------------------");
+                        var canvas = document.createElement('canvas');
+                        canvas.width = canvas.height = TILESIZE;
+                        var ctx = canvas.getContext('2d');
+                        var img = tile.img;
+
+                        if (img.complete) {
+                            // console.log("img complete", tile._id);
+                            ctx.drawImage(img, 0, 0);
+
+                            var obj = createImageData(coords);
+                            var imageData = obj.imageData;
+                            var pos = obj.pointTileCanvas;
+                            ctx.putImageData(imageData, pos[0], pos[1]);
+                            // ctx.putImageData(imageData, 0, 0);
+                            // tile.img.src = canvas.toDataURL("image/png");
+                            tile.img = new Image(); //prevent fire loading function recursively 
+                            tile.img.src = canvas.toDataURL("image/png");
+                            console.log(tile);
+                            resolve(tile);
+                        } else {
+                            tile.img.onload = function(e) {
+                                console.log("img onload", tile._id);
+                                if (e.target.complete) {
+                                    ctx.drawImage(img, 0, 0);
+
+                                    var obj = createImageData(coords);
+                                    var imageData = obj.imageData;
+                                    var pos = obj.pointTileCanvas;
+                                    ctx.putImageData(imageData, pos[0], pos[1]);
+                                    // ctx.putImageData(imageData, 0, 0);
+
+                                    // tile.img.src = canvas.toDataURL("image/png");
+                                    // console.log("img onload2")
+                                    tile.img = new Image();
+                                    tile.img.src = canvas.toDataURL("image/png");
+                                    resolve(tile);
+                                    console.log(tile);
+                                } else {
+                                    var maxTimes = 10;
+                                    var countTimes = 0;
+                                    var resolved = false;
+
+                                    function retryLoadImage() {
+                                        setTimeout(function() {
+                                            if (countTimes > maxTimes) {
+                                                // -- cannot load image.
+                                                // console.log("cannot load image");
+                                                if (!resolved) {
+                                                    reject("cannot load image")
+                                                    resolved = true;
+                                                };
+                                                return;
+                                            } else {
+                                                if (e.target.complete) {
+                                                    // console.log("retry load image");
+                                                    ctx.drawImage(img, 0, 0);
+
+                                                    var obj = createImageData(coords);
+                                                    var imageData = obj.imageData;
+                                                    var pos = obj.pointTileCanvas;
+                                                    ctx.putImageData(imageData, pos[0], pos[1]);
+                                                    // ctx.putImageData(imageData, 0, 0);
+                                                    tile.img = new Image();
+                                                    tile.img.src = canvas.toDataURL("image/png");
+                                                    console.log("retryLoadImage");
+                                                    if (!resolved) {
+                                                        resolve(tile);
+                                                        resolved = true;
+                                                        console.log(tile);
+                                                    }
+                                                } else {
+                                                    if (!resolved) retryLoadImage();
+                                                }
+                                            }
+                                            countTimes++;
+                                        }, 50);
+                                    };
+
+                                    retryLoadImage();
+                                }
+                            }
+                        }
+                    } else {
+                        resolve(tile);
+                    }
+
+                });
+
+                return promise;
+            }
+
+            var removeTileInDB = function(tile) {
+                var db = coverageLayer.options.db;
+                var promise = new Promise(function(resolve, reject) {
+                    db.get(tile._id).then(function(tile) {
+                        return db.remove(tile);
+                    }).then(function(response) {
+                        resolve();
+                    }).catch(function(err) {
+                        console.log("Err", err);
+                        reject();
+                    });
+                });
+
+                return promise;
+            }
+
+
+            var backUptoDBSequently = function(tiles) {
+
+                var prev = Promise.resolve();
+                var size = tiles.length;
+                var count = 0;
+
+                var promise = new Promise(function(resolve, reject) {
+                    tiles.forEach(function(tile) {
+                        prev = prev.then(function(response) {
+                            if (tile) {
+
+                                console.log("----", HUGETILE_THREADSHOLD, EMPTY);
+
+                                if (tile.numPoints > 0 && tiles.numPoints < HUGETILE_THREADSHOLD) {
+                                    coverageLayer.hugeTiles.remove(tile._id);
+                                    return coverageLayer.store(tile._id, tile);
+                                } else if (tile.numPoints == 0) {
+                                    coverageLayer.tiles.remove(tile._id);
+                                    coverageLayer.hugeTiles.remove(tile._id);
+                                    coverageLayer.emptyTiles.set(tile._id, EMPTY);
+                                    return removeTileInDB(tile);
+                                }
+                            } else {
+                                return Promise.resolve();
+                            }
+                        }).then(function(response) {
+                            count++;
+                            if (count == size) {
+                                resolve();
+                            }
+                        }).catch(function(err) {
+                            console.log("Err", err);
+                            reject(err);
+                        });
+                    });
+                })
+
+                return promise;
+
+            }
+
+
+            var updateInDb = function(id) {
+                console.log("hehehehehehehehhehehehehe");
+
+                var promise = new Promise(function(resolve, reject) {
+                    coverageLayer.getStoreObj(id).then(function(tile) {
+                        return updateTile(tile);
+                    }).then(function(tile) {
+                        tile.needSave = true;
+                        if (tile.numPoints == 0) {
+                            coverageLayer.emptyTiles.set(tile._id, EMPTY);
+                            coverageLayer.tiles.remove(tile._id);
+                        }
+                    }).catch(function(err) {
+                        console.log("Err", err, id);
+                        resolve();
+                    });
+                });
+
+                return promise;
+            }
+
+            var ids = []; //id of tile not in cache
+            var tiles = []; //tiles containt all tile from cache
+            for (var i = 0; i < result.length; i++) {
+                var id = result[i][4];
+                var tile = coverageLayer.tiles.get(id) || coverageLayer.hugeTiles.get(id);
+
+                if (tile) {
+                    tiles.push(tile);
+                } else {
+                    if (!coverageLayer.emptyTiles.get(id))
+                        ids.push(id);
+                }
+            }
+
+            Promise.all(tiles.map(function(tile) {
+                return updateTile(tile);
+            })).then(function(tiles) {
+                for (var i = 0; i < tiles.length; i++) {
+                    var tile = tiles[i];
+                    tile.needSave = true;
+                    if (tile.numPoints > 0 && tile.numPoints < HUGETILE_THREADSHOLD)
+                        coverageLayer.hugeTiles.remove(tile._id);
+                    else if (tile.numPoints == 0) {
+                        coverageLayer.emptyTiles.set(tile._id, EMPTY);
+                        coverageLayer.tiles.remove(tile._id);
+                    }
+                }
+
+                return backUptoDBSequently(tiles);
+            }).then(function(response) {
+                return Promise.all(ids.map(function(id) {
+                    return updateInDb(id);
+                }));
+            }).then(function(tiles)
+            {
+                return backUptoDBSequently(tiles);
+            });
+
+        }
+    }
+
+    function onMouseClick_removeMarker(e) {
+        var zoom = map.getZoom();
+        var latlng = e.latlng;
+
+        var currentlatLng = L.latLng(latlng.lat, latlng.lng);
+        var currentPoint = map.project(currentlatLng, zoom);
+
+        var pad = L.point(red_canvas.width >> 1, red_canvas.height >> 1);
+        var topLeft = currentPoint.subtract(pad);
+        var bottomRight = currentPoint.add(pad);
+
+        var nw = map.unproject(topLeft, zoom);
+        var se = map.unproject(bottomRight, zoom);
+        var bb = [se.lat, nw.lng, nw.lat, se.lng];
+
+        var x = (currentPoint.x / TILESIZE) >> 0;
+        var y = (currentPoint.y / TILESIZE) >> 0;
+
+        var coords = L.point(x, y);
+        coords.z = zoom;
+        var id = coverageLayer.getId(coords);
+
+        var tile = coverageLayer.tiles.get(id);
+
+        // if (tile)
+        //     bb = tile.bb;
+
+        var items = coverageLayer._rtree.search(bb);
+
+        if (items.length == 0) {
+            console.log("not found", coverageLayer._rtree);
+            return;
+        }
+
+        items.sort(function(a, b) {
+            return a[5] - b[5];
+        });
+
+
+        var item = items.pop();
+        // items.pop();
+        // items.pop();
+        // items.pop();
+
+        console.log(item);
+        removeMarker(item, coords);
+
+
+        // var prev = Promise.resolve();
+        // items.forEach(function(item) {
+        //     prev2 = prev2.then(function(response) {
+        //         return removeMarker(item, coords);
+        //     }).then(function(response) {
+        //         console.log(response);
+        //     })
+        // });
+    }
 
     var markerID = dataset.length;
 
@@ -843,7 +1245,6 @@ $(function() {
         var nw = map.unproject(topLeft);
         var se = map.unproject(bottomRight);
         var bb = [se.lat, nw.lng, nw.lat, se.lng];
-
     }
 
     function onMouseClick_drawMarker(e) {

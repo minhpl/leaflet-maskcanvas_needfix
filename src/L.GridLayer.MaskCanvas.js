@@ -70,7 +70,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
             var refreshDB = function(self) {
                 db.destroy().then(function(response) {
-                    db = new PouchDB('vmts');
+                    self.options.db = new PouchDB('vmts');
                     console.log("Refresh database");
                     self.ready = true;
                 }).catch(function(err) {
@@ -108,6 +108,13 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
     getId: function(coords) {
         return coords.z + "_" + coords.x + "_" + coords.y;
+    },
+
+    getCoords: function(id) {
+        var res = id.split("_");
+        var coords = L.point(res[1], res[2]);
+        coords.z = res[0];
+        return coords;
     },
 
     iscollides: function(coords) {
@@ -203,7 +210,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         poly.vertexsL = vertexsL;
         poly.lBounds = L.latLngBounds(vertexsL);
     },
-
 
     makeDataPoly: function() {
         var dlength = dataset.length;
@@ -388,7 +394,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                 db.get(id, {
                     attachments: false
                 }).then(function(doc) {
-                    // if (self.options.debug) console.log("Found ------------------- ", doc);
+                    if (self.options.debug) console.log("Found ------------------- ", doc);
                     // var tile = {
                     //     _id: doc._id,
                     //     status : LOADED,
@@ -427,7 +433,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     // resolve(res);  
                     res(doc);
                 }).catch(function(err) {
-                    // console.log(err);
+                    console.log(err);
                     rej(err);
                 });
             } else rej(new Error("No DB found"));
@@ -712,7 +718,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     //important function
     backupToDb: function(db, tile) {
 
-
         if (tile.needSave && tile.status == LOADED && !tile.empty) {
             var self = this;
             tile.needSave = false; // change needSave field = false, so we know to don't duplicate save the same tile to db in later
@@ -799,7 +804,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                                                 }
                                             });
                                         }
-                                    }, ['pouchdb-4.0.0.min.js', 'pouchdb.upsert.js']);
+                                    }, ['pouchdb-4.0.3.min.js', 'pouchdb.upsert.js']);
                                 }
 
                                 //********invoke web worker******
@@ -1203,7 +1208,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         }
 
         var self = this;
-
 
         if (pointCoordinates) {
             for (var index = 0; index < pointCoordinates.length; ++index) {
