@@ -463,7 +463,7 @@ $(function() {
         var topPts = [lat, lng];
 
         // var WIDTH,HEIGHT;
-        // WIDTH = HEIGHT = coverageLayer.options.radius;
+        // WIDTH = HEIGHT = coverageLayer.options.radius;                
 
         var topPointTile = coverageLayer._tilePoint(coords, topPts);
 
@@ -480,7 +480,7 @@ $(function() {
                 // drawImage(ctx, img, tilePoint[0] - w, tilePoint[1] - h);
                 // console.log(w, h);
                 ctx.putImageData(imgData, tilePoint[0] - w, tilePoint[1] - h);
-            }
+            } 
         }
     }
 
@@ -829,6 +829,7 @@ $(function() {
     function removeMarker(item, coords) {
         coverageLayer._rtree.remove(item);
         var itemPos = L.latLng(item[0], item[1]);
+        var db = coverageLayer.options.db;
 
         var createImageData = function(coords) {
             var zoom = coords.z;
@@ -942,6 +943,7 @@ $(function() {
                             // tile.img.src = canvas.toDataURL("image/png");
                             tile.img = new Image(); //prevent fire loading function recursively 
                             tile.img.src = canvas.toDataURL("image/png");
+                            tile.canvas = canvas;
                             console.log(tile);
                             resolve(tile);
                         } else {
@@ -960,6 +962,7 @@ $(function() {
                                     // console.log("img onload2")
                                     tile.img = new Image();
                                     tile.img.src = canvas.toDataURL("image/png");
+                                    tile.canvas = canvas;
                                     resolve(tile);
                                     console.log(tile);
                                 } else {
@@ -989,6 +992,7 @@ $(function() {
                                                     // ctx.putImageData(imageData, 0, 0);
                                                     tile.img = new Image();
                                                     tile.img.src = canvas.toDataURL("image/png");
+                                                    tile.canvas = canvas;
                                                     console.log("retryLoadImage");
                                                     if (!resolved) {
                                                         resolve(tile);
@@ -1017,13 +1021,16 @@ $(function() {
             }
 
             var removeTileInDB = function(tile) {
-                var db = coverageLayer.options.db;
                 var promise = new Promise(function(resolve, reject) {
+
                     db.get(tile._id).then(function(tile) {
                         return db.remove(tile);
+
                     }).then(function(response) {
+
                         resolve();
                     }).catch(function(err) {
+
                         console.log("Err", err);
                         reject();
                     });
@@ -1038,6 +1045,8 @@ $(function() {
                 var prev = Promise.resolve();
                 var size = tiles.length;
                 var count = 0;
+
+                console.log("in here2", tiles);
 
                 var promise = new Promise(function(resolve, reject) {
                     tiles.forEach(function(tile) {
@@ -1059,6 +1068,10 @@ $(function() {
                                 return Promise.resolve();
                             }
                         }).then(function(response) {
+
+                            var _tile = coverageLayer.tiles.get(tile._id);
+                            console.log(_tile, " tile in here");
+
                             count++;
                             if (count == size) {
                                 resolve();
@@ -1071,7 +1084,6 @@ $(function() {
                 })
 
                 return promise;
-
             }
 
 
@@ -1126,12 +1138,21 @@ $(function() {
 
                 return backUptoDBSequently(tiles);
             }).then(function(response) {
-                return Promise.all(ids.map(function(id) {
-                    return updateInDb(id);
-                }));
-            }).then(function(tiles)
-            {
-                return backUptoDBSequently(tiles);
+                if (ids.length > 0) {
+                    console.log("herere")
+                    coverageLayer.ready = false;
+                    return db.destroy().then(function(response) {
+                        coverageLayer.options.db = new PouchDB('vmts');
+                        console.log("Refresh database");
+                        coverageLayer.ready = true;
+                    })
+                }
+
+                // return Promise.all(ids.map(function(id) {
+                //     return updateInDb(id);
+                // }));
+            }).then(function(tiles) {
+                // return backUptoDBSequently(tiles);
             });
 
         }

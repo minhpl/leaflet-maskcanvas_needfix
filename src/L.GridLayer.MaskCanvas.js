@@ -746,9 +746,16 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                         delete simpleTile.sorted;
                     }
 
+                    if (tile._id == "10_813_451")
+                        console.log("in here5");
+
                     var promise = new Promise(function(resolved, reject) {
                         if (tile.numPoints > 0 && tile.canvas) {
                             blobUtil.canvasToBlob(tile.canvas).then(function(blob) {
+
+
+                                if (tile._id == "10_813_451")
+                                    console.log("in here4");
 
                                 simpleTile.image = blob;
 
@@ -826,6 +833,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                                 reject();
                             })
                         } else {
+                            console.log("in here3", tile);
                             resolved();
                         }
                     });
