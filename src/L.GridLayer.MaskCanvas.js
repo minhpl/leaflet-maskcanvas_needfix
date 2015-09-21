@@ -211,6 +211,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         // console.log("interval ", interval);
         var dPoly = [];
         var id = 0;
+        var maxWith = 0.0025674919142666397;
+        var maxHeight = 0.0274658203125;
 
         // var canvas = document.getElementById('myCanvas');
         // var ctx = canvas.getContext('2d');
@@ -225,13 +227,21 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             var lat = 20.76831 + Math.random() * (21.15176 - 20.76831);
             var lng = 105.25108 + Math.random() * (105.65826 - 105.25108);
 
-            var posL = [lat, lng];
+            var poly = makeVPolygon2(lat, lng, maxWith, maxHeight); //tao hinh dang cua polygon                        
 
-            var poly = makeVPolygon(10, 10); //tao hinh dang cua polygon            
+            // this.getVertexAndBoundinLatLng(poly);
+            var vertexsL = [];
+            for (var i = 0; i < poly.length; i++) {
+                var vertex = poly[i];
+                var vertexL = L.latLng(vertex.x, vertex.y);
+                vertexsL.push(vertexL);
+            }
 
-            poly.posL = posL; //set vi tri cho polygon
+            poly.vertexsL = vertexsL;
+            poly.lBounds = L.latLngBounds(vertexsL);
 
-            this.getVertexAndBoundinLatLng(poly);
+            var center = poly.lBounds.getCenter();
+            poly.posL = [center.lat, center.lng];
 
             poly.in = function(currentlatLng) {
                 var x = currentlatLng.lat,
