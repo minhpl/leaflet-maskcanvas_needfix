@@ -373,6 +373,18 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
     },
 
+    clearDataPoly: function(boundaryBox) {
+        if (boundaryBox) {
+            var items = this._rtreePolygon.search(boundaryBox);
+            for (var i = 0; i < items; i++) {
+                var item = items[i];
+                this._rtreePolygon.remove(item);
+            }
+        } else {
+            this._rtreePolygon.clear();
+        }
+    },
+
     // //important function
     // getStoreObj: function(id) {
 
