@@ -211,144 +211,191 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     //     poly.lBounds = L.latLngBounds(vertexsL);
     // },
 
-    makeDataPoly: function() {
-        var dlength = dataset.length;
-        var interval = (dlength / NUMPOLYGON) >> 0;
-        // console.log("interval ", interval);
-        var dPoly = [];
-        var id = 0;
-        var maxWith = 0.0025674919142666397;
-        var maxHeight = 0.0274658203125;
+    makeDataPoly: function(dataPoly) {
+        if (!data) {
+            var dlength = dataset.length;
+            var interval = (dlength / NUMPOLYGON) >> 0;
+            // console.log("interval ", interval);
+            var dPoly = [];
+            var id = 0;
+            var maxWith = 0.0025674919142666397;
+            var maxHeight = 0.0274658203125;
 
-        // var canvas = document.getElementById('myCanvas');
-        // var ctx = canvas.getContext('2d');
-        // ctx.fillStyle = 'rgba(20,250,200,0.1)';
+            // var canvas = document.getElementById('myCanvas');
+            // var ctx = canvas.getContext('2d');
+            // ctx.fillStyle = 'rgba(20,250,200,0.1)';
 
-        for (var i = 0, j = 0; i < dlength && j < NUMPOLYGON; i += interval, j++) {
-            // 20.9204, 105.59578
-            // 21.11269, 105.88451
+            for (var i = 0, j = 0; i < dlength && j < NUMPOLYGON; i += interval, j++) {
+                // 20.9204, 105.59578
+                // 21.11269, 105.88451
 
-            // 21.15176, 105.65826
-            // 20.76831, 105.25108
-            var lat = 20.76831 + Math.random() * (21.15176 - 20.76831);
-            var lng = 105.25108 + Math.random() * (105.65826 - 105.25108);
+                // 21.15176, 105.65826
+                // 20.76831, 105.25108
+                var lat = 20.76831 + Math.random() * (21.15176 - 20.76831);
+                var lng = 105.25108 + Math.random() * (105.65826 - 105.25108);
 
-            var poly = makeVPolygon2(lat, lng, maxWith, maxHeight); //tao hinh dang cua polygon                        
+                var poly = makeVPolygon2(lat, lng, maxWith, maxHeight); //tao hinh dang cua polygon                        
 
-            // this.getVertexAndBoundinLatLng(poly);
-            var vertexsL = [];
-            for (var i = 0; i < poly.length; i++) {
-                var vertex = poly[i];
-                var vertexL = L.latLng(vertex.x, vertex.y);
-                vertexsL.push(vertexL);
-            }
-
-            poly.vertexsL = vertexsL;
-            poly.lBounds = L.latLngBounds(vertexsL);
-
-            var center = poly.lBounds.getCenter();
-            poly.posL = [center.lat, center.lng];
-
-            poly.in = function(currentlatLng) {
-                var x = currentlatLng.lat,
-                    y = currentlatLng.lng;
-
-                var vertexsL = this.vertexsL;
-                var inside = false;
-                for (var i = 0, j = vertexsL.length - 1; i < vertexsL.length; j = i++) {
-                    var xi = vertexsL[i].lat,
-                        yi = vertexsL[i].lng;
-                    var xj = vertexsL[j].lat,
-                        yj = vertexsL[j].lng;
-
-                    var intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-                    if (intersect) inside = !inside;
+                // this.getVertexAndBoundinLatLng(poly);
+                var vertexsL = [];
+                for (var i = 0; i < poly.length; i++) {
+                    var vertex = poly[i];
+                    var vertexL = L.latLng(vertex.x, vertex.y);
+                    vertexsL.push(vertexL);
                 }
 
-                return inside;
+                poly.vertexsL = vertexsL;
+                poly.lBounds = L.latLngBounds(vertexsL);
+
+                var center = poly.lBounds.getCenter();
+                poly.posL = [center.lat, center.lng];
+
+                poly.in = function(currentlatLng) {
+                    var x = currentlatLng.lat,
+                        y = currentlatLng.lng;
+
+                    var vertexsL = this.vertexsL;
+                    var inside = false;
+                    for (var i = 0, j = vertexsL.length - 1; i < vertexsL.length; j = i++) {
+                        var xi = vertexsL[i].lat,
+                            yi = vertexsL[i].lng;
+                        var xj = vertexsL[j].lat,
+                            yj = vertexsL[j].lng;
+
+                        var intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                        if (intersect) inside = !inside;
+                    }
+
+                    return inside;
+                }
+
+                lBounds = poly.lBounds;
+                var a = [lBounds.getSouth(), lBounds.getWest(), lBounds.getNorth(), lBounds.getEast(), poly, id++];
+                dPoly.push(a);
             }
 
-            lBounds = poly.lBounds;
-            var a = [lBounds.getSouth(), lBounds.getWest(), lBounds.getNorth(), lBounds.getEast(), poly, id++];
-            dPoly.push(a);
+            return dPoly;
+        } else {
+
+            var dPoly = [];
+
+            for (var i = 0; i < dataPoly.length; i++) {
+                var poly = dataPoly[i];
+
+                var vertexsL = [];
+                for (var i = 0; i < poly.length; i++) {
+                    var vertex = poly[i];
+                    var vertexL = L.latLng(vertex.x, vertex.y);
+                    vertexsL.push(vertexL);
+                }
+
+                poly.vertexsL = vertexsL;
+                poly.lBounds = L.latLngBounds(vertexsL);
+
+                var center = poly.lBounds.getCenter();
+                poly.posL = [center.lat, center.lng];
+
+                poly.in = function(currentlatLng) {
+                    var x = currentlatLng.lat,
+                        y = currentlatLng.lng;
+
+                    var vertexsL = this.vertexsL;
+                    var inside = false;
+                    for (var i = 0, j = vertexsL.length - 1; i < vertexsL.length; j = i++) {
+                        var xi = vertexsL[i].lat,
+                            yi = vertexsL[i].lng;
+                        var xj = vertexsL[j].lat,
+                            yj = vertexsL[j].lng;
+
+                        var intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                        if (intersect) inside = !inside;
+                    }
+
+                    return inside;
+                }
+
+                lBounds = poly.lBounds;
+                var a = [lBounds.getSouth(), lBounds.getWest(), lBounds.getNorth(), lBounds.getEast(), poly, id++];
+                dPoly.push(a);
+            }
+
+            return dPoly;
         }
-
-        return dPoly;
     },
 
-    makeRtree: function() {
-        var self = this;
+    // makeRtree: function() {
+    //     var self = this;
 
-        var promise = new Promise(function(res, rej) {
+    //     var promise = new Promise(function(res, rej) {
 
-            var craziness = operative({
-                doCrazy: function(rtree_loaded) {
-                    var deferred = this.deferred();
-                    if (!rtree_loaded) {
-                        // console.time('send');
+    //         var craziness = operative({
+    //             doCrazy: function(rtree_loaded) {
+    //                 var deferred = this.deferred();
+    //                 if (!rtree_loaded) {
+    //                     // console.time('send');
 
-                        var minXLatLng = 1000,
-                            minYLatLng = 1000,
-                            maxXLatLng = -1000,
-                            maxYLatLng = -1000;
-                        var buffer = new ArrayBuffer(8 * dataset.length * 2);
-                        var arr = new Float64Array(buffer, 0);
-                        var j = 0;
-                        for (var i = 0; i < dataset.length; ++i) {
-                            var item = dataset[i];
-                            var x = item[0];
-                            var y = item[1];
+    //                     var minXLatLng = 1000,
+    //                         minYLatLng = 1000,
+    //                         maxXLatLng = -1000,
+    //                         maxYLatLng = -1000;
+    //                     var buffer = new ArrayBuffer(8 * dataset.length * 2);
+    //                     var arr = new Float64Array(buffer, 0);
+    //                     var j = 0;
+    //                     for (var i = 0; i < dataset.length; ++i) {
+    //                         var item = dataset[i];
+    //                         var x = item[0];
+    //                         var y = item[1];
 
-                            arr[j] = x;
-                            arr[++j] = y;
-                            ++j;
+    //                         arr[j] = x;
+    //                         arr[++j] = y;
+    //                         ++j;
 
-                            if (x < minXLatLng) minXLatLng = x;
-                            if (y < minYLatLng) minYLatLng = y;
-                            if (x > maxXLatLng) maxXLatLng = x;
-                            if (y > maxYLatLng) maxYLatLng = y;
-                        }
-                        var BBAllPointLatlng = [minXLatLng, minYLatLng, maxXLatLng, maxYLatLng];
+    //                         if (x < minXLatLng) minXLatLng = x;
+    //                         if (y < minYLatLng) minYLatLng = y;
+    //                         if (x > maxXLatLng) maxXLatLng = x;
+    //                         if (y > maxYLatLng) maxYLatLng = y;
+    //                     }
+    //                     var BBAllPointLatlng = [minXLatLng, minYLatLng, maxXLatLng, maxYLatLng];
 
-                        deferred.fulfill({
-                            'buffer': buffer,
-                            'bb': BBAllPointLatlng
-                        }, [buffer]);
+    //                     deferred.fulfill({
+    //                         'buffer': buffer,
+    //                         'bb': BBAllPointLatlng
+    //                     }, [buffer]);
 
-                        // console.timeEnd('send');
-                    } else {
-                        deferred.fulfill(undefined);
-                    }
-                }
-            }, ['data-light.js']);
+    //                     // console.timeEnd('send');
+    //                 } else {
+    //                     deferred.fulfill(undefined);
+    //                 }
+    //             }
+    //         }, ['data-light.js']);
 
-            craziness.doCrazy(self.rtree_loaded).then(function(result) {
-                if (!self.rtree_loaded && result) {
-                    var buffer = result.buffer;
-                    var data = [];
-                    var arr = new Float64Array(buffer, 0);
-                    var j = 0;
-                    for (var i = 0; i < arr.length; i += 2) {
-                        var x = arr[i];
-                        var y = arr[i + 1];
-                        var item = [x, y];
-                        data.push([x, y, x, y, item, j++]);
-                    }
-                    self._rtree.clear().load(data);
-                    self.rtree_loaded = true;
-                    self.BBAllPointLatlng = result.bb;
-                    res();
-                    craziness.terminate();
-                } else {
-                    reject();
-                }
-            });
-        });
+    //         craziness.doCrazy(self.rtree_loaded).then(function(result) {
+    //             if (!self.rtree_loaded && result) {
+    //                 var buffer = result.buffer;
+    //                 var data = [];
+    //                 var arr = new Float64Array(buffer, 0);
+    //                 var j = 0;
+    //                 for (var i = 0; i < arr.length; i += 2) {
+    //                     var x = arr[i];
+    //                     var y = arr[i + 1];
+    //                     var item = [x, y];
+    //                     data.push([x, y, x, y, item, j++]);
+    //                 }
+    //                 self._rtree.clear().load(data);
+    //                 self.rtree_loaded = true;
+    //                 self.BBAllPointLatlng = result.bb;
+    //                 res();
+    //                 craziness.terminate();
+    //             } else {
+    //                 reject();
+    //             }
+    //         });
+    //     });
 
-        return promise;
-    },
+    //     return promise;
+    // },
 
-    setData: function(dataset) {
+    setData: function(dataPoly) {
         var self = this;
         this.bounds = new L.LatLngBounds(dataset);
 
@@ -367,10 +414,9 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
 
         this._rtreePolygon = new rbush(32);
-        this._rtreePolygon.load(this.makeDataPoly());
+        this._rtreePolygon.load(this.makeDataPoly(dataPoly));
 
         this._maxRadius = this.options.radius;
-
     },
 
     clearDataPoly: function(boundaryBox) {
