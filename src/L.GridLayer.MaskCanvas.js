@@ -903,16 +903,18 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         // if (self.rtree_loaded) {
         // console.log("No tiles stored ",self.tiles.size);  
 
-        return new Promise(function(resolve, reject) {
-            self.tiles.set(id, tile, function(removed) {
-                // console.log("here1");
-                if (removed) {
-                    console.log("removed tile", removed.value.needSave, removed.value);
-                    return self.backupToDb(self.options.db, removed.value).catch(function(err) {                        
-                    });
-                } else return Promise.resolve();
-            });
-        })
+        // return new Promise(function(resolve, reject) {
+        self.tiles.set(id, tile, function(removed) {
+            // console.log("here1");
+            if (removed) {
+                console.log("removed tile", removed.value.needSave, removed.value);
+                return self.backupToDb(self.options.db, removed.value);
+            } else {
+                console.log("not removed", tile._id, tile);
+                return Promise.resolve();
+            }
+        });
+        // })
 
 
     },
