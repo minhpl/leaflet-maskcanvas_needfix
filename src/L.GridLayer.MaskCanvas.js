@@ -394,7 +394,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                 db.get(id, {
                     attachments: false
                 }).then(function(doc) {
-                    if (self.options.debug) console.log("Found ------------------- ", doc);
+                    if (self.options.debug) console.log("Found ------------------- ", doc._id, doc);
                     // var tile = {
                     //     _id: doc._id,
                     //     status : LOADED,
@@ -549,7 +549,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                         bb: bb,
                         status: LOADED,
                         needSave: true,
-                        justcreated: true,
+                        neverSavedDB: true,
                     }
 
                     console.log("in here 7", tile);
@@ -579,7 +579,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         }
 
         tile.needSave = (tile.status == LOADED) ? false : true;
-        if (tile.justcreated) tile.needSave = true;
+        if (tile.neverSavedDB) tile.needSave = true;
         console.log("get tile", tile);
         return Promise.resolve(tile);
     },
@@ -903,12 +903,13 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         // if (self.rtree_loaded) {
         // console.log("No tiles stored ",self.tiles.size);  
 
-        return promsie = new Promise(function(resolve, reject) {
+        return new Promise(function(resolve, reject) {
             self.tiles.set(id, tile, function(removed) {
                 // console.log("here1");
                 if (removed) {
                     console.log("removed tile", removed.value.needSave, removed.value);
-                    return self.backupToDb(self.options.db, removed.value);
+                    return self.backupToDb(self.options.db, removed.value).catch(function(err) {                        
+                    });
                 } else return Promise.resolve();
             });
         })

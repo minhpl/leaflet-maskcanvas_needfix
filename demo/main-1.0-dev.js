@@ -1054,10 +1054,11 @@ $(function() {
                             if (tile) {
 
                                 console.log("----", HUGETILE_THREADSHOLD, EMPTY, tile.numPoints);
-                            
+
                                 if ((tile.numPoints > 0) && (tile.numPoints < HUGETILE_THREADSHOLD)) {
                                     coverageLayer.hugeTiles.remove(tile._id);
                                     console.log("tile not empty", tile);
+                                    // return Promise.resolve();
                                     return coverageLayer.store(tile._id, tile);
                                 } else if (tile.numPoints == 0) {
                                     console.log("tile is empty");
@@ -1065,10 +1066,8 @@ $(function() {
                                     coverageLayer.hugeTiles.remove(tile._id);
                                     coverageLayer.emptyTiles.set(tile._id, EMPTY);
                                     return removeTileInDB(tile);
-                                } else {
-                                    console.log("why here", tile);
-                                }
-
+                                }                                 
+                                return Promise.resolve();
                             } else {
                                 return Promise.resolve();
                             }
@@ -1079,6 +1078,7 @@ $(function() {
 
                             count++;
                             if (count == size) {
+                                console.log("ok ok");
                                 resolve();
                             }
                         }).catch(function(err) {
