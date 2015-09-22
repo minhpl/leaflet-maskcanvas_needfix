@@ -448,6 +448,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     getTile: function(coords) {
 
         /**
+
          * @general description: this function check if tile in cache (lru or db)
          * if tile is not founded, then we create tile data by RTREE, and then we cache this tile to lru immediately    
          */
@@ -470,6 +471,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             if (!tile) {
                 tile = {};
             }
+
             tile.status = LOADING;
 
             self.store(id, tile);
@@ -546,8 +548,11 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                         data: pointCoordinates,
                         bb: bb,
                         status: LOADED,
-                        needSave: true
+                        needSave: true,
+                        justcreated: true,
                     }
+
+                    console.log("in here 7", tile);
 
                     //after create tile with RTREE, we save it down to lru cache and db immediately/
 
@@ -574,6 +579,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         }
 
         tile.needSave = (tile.status == LOADED) ? false : true;
+        if (tile.justcreated) tile.needSave = true;
+        console.log("get tile", tile);
         return Promise.resolve(tile);
     },
 
@@ -749,10 +756,22 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     if (tile._id == "10_813_451")
                         console.log("in here5");
 
-                    var promise = new Promise(function(resolved, reject) {
-                        if (tile.numPoints > 0 && tile.canvas) {
-                            blobUtil.canvasToBlob(tile.canvas).then(function(blob) {
 
+                    var getBlob = function(tile) {
+                        // console.log("---------------------------");
+                        if (tile.img) {
+                            // console.log("IMG");
+                            return blobUtil.imgSrcToBlob(tile.img.src);
+                        } else if (tile.canvas) {
+                            // console.log("CANVAS");
+                            return blobUtil.canvasToBlob(tile.canvas);
+                        } else return Promise.resolve();
+                        // console.log("---------------------------");
+                    }
+
+                    var promise = new Promise(function(resolved, reject) {
+                        if (tile.numPoints > 0 && (tile.canvas || tile.img)) {
+                            getBlob(tile).then(function(blob) {
 
                                 if (tile._id == "10_813_451")
                                     console.log("in here4");
@@ -829,7 +848,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                                 }
 
                             }).catch(function(err) {
-                                console.log(err);
+                                console.log("cannot convert img or canvas to blob", err);
                                 reject();
                             })
                         } else {
@@ -887,9 +906,10 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         return promsie = new Promise(function(resolve, reject) {
             self.tiles.set(id, tile, function(removed) {
                 // console.log("here1");
-                if (removed)
+                if (removed) {
+                    console.log("removed tile", removed.value.needSave, removed.value);
                     return self.backupToDb(self.options.db, removed.value);
-                else return Promise.resolve();
+                } else return Promise.resolve();
             });
         })
 
@@ -950,7 +970,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
             self.getTile(coords).then(function(tile) {
 
-                if (!tile || tile.status != LOADED || tile.empty) {
+                if (!tile || tile.status == LOADING || tile.empty) {
                     return;
                 }
                 var ctx = canvas.getContext('2d');

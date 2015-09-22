@@ -480,7 +480,7 @@ $(function() {
                 // drawImage(ctx, img, tilePoint[0] - w, tilePoint[1] - h);
                 // console.log(w, h);
                 ctx.putImageData(imgData, tilePoint[0] - w, tilePoint[1] - h);
-            } 
+            }
         }
     }
 
@@ -943,7 +943,7 @@ $(function() {
                             // tile.img.src = canvas.toDataURL("image/png");
                             tile.img = new Image(); //prevent fire loading function recursively 
                             tile.img.src = canvas.toDataURL("image/png");
-                            tile.canvas = canvas;
+                            // tile.canvas = canvas;
                             console.log(tile);
                             resolve(tile);
                         } else {
@@ -962,7 +962,7 @@ $(function() {
                                     // console.log("img onload2")
                                     tile.img = new Image();
                                     tile.img.src = canvas.toDataURL("image/png");
-                                    tile.canvas = canvas;
+                                    // tile.canvas = canvas;
                                     resolve(tile);
                                     console.log(tile);
                                 } else {
@@ -992,7 +992,7 @@ $(function() {
                                                     // ctx.putImageData(imageData, 0, 0);
                                                     tile.img = new Image();
                                                     tile.img.src = canvas.toDataURL("image/png");
-                                                    tile.canvas = canvas;
+                                                    // tile.canvas = canvas;
                                                     console.log("retryLoadImage");
                                                     if (!resolved) {
                                                         resolve(tile);
@@ -1053,17 +1053,22 @@ $(function() {
                         prev = prev.then(function(response) {
                             if (tile) {
 
-                                console.log("----", HUGETILE_THREADSHOLD, EMPTY);
-
-                                if (tile.numPoints > 0 && tiles.numPoints < HUGETILE_THREADSHOLD) {
+                                console.log("----", HUGETILE_THREADSHOLD, EMPTY, tile.numPoints);
+                            
+                                if ((tile.numPoints > 0) && (tile.numPoints < HUGETILE_THREADSHOLD)) {
                                     coverageLayer.hugeTiles.remove(tile._id);
+                                    console.log("tile not empty", tile);
                                     return coverageLayer.store(tile._id, tile);
                                 } else if (tile.numPoints == 0) {
+                                    console.log("tile is empty");
                                     coverageLayer.tiles.remove(tile._id);
                                     coverageLayer.hugeTiles.remove(tile._id);
                                     coverageLayer.emptyTiles.set(tile._id, EMPTY);
                                     return removeTileInDB(tile);
+                                } else {
+                                    console.log("why here", tile);
                                 }
+
                             } else {
                                 return Promise.resolve();
                             }
