@@ -3,17 +3,17 @@
  * For Leaflet 0.7.x, please use L.TileLayer.MaskCanvas
  */
 
-const LOADED = 1;
-const LOADING = -1;
-const UNLOAD = 0;
-const EMPTY = {
-    empty: true,
-    needSave: false,
-    numPoints: 0,
-    status: LOADED
-};
+// const LOADED = 1;
+// const LOADING = -1;
+// const UNLOAD = 0;
+// const EMPTY = {
+//     empty: true,
+//     needSave: false,
+//     numPoints: 0,
+//     status: LOADED
+// };
 
-const MAXRADIUSPOLY = 256;
+
 const NUMPOLYGON = 100;
 const NUMBPOLYGON = 10;
 const VPOLY = 1;
@@ -22,7 +22,7 @@ const HUGETILE_THREADSHOLD = 5000;
 
 L.GridLayer.MaskCanvas = L.GridLayer.extend({
     options: {
-        db: new PouchDB('vmts'),
+        // db: new PouchDB('vmts'),
         radius: 5, // this is the default radius (specific radius values may be passed with the data)
         useAbsoluteRadius: false, // true: radius in meters, false: radius in pixels
         color: '#000',
@@ -181,35 +181,35 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         ctx.stroke();
     },
 
-    getVertexAndBoundinLatLng: function(poly) {
-        var map = this.options.map;
-        var zoom = 12; //map.getZoom();
-        // console.log("zoom", zoom);
+    // getVertexAndBoundinLatLng: function(poly) {
+    //     var map = this.options.map;
+    //     var zoom = 12; //map.getZoom();
+    //     // console.log("zoom", zoom);
 
-        var tempVertexsP = [];
-        for (var i = 0; i < poly.length; i++) {
-            var p = poly[i];
-            tempVertexsP.push(L.point(p.x, p.y));
-        }
+    //     var tempVertexsP = [];
+    //     for (var i = 0; i < poly.length; i++) {
+    //         var p = poly[i];
+    //         tempVertexsP.push(L.point(p.x, p.y));
+    //     }
 
-        var bound = L.bounds(tempVertexsP);
-        var tempCenterP = bound.getCenter();
+    //     var bound = L.bounds(tempVertexsP);
+    //     var tempCenterP = bound.getCenter();
 
-        var centerL = L.latLng(poly.posL[0], poly.posL[1]);
-        var centerP = map.project(centerL, zoom);
+    //     var centerL = L.latLng(poly.posL[0], poly.posL[1]);
+    //     var centerP = map.project(centerL, zoom);
 
-        var distance = centerP.subtract(tempCenterP);
+    //     var distance = centerP.subtract(tempCenterP);
 
-        var vertexsL = [];
-        for (var i = 0; i < poly.length; i++) {
-            var vertexP = tempVertexsP[i].add(distance);
-            var vertexL = map.unproject(vertexP, zoom);
-            vertexsL.push(vertexL);
-        }
+    //     var vertexsL = [];
+    //     for (var i = 0; i < poly.length; i++) {
+    //         var vertexP = tempVertexsP[i].add(distance);
+    //         var vertexL = map.unproject(vertexP, zoom);
+    //         vertexsL.push(vertexL);
+    //     }
 
-        poly.vertexsL = vertexsL;
-        poly.lBounds = L.latLngBounds(vertexsL);
-    },
+    //     poly.vertexsL = vertexsL;
+    //     poly.lBounds = L.latLngBounds(vertexsL);
+    // },
 
     makeDataPoly: function() {
         var dlength = dataset.length;
@@ -353,17 +353,17 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         this.bounds = new L.LatLngBounds(dataset);
 
         this._rtree = new rbush(32);
-        this.rtree_loaded = false;
+        // this.rtree_loaded = false;
 
-        this.makeRtree(self.rtree_loaded).then(function(res) {
-            // console.log(res);
-            if (self._map) {
-                self.redraw();
-            }
-            // console.log(self.rtree_loaded);
-        }).catch(function(err) {
-            console.log(err);
-        })
+        // this.makeRtree(self.rtree_loaded).then(function(res) {
+        //     // console.log(res);
+        //     if (self._map) {
+        //         self.redraw();
+        //     }
+        //     // console.log(self.rtree_loaded);
+        // }).catch(function(err) {
+        //     console.log(err);
+        // })
 
 
         this._rtreePolygon = new rbush(32);
@@ -373,216 +373,216 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
     },
 
-    //important function
-    getStoreObj: function(id) {
+    // //important function
+    // getStoreObj: function(id) {
 
-        /**
-         * @ general description This function try to get tile from db,
-         * if tile is founded, then it immediately set it up to lru head
-         */
+    //     /**
+    //      * @ general description This function try to get tile from db,
+    //      * if tile is founded, then it immediately set it up to lru head
+    //      */
 
-        var db = this.options.db;
+    //     var db = this.options.db;
 
-        var self = this;
-        var promise = new Promise(function(res, rej) {
-            if (!self.ready) { //need to wait for all old data be deleted
-                rej("Not ready");
-                return;
-            }
+    //     var self = this;
+    //     var promise = new Promise(function(res, rej) {
+    //         if (!self.ready) { //need to wait for all old data be deleted
+    //             rej("Not ready");
+    //             return;
+    //         }
 
-            if (db) {
-                db.get(id, {
-                    attachments: false
-                }).then(function(doc) {
-                    if (self.options.debug) console.log("Found ------------------- ", doc);
-                    // var tile = {
-                    //     _id: doc._id,
-                    //     status : LOADED,
-                    //     data: doc.data,
-                    //     bb: doc.bb,
-                    //     _rev : doc._rev,
-                    //     needSave: false
-                    // };
-                    // var id = doc._id;
+    //         if (db) {
+    //             db.get(id, {
+    //                 attachments: false
+    //             }).then(function(doc) {
+    //                 if (self.options.debug) console.log("Found ------------------- ", doc);
+    //                 // var tile = {
+    //                 //     _id: doc._id,
+    //                 //     status : LOADED,
+    //                 //     data: doc.data,
+    //                 //     bb: doc.bb,
+    //                 //     _rev : doc._rev,
+    //                 //     needSave: false
+    //                 // };
+    //                 // var id = doc._id;
 
-                    doc.status = LOADED;
-                    doc.needSave = false;
-                    if (!doc.img && doc.numPoints > 0) {
-                        var blob = doc.image;
-                        var blobURL = blobUtil.createObjectURL(blob);
+    //                 doc.status = LOADED;
+    //                 doc.needSave = false;
+    //                 if (!doc.img && doc.numPoints > 0) {
+    //                     var blob = doc.image;
+    //                     var blobURL = blobUtil.createObjectURL(blob);
 
-                        var newImg = new Image();
-                        newImg.src = blobURL;
-                        doc.img = newImg;
-                        doc.imgFromDB = true;
-                        // setTimeout(function() {                            
-                        //     var canvas = self.canvases.get(id);
-                        //     var ctx = canvas.getContext('2d');
-                        //     ctx.drawImage(newImg, -100, -100);                        
-                        // }, 300);
-                        if (doc.numPoints < HUGETILE_THREADSHOLD) {
-                            var nTile = self.tiles.get(id);
-                            if (!nTile || !nTile.img)
-                                self.store(id, doc);
-                        } else {
-                            var nTile = self.hugeTiles.get(id);
-                            if (!nTile || !nTile.img)
-                                self.hugeTiles.set(id, doc);
-                        }
-                    }
-                    // resolve(res);  
-                    res(doc);
-                }).catch(function(err) {
-                    console.log(err);
-                    rej(err);
-                });
-            } else rej(new Error("No DB found"));
-        });
+    //                     var newImg = new Image();
+    //                     newImg.src = blobURL;
+    //                     doc.img = newImg;
+    //                     doc.imgFromDB = true;
+    //                     // setTimeout(function() {                            
+    //                     //     var canvas = self.canvases.get(id);
+    //                     //     var ctx = canvas.getContext('2d');
+    //                     //     ctx.drawImage(newImg, -100, -100);                        
+    //                     // }, 300);
+    //                     if (doc.numPoints < HUGETILE_THREADSHOLD) {
+    //                         var nTile = self.tiles.get(id);
+    //                         if (!nTile || !nTile.img)
+    //                             self.store(id, doc);
+    //                     } else {
+    //                         var nTile = self.hugeTiles.get(id);
+    //                         if (!nTile || !nTile.img)
+    //                             self.hugeTiles.set(id, doc);
+    //                     }
+    //                 }
+    //                 // resolve(res);  
+    //                 res(doc);
+    //             }).catch(function(err) {
+    //                 console.log(err);
+    //                 rej(err);
+    //             });
+    //         } else rej(new Error("No DB found"));
+    //     });
 
-        return promise;
-    },
+    //     return promise;
+    // },
 
-    all_tiles_id: new lru(4000),
+    // all_tiles_id: new lru(4000),
 
-    //important function
-    getTile: function(coords) {
+    // //important function
+    // getTile: function(coords) {
 
-        /**
+    //     /**
 
-         * @general description: this function check if tile in cache (lru or db)
-         * if tile is not founded, then we create tile data by RTREE, and then we cache this tile to lru immediately    
-         */
-        var id = coords.z + "_" + coords.x + "_" + coords.y;
+    //      * @general description: this function check if tile in cache (lru or db)
+    //      * if tile is not founded, then we create tile data by RTREE, and then we cache this tile to lru immediately    
+    //      */
+    //     var id = coords.z + "_" + coords.x + "_" + coords.y;
 
-        var valid = this.iscollides(coords);
-        //Dau tien kiem tra tile trong bo nho RAM
+    //     var valid = this.iscollides(coords);
+    //     //Dau tien kiem tra tile trong bo nho RAM
 
-        var tile = this.hugeTiles.get(id) || this.tiles.get(id);
-        var self = this;
-        // if (tile) console.log("Status ",tile.status);
+    //     var tile = this.hugeTiles.get(id) || this.tiles.get(id);
+    //     var self = this;
+    //     // if (tile) console.log("Status ",tile.status);
 
-        // if not found
-        if (!tile || tile.status == UNLOAD) {
-            //use empty tiles( save almost empty tile) to prevent find empty tile in dabase many time, because
-            //query data in db is time comsuming , so we check if tile is empty by query it in memory first.
-            if (self.emptyTiles.get(id))
-                return Promise.resolve(EMPTY);
+    //     // if not found
+    //     if (!tile || tile.status == UNLOAD) {
+    //         //use empty tiles( save almost empty tile) to prevent find empty tile in dabase many time, because
+    //         //query data in db is time comsuming , so we check if tile is empty by query it in memory first.
+    //         if (self.emptyTiles.get(id))
+    //             return Promise.resolve(EMPTY);
 
-            if (!tile) {
-                tile = {};
-            }
+    //         if (!tile) {
+    //             tile = {};
+    //         }
 
-            tile.status = LOADING;
+    //         tile.status = LOADING;
 
-            self.store(id, tile);
+    //         self.store(id, tile);
 
-            var promise = new Promise(function(resolve, reject) {
-                //sau do kiem tra trong o cung                
-                var out = self.getStoreObj(id).then(function(res) {
+    //         var promise = new Promise(function(resolve, reject) {
+    //             //sau do kiem tra trong o cung                
+    //             var out = self.getStoreObj(id).then(function(res) {
 
-                    self.store(id, res);
-                    res.status = LOADED;
+    //                 self.store(id, res);
+    //                 res.status = LOADED;
 
-                    if (res.numPoints == 0) {
-                        self.emptyTiles.set(id, {});
-                        self.tiles.remove(id);
-                        if (self.needPersistents > self.tiles.size)
-                            self.needPersistents--;
-                        console.log("Store empty tile ", self.emptyTiles.size);
-                    }
+    //                 if (res.numPoints == 0) {
+    //                     self.emptyTiles.set(id, {});
+    //                     self.tiles.remove(id);
+    //                     if (self.needPersistents > self.tiles.size)
+    //                         self.needPersistents--;
+    //                     console.log("Store empty tile ", self.emptyTiles.size);
+    //                 }
 
-                    resolve(res);
+    //                 resolve(res);
 
-                }, function(err) {
-                    //neu trong o cung khong co thi lay trong RTREE                    
+    //             }, function(err) {
+    //                 //neu trong o cung khong co thi lay trong RTREE                    
 
-                    var tileSize = self.options.tileSize;
-                    var nwPoint = coords.multiplyBy(tileSize);
-                    var sePoint = nwPoint.add(new L.Point(tileSize, tileSize));
+    //                 var tileSize = self.options.tileSize;
+    //                 var nwPoint = coords.multiplyBy(tileSize);
+    //                 var sePoint = nwPoint.add(new L.Point(tileSize, tileSize));
 
-                    if (self.options.useAbsoluteRadius) {
-                        var centerPoint = nwPoint.add(new L.Point(tileSize / 2, tileSize / 2));
-                        self._latLng = self._map.unproject(centerPoint, coords.z);
-                    }
+    //                 if (self.options.useAbsoluteRadius) {
+    //                     var centerPoint = nwPoint.add(new L.Point(tileSize / 2, tileSize / 2));
+    //                     self._latLng = self._map.unproject(centerPoint, coords.z);
+    //                 }
 
-                    // padding
-                    var pad = new L.Point(self._getMaxRadius(coords.z), self._getMaxRadius(coords.z));
-                    nwPoint = nwPoint.subtract(pad);
-                    sePoint = sePoint.add(pad);
+    //                 // padding
+    //                 var pad = new L.Point(self._getMaxRadius(coords.z), self._getMaxRadius(coords.z));
+    //                 nwPoint = nwPoint.subtract(pad);
+    //                 sePoint = sePoint.add(pad);
 
-                    var bounds = new L.LatLngBounds(self._map.unproject(sePoint, coords.z),
-                        self._map.unproject(nwPoint, coords.z));
+    //                 var bounds = new L.LatLngBounds(self._map.unproject(sePoint, coords.z),
+    //                     self._map.unproject(nwPoint, coords.z));
 
-                    var currentBounds = self._boundsToQuery(bounds);
-                    var bb = [currentBounds.y, currentBounds.x, currentBounds.y + currentBounds.height, currentBounds.x + currentBounds.width];
-                    // console.log(bb);
-                    var pointCoordinates = (self.options.useGlobalData) ? null : self._rtree.search(bb);
-
-
-                    //Create RTREE_cached
-                    if (!self.all_tiles_id.get(id)) {
-                        self.all_tiles_id.set(id, {});
-                        self.rtree_cachedTile.insert([bb[0], bb[1], bb[2], bb[3], id]);
-                    }
+    //                 var currentBounds = self._boundsToQuery(bounds);
+    //                 var bb = [currentBounds.y, currentBounds.x, currentBounds.y + currentBounds.height, currentBounds.x + currentBounds.width];
+    //                 // console.log(bb);
+    //                 var pointCoordinates = (self.options.useGlobalData) ? null : self._rtree.search(bb);
 
 
-                    if (pointCoordinates && pointCoordinates.length === 0) {
+    //                 //Create RTREE_cached
+    //                 if (!self.all_tiles_id.get(id)) {
+    //                     self.all_tiles_id.set(id, {});
+    //                     self.rtree_cachedTile.insert([bb[0], bb[1], bb[2], bb[3], id]);
+    //                 }
 
-                        console.log("here");
 
-                        console.log("Store empty tile ", self.emptyTiles.size);
-                        self.emptyTiles.set(id, {});
+    //                 if (pointCoordinates && pointCoordinates.length === 0) {
 
-                        self.tiles.remove(id);
-                        if (self.needPersistents > self.tiles.size)
-                            self.needPersistents--;
-                        // console.log("Remove empty tile from current saved tiles",self.tiles.size);
-                        resolve(EMPTY);
-                        return;
-                    }
+    //                     console.log("here");
 
-                    var numPoints = (pointCoordinates) ? pointCoordinates.length : 0;
-                    tile = {
-                        _id: id,
-                        numPoints: numPoints,
-                        data: pointCoordinates,
-                        bb: bb,
-                        status: LOADED,
-                        needSave: true,
-                        justcreated: true,
-                    }
+    //                     console.log("Store empty tile ", self.emptyTiles.size);
+    //                     self.emptyTiles.set(id, {});
 
-                    console.log("in here 7", tile);
+    //                     self.tiles.remove(id);
+    //                     if (self.needPersistents > self.tiles.size)
+    //                         self.needPersistents--;
+    //                     // console.log("Remove empty tile from current saved tiles",self.tiles.size);
+    //                     resolve(EMPTY);
+    //                     return;
+    //                 }
 
-                    //after create tile with RTREE, we save it down to lru cache and db immediately/
+    //                 var numPoints = (pointCoordinates) ? pointCoordinates.length : 0;
+    //                 tile = {
+    //                     _id: id,
+    //                     numPoints: numPoints,
+    //                     data: pointCoordinates,
+    //                     bb: bb,
+    //                     status: LOADED,
+    //                     needSave: true,
+    //                     justcreated: true,
+    //                 }
 
-                    if (numPoints >= HUGETILE_THREADSHOLD) {
-                        console.log("here1");
-                        var nTile = self.hugeTiles.get(id);
-                        if (!nTile || nTile.status != LOADED) {
-                            self.hugeTiles.set(id, tile);
-                            self.tiles.remove(id);
-                            resolve(tile);
-                        } else resolve(nTile);
+    //                 console.log("in here 7", tile);
 
-                    } else {
-                        var nTile = self.tiles.get(id);
-                        if (!nTile || nTile.status != LOADED) {
-                            self.store(id, tile);
-                            resolve(tile);
-                        } else resolve(nTile);
-                    }
-                })
-            });
+    //                 //after create tile with RTREE, we save it down to lru cache and db immediately/
 
-            return promise;
-        }
+    //                 if (numPoints >= HUGETILE_THREADSHOLD) {
+    //                     console.log("here1");
+    //                     var nTile = self.hugeTiles.get(id);
+    //                     if (!nTile || nTile.status != LOADED) {
+    //                         self.hugeTiles.set(id, tile);
+    //                         self.tiles.remove(id);
+    //                         resolve(tile);
+    //                     } else resolve(nTile);
 
-        tile.needSave = (tile.status == LOADED) ? false : true;
-        if (tile.justcreated) tile.needSave = true;
-        console.log("get tile", tile);
-        return Promise.resolve(tile);
-    },
+    //                 } else {
+    //                     var nTile = self.tiles.get(id);
+    //                     if (!nTile || nTile.status != LOADED) {
+    //                         self.store(id, tile);
+    //                         resolve(tile);
+    //                     } else resolve(nTile);
+    //                 }
+    //             })
+    //         });
+
+    //         return promise;
+    //     }
+
+    //     tile.needSave = (tile.status == LOADED) ? false : true;
+    //     if (tile.justcreated) tile.needSave = true;
+    //     console.log("get tile", tile);
+    //     return Promise.resolve(tile);
+    // },
 
     /**
      * Set default radius value.
@@ -687,234 +687,234 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         return point._subtract(this._map.getPixelOrigin());
     },
 
-    timeoutId: undefined,
+    // timeoutId: undefined,
 
-    //important function
-    backupOne: function() {
-        //this function is excute after mouse cursor stop moving by 0ms
+    // //important function
+    // backupOne: function() {
+    //     //this function is excute after mouse cursor stop moving by 0ms
 
-        var self = this;
+    //     var self = this;
 
-        if (this.timeoutId) clearTimeout(this.timeoutId);
+    //     if (this.timeoutId) clearTimeout(this.timeoutId);
 
-        this.timeoutId = setTimeout(function() {
-            // console.log("here");
-            this.timeoutId = 0;
-            var db = self.options.db;
-            if (db && self.needPersistents > 0) {
+    //     this.timeoutId = setTimeout(function() {
+    //         // console.log("here");
+    //         this.timeoutId = 0;
+    //         var db = self.options.db;
+    //         if (db && self.needPersistents > 0) {
 
-                var node = self.tiles.head;
-                while (node) {
-                    var value = node.value;
-                    if (value.needSave) {
-                        self.backupToDb(db, value);
-                        console.log("Backup once ", value);
-                        break;
-                    }
-                    node = node.next;
-                }
-                self.needPersistents--;
-            }
-        }, 0);
+    //             var node = self.tiles.head;
+    //             while (node) {
+    //                 var value = node.value;
+    //                 if (value.needSave) {
+    //                     self.backupToDb(db, value);
+    //                     console.log("Backup once ", value);
+    //                     break;
+    //                 }
+    //                 node = node.next;
+    //             }
+    //             self.needPersistents--;
+    //         }
+    //     }, 0);
 
-    },
+    // },
 
-    worker: undefined,
-
-
-    //important function
-    backupToDb: function(db, tile) {
-
-        if (tile.needSave && tile.status == LOADED && !tile.empty) {
-            var self = this;
-            tile.needSave = false; // change needSave field = false, so we know to don't duplicate save the same tile to db in later
-            // console.log("Remove from memory 22, backup to DB ", tile);
-            // var db = self.options.db;
-            if (db) {
-
-                var promise2 = new Promise(function(resolve2, reject2) {
-                    var resolved2 = false;
-
-                    // console.log('Back up to DB',db);
-                    if (self.needPersistents > 0) self.needPersistents--;
-                    // function retryUntilWritten(id, name, rev, blob, type, callback) {
-
-                    var simpleTile = {
-                        _id: tile._id,
-                        numPoints: tile.numPoints,
-                        data: self.options.useGlobalData ? undefined : tile.data,
-                        bb: tile.bb,
-                        status: LOADED,
-                        needSave: false
-                    }
-
-                    if (self.options.useGlobalData) {
-                        delete simpleTile.data;
-                        delete simpleTile.sorted;
-                    }
-
-                    if (tile._id == "10_813_451")
-                        console.log("in here5");
+    // worker: undefined,
 
 
-                    var getBlob = function(tile) {
-                        // console.log("---------------------------");
-                        if (tile.img) {
-                            // console.log("IMG");
-                            return blobUtil.imgSrcToBlob(tile.img.src);
-                        } else if (tile.canvas) {
-                            // console.log("CANVAS");
-                            return blobUtil.canvasToBlob(tile.canvas);
-                        } else return Promise.resolve();
-                        // console.log("---------------------------");
-                    }
+    // //important function
+    // backupToDb: function(db, tile) {
 
-                    var promise = new Promise(function(resolved, reject) {
-                        if (tile.numPoints > 0 && (tile.canvas || tile.img)) {
-                            getBlob(tile).then(function(blob) {
+    //     if (tile.needSave && tile.status == LOADED && !tile.empty) {
+    //         var self = this;
+    //         tile.needSave = false; // change needSave field = false, so we know to don't duplicate save the same tile to db in later
+    //         // console.log("Remove from memory 22, backup to DB ", tile);
+    //         // var db = self.options.db;
+    //         if (db) {
 
-                                if (tile._id == "10_813_451")
-                                    console.log("in here4");
+    //             var promise2 = new Promise(function(resolve2, reject2) {
+    //                 var resolved2 = false;
 
-                                simpleTile.image = blob;
+    //                 // console.log('Back up to DB',db);
+    //                 if (self.needPersistents > 0) self.needPersistents--;
+    //                 // function retryUntilWritten(id, name, rev, blob, type, callback) {
 
-                                if (!self.worker) {
+    //                 var simpleTile = {
+    //                     _id: tile._id,
+    //                     numPoints: tile.numPoints,
+    //                     data: self.options.useGlobalData ? undefined : tile.data,
+    //                     bb: tile.bb,
+    //                     status: LOADED,
+    //                     needSave: false
+    //                 }
 
-                                    //********Web worker******
-                                    //**************************
+    //                 if (self.options.useGlobalData) {
+    //                     delete simpleTile.data;
+    //                     delete simpleTile.sorted;
+    //                 }
 
-                                    /**
-                                     * I hope that operative will fallback to setTimeout in case of no web-worker support.
-                                     */
-
-                                    /**
-                                     * @description  web worker only see variable and function in worker scope (
-                                     * because web worker be written on individual blob or file), -> cannot see
-                                     * any variable or function in outer scope
-                                     *
-                                     *  but why if replace this by self, this code still work correct ? 
-                                     */
-
-                                    self.worker = operative({
-                                        db: undefined,
-
-                                        backup: function(simpleTile, callback) {
-
-                                            //Only need to create DB object only once
-                                            if (!this.db) {
-                                                this.db = new PouchDB('vmts');
-                                            }
-
-                                            this.db.get(simpleTile._id).then(function(doc) {
-                                                //doc._rev co khi len toi 3, tuc la da duoc update lai 3 lan
-                                                console.log(doc._rev, doc.needSave);
-                                                simpleTile._rev = doc._rev;
-                                                return this.db.put(simpleTile);
-                                            }).then(function() {
-                                                callback('ok');
-                                                return this.db.get(simpleTile._id);
-                                            }).then(function(doc) {
-                                                console.log("successfully update stored object: ", doc);
-                                            }).catch(function(err) {
-                                                if (err.status == 404) {
-                                                    this.db.put(simpleTile).then(function(res) {
-                                                        console.log('successfully save new object ', res);
-                                                        callback('ok');
-                                                    }).catch(function(err) {
-                                                        console.log('other err2');
-                                                        callback(undefined);
-                                                    });
-                                                } else {
-                                                    console.log('other err1');
-                                                    callback(undefined);
-                                                }
-                                            });
-                                        }
-                                    }, ['pouchdb-4.0.3.min.js', 'pouchdb.upsert.js']);
-                                }
-
-                                //********invoke web worker******
-                                //*********************************
-                                if (self.worker) {
-                                    self.worker.backup(simpleTile, function(results) {
-                                        if (results) {
-                                            // if (self.options.debug) console.log("Successfully update stored object: ", tile._id);
-                                            resolved();
-                                        } else {
-                                            console.log('err');
-                                            reject();
-                                        }
-                                    })
-                                }
-
-                            }).catch(function(err) {
-                                console.log("cannot convert img or canvas to blob", err);
-                                reject();
-                            })
-                        } else {
-                            console.log("in here3", tile);
-                            resolved();
-                        }
-                    });
-
-                    if (!self.prev) self.prev = Promise.resolve();
-                    self.prev = self.prev.then(function() {
-                        console.log("before promise");
-                        return promise;
-                    }).then(function(response) {
-                        console.log("after promise");
-                        if (!resolved2) {
-                            console.log("here");
-                            resolve2();
-                            resolved2 = true;
-                        }
-                    }).catch(function(err) {
-                        console.log("Err", err);
-                        reject2();
-                    });
-
-                });
-
-                return promise2;
-            }
-        }
+    //                 if (tile._id == "10_813_451")
+    //                     console.log("in here5");
 
 
-        return Promise.resolve();
-    },
+    //                 var getBlob = function(tile) {
+    //                     // console.log("---------------------------");
+    //                     if (tile.img) {
+    //                         // console.log("IMG");
+    //                         return blobUtil.imgSrcToBlob(tile.img.src);
+    //                     } else if (tile.canvas) {
+    //                         // console.log("CANVAS");
+    //                         return blobUtil.canvasToBlob(tile.canvas);
+    //                     } else return Promise.resolve();
+    //                     // console.log("---------------------------");
+    //                 }
 
-    //important function
-    store: function(id, tile) {
-        var self = this;
+    //                 var promise = new Promise(function(resolved, reject) {
+    //                     if (tile.numPoints > 0 && (tile.canvas || tile.img)) {
+    //                         getBlob(tile).then(function(blob) {
 
-        /**
-         *No need to wait for rtree_loaded 
-         *rtree_loaded is actually global map data
-         *tile can be loaded from server individually, there is no need to wait for the whole map to be downloaded and store in rtree.
-         */
+    //                             if (tile._id == "10_813_451")
+    //                                 console.log("in here4");
 
-        /**        
-         *  when rtree have not been fully loaded data, if we save tile to db,
-         *  then when rtree is fully load data, data of some tile will change, so we need to update all tile in db.
-         *
-         *  additionally, when rtree contain no data, all tile is empty, so this function never been called
-         */
+    //                             simpleTile.image = blob;
 
-        // if (self.rtree_loaded) {
-        // console.log("No tiles stored ",self.tiles.size);  
+    //                             if (!self.worker) {
 
-        return promsie = new Promise(function(resolve, reject) {
-            self.tiles.set(id, tile, function(removed) {
-                // console.log("here1");
-                if (removed) {
-                    console.log("removed tile", removed.value.needSave, removed.value);
-                    return self.backupToDb(self.options.db, removed.value);
-                } else return Promise.resolve();
-            });
-        })
+    //                                 //********Web worker******
+    //                                 //**************************
+
+    //                                 /**
+    //                                  * I hope that operative will fallback to setTimeout in case of no web-worker support.
+    //                                  */
+
+    //                                 /**
+    //                                  * @description  web worker only see variable and function in worker scope (
+    //                                  * because web worker be written on individual blob or file), -> cannot see
+    //                                  * any variable or function in outer scope
+    //                                  *
+    //                                  *  but why if replace this by self, this code still work correct ? 
+    //                                  */
+
+    //                                 self.worker = operative({
+    //                                     db: undefined,
+
+    //                                     backup: function(simpleTile, callback) {
+
+    //                                         //Only need to create DB object only once
+    //                                         if (!this.db) {
+    //                                             this.db = new PouchDB('vmts');
+    //                                         }
+
+    //                                         this.db.get(simpleTile._id).then(function(doc) {
+    //                                             //doc._rev co khi len toi 3, tuc la da duoc update lai 3 lan
+    //                                             console.log(doc._rev, doc.needSave);
+    //                                             simpleTile._rev = doc._rev;
+    //                                             return this.db.put(simpleTile);
+    //                                         }).then(function() {
+    //                                             callback('ok');
+    //                                             return this.db.get(simpleTile._id);
+    //                                         }).then(function(doc) {
+    //                                             console.log("successfully update stored object: ", doc);
+    //                                         }).catch(function(err) {
+    //                                             if (err.status == 404) {
+    //                                                 this.db.put(simpleTile).then(function(res) {
+    //                                                     console.log('successfully save new object ', res);
+    //                                                     callback('ok');
+    //                                                 }).catch(function(err) {
+    //                                                     console.log('other err2');
+    //                                                     callback(undefined);
+    //                                                 });
+    //                                             } else {
+    //                                                 console.log('other err1');
+    //                                                 callback(undefined);
+    //                                             }
+    //                                         });
+    //                                     }
+    //                                 }, ['pouchdb-4.0.3.min.js', 'pouchdb.upsert.js']);
+    //                             }
+
+    //                             //********invoke web worker******
+    //                             //*********************************
+    //                             if (self.worker) {
+    //                                 self.worker.backup(simpleTile, function(results) {
+    //                                     if (results) {
+    //                                         // if (self.options.debug) console.log("Successfully update stored object: ", tile._id);
+    //                                         resolved();
+    //                                     } else {
+    //                                         console.log('err');
+    //                                         reject();
+    //                                     }
+    //                                 })
+    //                             }
+
+    //                         }).catch(function(err) {
+    //                             console.log("cannot convert img or canvas to blob", err);
+    //                             reject();
+    //                         })
+    //                     } else {
+    //                         console.log("in here3", tile);
+    //                         resolved();
+    //                     }
+    //                 });
+
+    //                 if (!self.prev) self.prev = Promise.resolve();
+    //                 self.prev = self.prev.then(function() {
+    //                     console.log("before promise");
+    //                     return promise;
+    //                 }).then(function(response) {
+    //                     console.log("after promise");
+    //                     if (!resolved2) {
+    //                         console.log("here");
+    //                         resolve2();
+    //                         resolved2 = true;
+    //                     }
+    //                 }).catch(function(err) {
+    //                     console.log("Err", err);
+    //                     reject2();
+    //                 });
+
+    //             });
+
+    //             return promise2;
+    //         }
+    //     }
 
 
-    },
+    //     return Promise.resolve();
+    // },
+
+    // //important function
+    // store: function(id, tile) {
+    //     var self = this;
+
+    //     /**
+    //      *No need to wait for rtree_loaded 
+    //      *rtree_loaded is actually global map data
+    //      *tile can be loaded from server individually, there is no need to wait for the whole map to be downloaded and store in rtree.
+    //      */
+
+    //     *        
+    //      *  when rtree have not been fully loaded data, if we save tile to db,
+    //      *  then when rtree is fully load data, data of some tile will change, so we need to update all tile in db.
+    //      *
+    //      *  additionally, when rtree contain no data, all tile is empty, so this function never been called
+
+
+    //     // if (self.rtree_loaded) {
+    //     // console.log("No tiles stored ",self.tiles.size);  
+
+    //     return promsie = new Promise(function(resolve, reject) {
+    //         self.tiles.set(id, tile, function(removed) {
+    //             // console.log("here1");
+    //             if (removed) {
+    //                 console.log("removed tile", removed.value.needSave, removed.value);
+    //                 return self.backupToDb(self.options.db, removed.value);
+    //             } else return Promise.resolve();
+    //         });
+    //     })
+
+
+    // },
 
     /**
      * @param {HTMLCanvasElement|HTMLElement} canvas
@@ -926,7 +926,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     _draw: function(canvas, coords) {
         // var valid = this.iscollides(coords);
         // if (!valid) return;  
-        if (!this._rtree || !this._map) {
+        if (!this._rtreePolygon || !this._map) {
             return;
         }
 
@@ -961,147 +961,9 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
         var id = this.getId(coords);
 
-        this.canvases.set(id, canvas, function(removed, keyadd) {
-            // console.log("add:", "removed: ",removed.key);
-        });
+        this.canvases.set(id, canvas);
 
-        (function(self, canvas, coords) {
-            var id = self.getId(coords);
-
-            self.getTile(coords).then(function(tile) {
-
-                if (!tile || tile.status == LOADING || tile.empty) {
-                    return;
-                }
-                var ctx = canvas.getContext('2d');
-                if (tile) {
-                    // if (!tile.canvas) {
-                    tile.canvas = canvas;
-                    // self.store(id, tile);
-                    // }                    
-                    if (tile.img) { //if tile containt img rendered in early, draw img and return
-                        // console.log("Draw from saved tile ",tile);
-                        // var nw = self._tilePoint(coords,tile.bb);
-                        // console.log("Draw at ",tile.bb,nw);                      
-
-                        // console.log("sorted = ",tile.sorted);
-                        if (tile.img.complete) {
-                            // if (tile.imgFromDB) {
-                            //     ctx.drawImage(tile.img, 50, 50);
-                            //     console.log("img from DB:", tile._id, " ctx.drawImage(tile.img, 50, 50)");
-                            // } else
-                            ctx.drawImage(tile.img, 0, 0);
-                        } else {
-                            tile.img.onload = function(e) {
-                                if (e.target.complete) {
-                                    // if (tile.imgFromDB) {
-                                    //     ctx.drawImage(tile.img, 50, 50);
-                                    //     console.log("img from DB:", tile._id, " ctx.drawImage(tile.img, 50, 50)");
-                                    // } else
-                                    ctx.drawImage(tile.img, 0, 0);
-                                } else {
-                                    var maxTimes = 10;
-                                    var countTimes = 0;
-
-                                    function retryLoadImage() {
-                                        setTimeout(function() {
-                                            if (countTimes > maxTimes) {
-                                                // -- cannot load image.
-                                                return;
-                                            } else {
-                                                if (e.target.complete == true) {
-                                                    // if (tile.imgFromDB) {
-                                                    //     ctx.drawImage(tile.img, 50, 50);
-                                                    //     console.log("img from DB:", tile._id, " ctx.drawImage(tile.img, 50, 50)");
-                                                    // } else
-                                                    ctx.drawImage(tile.img, 0, 0);
-                                                } else {
-                                                    retryLoadImage();
-                                                }
-                                            }
-                                            countTimes++;
-                                        }, 50);
-                                    };
-                                    retryLoadImage();
-                                }
-                            }
-                        }
-                        return;
-                    }
-
-                    if (!tile.data && self.options.useGlobalData) {
-                        var data = self._rtree.search(tile.bb);
-                        tile.numPoints = data.length;
-                        // console.log("TILE + ",tile);
-                        if (tile.numPoints > 0) {
-                            self._drawPoints(canvas, coords, data, false);
-                        } else {
-                            if (self.rtree_loaded) {
-                                // console.log("Store empty tile ", self.emptyTiles.size);
-                                /**                            
-                                 * @description if rtree_loeaded = false, because rtree_loaded in asynchronous manner,
-                                 * so data have not been loaded in tile.
-                                 * and we cannot store tile to empty tile                                
-                                 */
-
-                                self.emptyTiles.set(id, {});
-                                self.tiles.remove(id);
-                                if (self.needPersistents > self.tiles.size)
-                                    self.needPersistents--;
-                                // console.log("Remove empty tile from current saved tiles",self.tiles.size);                                                                                       
-                            }
-                        }
-                    } else self._drawPoints(canvas, coords, tile.data, tile.sorted);
-                    tile.sorted = true;
-
-                    if (tile.numPoints > 0) {
-                        /**
-                         * why don't use canvas directly instead of img ???                         
-                         */
-                        var img = new Image();
-                        img.src = canvas.toDataURL("image/png");
-
-                        // img.onload = function(){
-                        // console.log("Store Img to tile");
-
-                        //sau khi ve xong phai luu lai vao lru  hoac cache.
-                        var nTile = self.tiles.get(id);
-                        if (!nTile || !nTile.img) { // neu khong co tile hoac tile khong chua img
-                            tile.img = img;
-
-                            if (tile.numPoints >= HUGETILE_THREADSHOLD) {
-                                self.hugeTiles.set(id, tile);
-                                tile.needSave = false; //hugetile don't need to save to cached.
-                            } else self.store(id, tile);
-
-                            if (tile.needSave) {
-                                self.needPersistents++;
-                                // console.log("Need persistent ",self.needPersistents,self.tiles.size);
-                            }
-
-                        } else {
-                            //never called                    
-                            console.log("OMG_________________________________________________________OMG");
-
-                            nTile.canvas = canvas;
-                            /**
-                             * why needSave = false ?                             
-                             */
-                            ntile.needSave = false;
-                            if (tile.numPoints >= HUGETILE_THREADSHOLD) {
-                                self.hugeTiles.set(id, nTile);
-                            } else self.store(id, nTile);
-                        }
-                        // };
-                    }
-                }
-            }).then(function() {
-                self._drawVPolys(canvas, coords, vpolyCoordinates);
-            }).catch(function() {
-                // self.drawLinhTinh(canvas, coords, vpolyCoordinates);
-            })
-        })(self, canvas, coords);
-        // console.log(tile,id);
+        self._drawVPolys(canvas, coords, vpolyCoordinates);
     },
 
     /**
@@ -1111,54 +973,45 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
      * @private
      */
 
-    _drawPoints: function(canvas, coords, pointCoordinates, sorted) {
+    // _drawPoints: function(canvas, coords, pointCoordinates, sorted) {
 
-        if (!sorted) pointCoordinates.sort(function(a, b) {
-            return a[5] - b[5];
-        });
+    //     if (!sorted) pointCoordinates.sort(function(a, b) {
+    //         return a[5] - b[5];
+    //     });
 
-        var ctx = canvas.getContext('2d'),
-            tilePoint;
-        ctx.fillStyle = this.options.color;
+    //     var ctx = canvas.getContext('2d'),
+    //         tilePoint;
+    //     ctx.fillStyle = this.options.color;
 
-        if (this.options.lineColor) {
-            ctx.strokeStyle = this.options.lineColor;
-            ctx.lineWidth = this.options.lineWidth || 1;
-        }
+    //     if (this.options.lineColor) {
+    //         ctx.strokeStyle = this.options.lineColor;
+    //         ctx.lineWidth = this.options.lineWidth || 1;
+    //     }
 
-        if (pointCoordinates) {
-            // var w = ((this.options.radius+ 0.5) >> 1) | 0;
-            // var h = ((this.options.radius+0.5) >> 1) | 0;
-            var w = this.options.radius;
-            var h = this.options.radius;
-            for (var index = 0; index < pointCoordinates.length; ++index) {
-                tilePoint = this._tilePoint(coords, pointCoordinates[index]);
-                // console.log(tilePoint[0],tilePoint[1]);
-                var lx = tilePoint[0] - w;
-                var ly = tilePoint[1] - h;
-                lx = (lx < 0) ? (lx - 0.5) >> 0 : (lx + 0.5) >> 0;
-                ly = (ly < 0) ? (ly - 0.5) >> 0 : (ly + 0.5) >> 0;
-                // console.log(lx,ly);
-                ctx.drawImage(this.options.img_on, lx, ly);
-            }
-        }
-    },
-
-    // drawVPoly: function(poly, canvas, coords) {
-    //     var vertexsL = poly.vertexsL;
-
-    //     var v0 = vertexsL[0];
-    //     var p0 = this._tilePoint(coords, [v0.lat, v0.lng]);
-    //     console.log("here", p0);
-
+    //     if (pointCoordinates) {
+    //         // var w = ((this.options.radius+ 0.5) >> 1) | 0;
+    //         // var h = ((this.options.radius+0.5) >> 1) | 0;
+    //         var w = this.options.radius;
+    //         var h = this.options.radius;
+    //         for (var index = 0; index < pointCoordinates.length; ++index) {
+    //             tilePoint = this._tilePoint(coords, pointCoordinates[index]);
+    //             // console.log(tilePoint[0],tilePoint[1]);
+    //             var lx = tilePoint[0] - w;
+    //             var ly = tilePoint[1] - h;
+    //             lx = (lx < 0) ? (lx - 0.5) >> 0 : (lx + 0.5) >> 0;
+    //             ly = (ly < 0) ? (ly - 0.5) >> 0 : (ly + 0.5) >> 0;
+    //             // console.log(lx,ly);
+    //             ctx.drawImage(this.options.img_on, lx, ly);
+    //         }
+    //     }
     // },
 
-    drawLinhTinh: function(canvas, coords, vpolyCoordinates) {
-        var ctx = canvas.getContext('2d');
-        ctx.drawImage(this.options.img_on, 0, 0);
-    },
+    // drawLinhTinh: function(canvas, coords, vpolyCoordinates) {
+    //     var ctx = canvas.getContext('2d');
+    //     ctx.drawImage(this.options.img_on, 0, 0);
+    // },
 
-    getCanvas: function(vpoly, coords, color) {
+    getCanvas: function(vpoly, coords, fillColor) {
         var boundsL = vpoly.lBounds;
         var nw = boundsL.getNorthWest();
         topLeft = this._tilePoint(coords, [nw.lat, nw.lng]);
@@ -1174,7 +1027,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         canvas.height = height;
 
         var subctx = canvas.getContext('2d');
-        subctx.fillStyle = color;
+        subctx.fillStyle = fillColor;
 
         subctx.translate(-topLeft[0], -topLeft[1]);
 

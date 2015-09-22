@@ -116,7 +116,7 @@ $(function() {
         return (!alph) ? -1 : alph;
     }
 
-    var MEM;
+    // var MEM;
     /**
      * [cropImage description]
      * @param  {[type]} canvas      [description]
@@ -619,7 +619,7 @@ $(function() {
         timeoutID = setTimeout(function() {
             timeoutID = 0;
 
-            coverageLayer.backupOne();
+            // coverageLayer.backupOne();
             var info = getInfo(e);
 
             var radius = coverageLayer.options.radius;
@@ -802,7 +802,7 @@ $(function() {
 
     $('.leaflet-container').css('cursor', 'auto');
 
-    // map.on('mousemove', onMouseMove);
+    map.on('mousemove', onMouseMove);
 
 
 
