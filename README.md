@@ -13,6 +13,9 @@ layer.setCellLayerIndex(4);
 
 ## Polygon api
 ### Draw polygons
-layer.addPolygonMarker(data)
 
+layer.addPolygonMarker(dataPoly)
 
+layer.clearPolyMarker(boundaryBox)
+
+layer.setDataPoly(dataPoly)

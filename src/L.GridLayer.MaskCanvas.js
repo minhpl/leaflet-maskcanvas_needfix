@@ -3,22 +3,9 @@
  * For Leaflet 0.7.x, please use L.TileLayer.MaskCanvas
  */
 
-// const LOADED = 1;
-// const LOADING = -1;
-// const UNLOAD = 0;
-// const EMPTY = {
-//     empty: true,
-//     needSave: false,
-//     numPoints: 0,
-//     status: LOADED
-// };
 
 
 const NUMPOLYGON = 100;
-const NUMBPOLYGON = 10;
-const VPOLY = 1;
-const BPOLY = 2;
-const HUGETILE_THREADSHOLD = 5000;
 
 L.GridLayer.MaskCanvas = L.GridLayer.extend({
     options: {
@@ -98,13 +85,13 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         }
     },
 
-    globalData: function() {
-        this.options.useGlobalData = true;
-    },
+    // globalData: function() {
+    //     this.options.useGlobalData = true;
+    // },
 
-    localData: function() {
-        this.options.useGlobalData = false;
-    },
+    // localData: function() {
+    //     this.options.useGlobalData = false;
+    // },
 
     getId: function(coords) {
         return coords.z + "_" + coords.x + "_" + coords.y;
@@ -413,7 +400,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         // }).catch(function(err) {
         //     console.log(err);
         // })
-
 
         this._rtreePolygon = new rbush(32);
         if (dataPoly)

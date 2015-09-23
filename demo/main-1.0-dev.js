@@ -81,7 +81,7 @@ $(function() {
     });
 
     coverageLayer.setDataPoly();
-    coverageLayer.globalData();
+    // coverageLayer.globalData();
 
     map.addLayer(coverageLayer);
 
@@ -817,8 +817,6 @@ $(function() {
 
     map.on('mousemove', onMouseMove_backUpOne);
 
-
-
     function onMouseClick_showLatLng(e) {
         popup
             .setLatLng(e.latlng)
@@ -826,7 +824,7 @@ $(function() {
             .openOn(map);
     }
 
-    map.on('click', onMouseClick_removeMarker);
+    // map.on('click', onMouseClick_removeMarker);
 
     var pad = L.point(red_canvas.width >> 1, red_canvas.height >> 1);
     var _pad = L.point(red_canvas.width, red_canvas.height);
