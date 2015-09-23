@@ -212,7 +212,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     // },
 
     makeDataPoly: function(dataPoly) {
-        if (!data) {
+        if (!dataPoly) {
             var dlength = dataset.length;
             var interval = (dlength / NUMPOLYGON) >> 0;
             // console.log("interval ", interval);
@@ -283,14 +283,16 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                 var poly = dataPoly[i];
 
                 var vertexsL = [];
-                for (var i = 0; i < poly.length; i++) {
-                    var vertex = poly[i];
+                for (var index = 0; index < poly.length; index++) {
+                    var vertex = poly[index];
                     var vertexL = L.latLng(vertex.x, vertex.y);
                     vertexsL.push(vertexL);
                 }
 
                 poly.vertexsL = vertexsL;
                 poly.lBounds = L.latLngBounds(vertexsL);
+
+                // console.log(poly);
 
                 var center = poly.lBounds.getCenter();
                 poly.posL = [center.lat, center.lng];
@@ -395,7 +397,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     //     return promise;
     // },
 
-    setData: function(dataPoly) {
+    setDataPoly: function(dataPoly) {
         var self = this;
         this.bounds = new L.LatLngBounds(dataset);
 
@@ -414,12 +416,14 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
 
         this._rtreePolygon = new rbush(32);
-        this._rtreePolygon.load(this.makeDataPoly(dataPoly));
+        if (dataPoly)
+            this._rtreePolygon.load(this.makeDataPoly(dataPoly));
+        else this._rtreePolygon.load(this.makeDataPoly());
 
         this._maxRadius = this.options.radius;
     },
 
-    clearDataPoly: function(boundaryBox) {
+    clearPolyMarker: function(boundaryBox) {
         if (boundaryBox) {
             var items = this._rtreePolygon.search(boundaryBox);
             for (var i = 0; i < items; i++) {
@@ -429,6 +433,12 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         } else {
             this._rtreePolygon.clear();
         }
+    },
+
+
+    addPolygonMarker: function(dataPoly) {
+        if (this._rtreePolygon)
+            this._rtreePolygon.load(this.makeDataPoly(dataPoly));
     },
 
     // //important function
@@ -1123,10 +1133,10 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         if (poly.zoom != coords.z) {
             poly.zoom = coords.z;
 
-            var canvas = this.getCanvas(poly, coords, "rgba(20,240,20,1)");
+            var canvas = this.getCanvas(poly, coords, poly[0].c);
 
             poly.canvas = canvas;
-            poly.canvas2 = this.getCanvas(poly, coords, "rgba(20,20,240,1)");
+            poly.canvas2 = this.getCanvas(poly, coords, "rgba(250, 235, 215,1)");
             // poly.size = [width, height];
         }
 

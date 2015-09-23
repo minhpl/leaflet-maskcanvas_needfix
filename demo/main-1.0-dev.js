@@ -80,11 +80,16 @@ $(function() {
         map: map
     });
 
-    coverageLayer.setData(dataset);
+    coverageLayer.setDataPoly();
     coverageLayer.globalData();
 
     map.addLayer(coverageLayer);
-    map.fitBounds(coverageLayer.bounds);
+
+    var swBound = L.latLng(20.69814614, 105.72596769);
+    var neBound = L.latLng(21.09130007, 105.89789663);
+    var bound = L.latLngBounds(swBound, neBound);
+    map.fitBounds(bound);
+    // map.fitBounds(coverageLayer.bounds);
 
     function alpha(point, canvas) {
 
@@ -1054,7 +1059,7 @@ $(function() {
                             if (tile) {
 
                                 console.log("----", HUGETILE_THREADSHOLD, EMPTY, tile.numPoints);
-                            
+
                                 if ((tile.numPoints > 0) && (tile.numPoints < HUGETILE_THREADSHOLD)) {
                                     coverageLayer.hugeTiles.remove(tile._id);
                                     console.log("tile not empty", tile);
