@@ -5,7 +5,7 @@
 
 
 
-const NUMPOLYGON = 100;
+const NUMPOLYGON = 10000;
 
 L.GridLayer.MaskCanvas = L.GridLayer.extend({
     options: {
@@ -133,11 +133,11 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         if (!canvas) canvas = document.createElement('canvas');
         canvas.width = canvas.height = this.options.tileSize;
 
-        this._draw(canvas, coords);
-
         if (this.options.debug) {
             this._drawDebugInfo(canvas, coords);
         }
+
+        this._draw(canvas, coords);
 
         if (savedTile) {
             savedTile.canvas = canvas;
@@ -222,6 +222,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                 var lng = 105.25108 + Math.random() * (105.65826 - 105.25108);
 
                 var poly = makeVPolygon2(lat, lng, maxWith, maxHeight); //tao hinh dang cua polygon                        
+                poly[0].c = 'rgba(255, 255, 102,1)';
 
                 // this.getVertexAndBoundinLatLng(poly);
                 var vertexsL = [];

@@ -249,10 +249,6 @@ $(function() {
 
     var i = 0;
 
-    var lastRecentPoint;
-    var lastRecentInfo;
-
-
     function getID(zoom, x, y) {
         var _x = x < 0 ? 0 : x;
         var _y = y < 0 ? 0 : y;
@@ -277,7 +273,7 @@ $(function() {
         return result;
     }
 
-    function getIntersectPoly(currentlatlng, tileID) {
+    function getIntersectPoly(currentlatlng) {
         var rtree = coverageLayer._rtreePolygon;
         if (rtree) {
             var lat = currentlatlng.lat;
@@ -447,8 +443,10 @@ $(function() {
 
         var tileIDs = getTileIDs(topPointTile, WIDTH, HEIGHT, coords);
 
+
         for (var i = 0; i < tileIDs.length; i++) {
             var tile = tileIDs[i];
+
             var canvas = tile.canvas;
             var coords = tile.coords;
             var tilePoint = coverageLayer._tilePoint(coords, topPts);
@@ -491,9 +489,12 @@ $(function() {
 
 
     function redraw(imgs) {
-        for (var i = 0; i < imgs.length; i++) {
-            var image = imgs[i];
-            image.draw();
+        if (imgs && imgs.length) {
+            console.log("redraw image");
+            for (var i = 0; i < imgs.length; i++) {
+                var image = imgs[i];
+                image.draw();
+            }
         }
     }
 
@@ -552,7 +553,6 @@ $(function() {
 
                 // var WIDTH = (w << 1);
                 // var HEIGHT = (h << 1);
-
                 var minX = (this.tilePoint[0] - w);
                 var minY = (this.tilePoint[1] - h);
                 minX = (minX < 0) ? (minX - 0.5) >> 0 : (minX + 0.5) >> 0;
@@ -618,6 +618,16 @@ $(function() {
 
     var timeoutID = undefined;
 
+
+    var lastRecentInfo = {
+        imgCropped: undefined,
+        polyID: undefined,
+    };
+
+    var currentInfo = {
+        isInsidePoly: undefined,
+    }
+
     function onMouseMove(e) {
         if (timeoutID) clearTimeout(timeoutID);
 
@@ -625,6 +635,86 @@ $(function() {
             timeoutID = 0;
 
             // coverageLayer.backupOne();
+            var currentLatLng = e.latlng;
+            var currentPoint = map.project(currentLatLng);
+
+            var x = (currentPoint.x / TILESIZE) >> 0;
+            var y = (currentPoint.y / TILESIZE) >> 0;
+            var zoom = map.getZoom();
+
+            var tileID = zoom + "_" + x + "_" + y;
+            var coords = L.point(x, y);
+            coords.z = zoom;
+
+            var tilePoint = coverageLayer._tilePoint(coords, [currentLatLng.lat, currentLatLng.lng]);
+            tilePoint = L.point(tilePoint[0], tilePoint[1]);
+
+            function getIntersectPoly(currentlatlng) {
+                var rtree = coverageLayer._rtreePolygon;
+                if (rtree) {
+                    var lat = currentlatlng.lat;
+                    var lng = currentlatlng.lng;
+                    var result = rtree.search([lat, lng, lat, lng]);
+
+                    if (result.length > 0) {
+                        var polys = [];
+                        var topPoly, id = -1;
+                        for (var i = 0; i < result.length; i++) {
+                            var r = result[i];
+                            var poly = r[4];
+
+                            if (poly.in(currentlatlng)) {
+                                polys.push(poly);
+                                if (r[5] > id) {
+                                    topPoly = poly;
+                                    id = r[5];
+                                }
+                            }
+                        }
+                        polys.topPoly = topPoly;
+                        polys.topPolyID = id;
+
+                        return polys;
+                    }
+                }
+                return [];
+            }
+
+            var polys = getIntersectPoly(currentLatLng);
+            if (polys.topPoly) {
+                $('.leaflet-container').css('cursor', 'pointer');
+                var poly = polys.topPoly;
+
+                if (lastRecentInfo.polyID && (polys.topPolyID == lastRecentInfo.polyID)) {
+                    console.log("is in the same poly");
+                    return;
+                } else {
+                    console.log("not in the same poly");
+                    if (lastRecentInfo.imgCropped)
+                        redraw(lastRecentInfo.imgCropped);
+
+                    lastRecentInfo.polyID = polys.topPolyID;
+
+                    lastRecentInfo.imgCropped = cropImgBoxs(poly.posL, poly.size[0], poly.size[1], coords);
+                    draw(poly.posL, poly.size[0], poly.size[1], coords, poly.canvas2);
+                }
+
+            } else {
+                $('.leaflet-container').css('cursor', 'auto');
+                if (lastRecentInfo.polyID == undefined) {
+                    console.log("is in the same blank");
+                    return;
+                } else {
+                    lastRecentInfo.polyID = undefined;
+                    redraw(lastRecentInfo.imgCropped);
+                }
+            }
+
+        }, 0);
+
+
+        /*
+            //-----------------------------------------------------------------------------------------------------
             var info = getInfo(e);
 
             var radius = coverageLayer.options.radius;
@@ -676,6 +766,8 @@ $(function() {
                     redraw(lastRecentInfo.img);
                 }
 
+                console.log("poly", poly);
+
                 draw(poly.posL, poly.size[0], poly.size[1], info.coords, poly.canvas2);
 
                 lastRecentInfo = info;
@@ -725,8 +817,9 @@ $(function() {
                 }
                 $('.leaflet-container').css('cursor', 'auto');
             }
-        }, 10);
 
+
+        */
     }
 
     function squaredistance(point1, point2) {
@@ -809,6 +902,12 @@ $(function() {
 
     map.on('mousemove', onMouseMove);
 
+    map.on('contextmenu', onContextMenu);
+
+    function onContextMenu(e) {
+        alert(lastRecentInfo.polyID);
+        console.log("onContextMenu", lastRecentInfo.polyID);
+    }
 
 
     function onMouseMove_backUpOne(e) {
@@ -825,7 +924,6 @@ $(function() {
     }
 
     // map.on('click', onMouseClick_removeMarker);
-
     var pad = L.point(red_canvas.width >> 1, red_canvas.height >> 1);
     var _pad = L.point(red_canvas.width, red_canvas.height);
 
