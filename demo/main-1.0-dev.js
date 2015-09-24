@@ -28,6 +28,24 @@ $(function() {
     const TILESIZE = 256;
     const REALDATA = false;
 
+
+    var blue_canvas = document.createElement('canvas');
+    blue_canvas.width = RADIUS << 1;
+    blue_canvas.height = RADIUS << 1;
+    var blue_context = blue_canvas.getContext('2d');
+    blue_context.beginPath();
+
+    blue_context.arc(RADIUS, RADIUS, RADIUS, 0, 2 * Math.PI, true);
+    blue_context.fillStyle = 'blue';
+    blue_context.fill();
+    blue_context.lineWidth = 1;
+
+    blue_context.strokeStyle = '#003300';
+    blue_context.stroke();
+
+    var img_blueCircle = new Image();
+    img_blueCircle.src = blue_canvas.toDataURL("image/png");
+
     var coverageLayer = new L.GridLayer.MaskCanvas({
         opacity: 0.5,
         radius: RADIUS,
@@ -35,9 +53,8 @@ $(function() {
         debug: true,
         map: map,
         boundary: true,
+        img_on: img_blueCircle,
     });
-
-    map.addLayer(coverageLayer);
 
     var swBound = L.latLng(20.69814614, 105.72596769);
     var neBound = L.latLng(21.09130007, 105.89789663);
@@ -240,6 +257,8 @@ $(function() {
         coverageLayer.setDataPoly();
         coverageLayer.setDataCell();
     }
+
+    map.addLayer(coverageLayer);
 
     function cropImage(canvas, centrePoint, WIDTH, HEIGHT, alph) {
         var context = canvas.getContext('2d');
@@ -503,7 +522,8 @@ $(function() {
             drawImage(ctx, image, x, y);
         }
         try {
-            ctx.drawImage(image, x, y);
+            if (image.width == 0 || image.height == 0)
+                return;
         } catch (e) {
             if (e.name == "NS_ERROR_NOT_AVAILABLE") {
                 // Wait a bit before trying again; you may wish to change the
@@ -684,21 +704,21 @@ $(function() {
                 var poly = polys.topPoly;
 
                 if (lastRecentInfo.polyID && (polys.topPolyID == lastRecentInfo.polyID)) {
-
                     return;
                 } else {
-
                     if (lastRecentInfo.imgCropped)
                         redraw(lastRecentInfo.imgCropped);
 
                     lastRecentInfo.polyID = polys.topPolyID;
                     lastRecentInfo.poly = poly;
-                    if (poly.size) {
+
+                    var sizeWidth = poly.size[0];
+                    var sizeHeigth = poly.size[1];
+                    if (sizeWidth != 0 && sizeHeigth != 0) {
                         lastRecentInfo.imgCropped = cropImgBoxs(poly.posL, poly.size[0], poly.size[1], coords);
                         draw(poly.posL, poly.size[0], poly.size[1], coords, poly.canvas2);
                     }
                 }
-
             } else {
                 $('.leaflet-container').css('cursor', 'auto');
                 if (lastRecentInfo.polyID == undefined) {
@@ -709,7 +729,6 @@ $(function() {
                     redraw(lastRecentInfo.imgCropped);
                 }
             }
-
         }, 0);
     }
 
@@ -721,7 +740,6 @@ $(function() {
 
     function onContextMenu(e) {
         console.log("onContextMenu", lastRecentInfo.poly, lastRecentInfo.polyID);
-        // alert(lastRecentInfo.polyID);
     }
 
 });
