@@ -26,14 +26,15 @@ $(function() {
     const RADIUS = 10;
     const NUM_POLYGON = 50;
     const TILESIZE = 256;
-
+    const REALDATA = false;
 
     var coverageLayer = new L.GridLayer.MaskCanvas({
         opacity: 0.5,
         radius: RADIUS,
         useAbsoluteRadius: false,
         debug: true,
-        map: map
+        map: map,
+        boundary: true,
     });
 
     map.addLayer(coverageLayer);
@@ -44,83 +45,9 @@ $(function() {
     map.fitBounds(bound);
 
     var settedData = false;
-    var zoom = map.getZoom();
-    // map.dragging.disable();
-    // map.touchZoom.disable();
-    // map.doubleClickZoom.disable();
-    // map.scrollWheelZoom.disable();
 
-    var socket = io.connect('http://10.61.64.127:8822');
-    socket.on('connect', function() {
-        socket.emit("filter_boundary", {
-            request: {
-                zoomLevel: zoom + '',
-                mnc: '4',
-                endDate: 1442547396748,
-                point4: {
-                    lng: 125,
-                    lat: 25
-                },
-                point1: {
-                    lng: 105,
-                    lat: 15
-                },
-                point2: {
-                    lng: 105,
-                    lat: 25
-                },
-                startDate: 1380339396748,
-                point3: {
-                    lng: 125,
-                    lat: 15
-                }
-            }
-        });
-    });
-
-    socket.on('filter_boundary', function(msg) {
-        var aryData = msg.data.result;
-
-        var dataPoly = [];
-        var id = 0;
-        for (k = 0; k < aryData.length; k++) {
-            var lat = aryData[k].lat;
-            var lng = aryData[k].lng;
-            var count2G = aryData[k]._2Gcounter;
-            var count3G = aryData[k]._3Gcounter;
-            var rssi = aryData[k].rssiSum;
-            var ecno = aryData[k].ecnoSum;
-            var rscp = aryData[k].rscpSum;
-            var posL = [lat, lng];
-            var poly = makeVPolygonKientn2_backup(lat, lng, zoom, count2G, count3G, rssi, ecno, rscp);
-
-            dataPoly.push(poly);
-        }
-
-        if (!settedData) {
-            coverageLayer.setDataPoly(dataPoly);
-            settedData = true;
-        } else {
-            coverageLayer.clearPolyMarker();
-            coverageLayer.addPolygonMarker(dataPoly);
-            coverageLayer.redraw();
-        }
-
-        map.dragging.enable();
-        map.touchZoom.enable();
-        map.doubleClickZoom.enable();
-        map.scrollWheelZoom.enable();
-        socket.disconnect();
-    });
-
-    map.on('zoomend', function() {
-
+    if (REALDATA) {
         var zoom = map.getZoom();
-
-        map.dragging.disable();
-        map.touchZoom.disable();
-        map.doubleClickZoom.disable();
-        map.scrollWheelZoom.disable();
         var socket = io.connect('http://10.61.64.127:8822');
         socket.on('connect', function() {
             socket.emit("filter_boundary", {
@@ -148,59 +75,6 @@ $(function() {
                 }
             });
         });
-        socket.on('filter_district', function(msg) {
-            var aryData = msg.data.result;
-            var dPoly = [];
-            var id = 0;
-
-            var dataPoly = [];
-            for (i = 0; i < aryData.length; i++) {
-                var lat = aryData[i].lat;
-                var lng = aryData[i].lng;
-                var count2G = aryData[i]._2Gcounter;
-                var count3G = aryData[i]._3Gcounter;
-                var rssi = aryData[i].rssiSum;
-                var ecno = aryData[i].ecnoSum;
-                var rscp = aryData[i].rscpSum;
-                var posL = [lat, lng];
-                var poly = makeVPolygonKientn2(lat, lng, zoom, count2G, count3G, rssi, ecno, rscp);
-
-                poly.posL = posL;
-
-
-                console.log("poly", poly);
-
-                dataPoly.push(poly);
-
-                coverageLayer.getVertexAndBoundinLatLng(poly);
-                poly.in = function(currentlatLng) {
-                    var x = currentlatLng.lat,
-                        y = currentlatLng.lng;
-
-                    var vertexsL = this.vertexsL;
-                    var inside = false;
-                    for (var i = 0, j = vertexsL.length - 1; i < vertexsL.length; j = i++) {
-                        var xi = vertexsL[i].lat,
-                            yi = vertexsL[i].lng;
-                        var xj = vertexsL[j].lat,
-                            yj = vertexsL[j].lng;
-
-                        var intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-                        if (intersect) inside = !inside;
-                    }
-
-                    return inside;
-                }
-
-                lBounds = poly.lBounds;
-                var a = [lBounds.getSouth(), lBounds.getWest(), lBounds.getNorth(), lBounds.getEast(), poly, id++];
-                dPoly.push(a);
-            }
-            coverageLayer._rtreePolygon = new rbush(32);
-            // coverageLayer._rtreePolygon.load(null);
-            coverageLayer._rtreePolygon.load(dPoly);
-            socket.disconnect();
-        });
 
         socket.on('filter_boundary', function(msg) {
             var aryData = msg.data.result;
@@ -227,7 +101,6 @@ $(function() {
             } else {
                 coverageLayer.clearPolyMarker();
                 coverageLayer.addPolygonMarker(dataPoly);
-                // coverageLayer.setDataPoly(dataPoly);
                 coverageLayer.redraw();
             }
 
@@ -237,7 +110,136 @@ $(function() {
             map.scrollWheelZoom.enable();
             socket.disconnect();
         });
-    });
+
+        map.on('zoomend', function() {
+
+            var zoom = map.getZoom();
+
+            map.dragging.disable();
+            map.touchZoom.disable();
+            map.doubleClickZoom.disable();
+            map.scrollWheelZoom.disable();
+            var socket = io.connect('http://10.61.64.127:8822');
+            socket.on('connect', function() {
+                socket.emit("filter_boundary", {
+                    request: {
+                        zoomLevel: zoom + '',
+                        mnc: '4',
+                        endDate: 1442547396748,
+                        point4: {
+                            lng: 125,
+                            lat: 25
+                        },
+                        point1: {
+                            lng: 105,
+                            lat: 15
+                        },
+                        point2: {
+                            lng: 105,
+                            lat: 25
+                        },
+                        startDate: 1380339396748,
+                        point3: {
+                            lng: 125,
+                            lat: 15
+                        }
+                    }
+                });
+            });
+            socket.on('filter_district', function(msg) {
+                var aryData = msg.data.result;
+                var dPoly = [];
+                var id = 0;
+
+                var dataPoly = [];
+                for (i = 0; i < aryData.length; i++) {
+                    var lat = aryData[i].lat;
+                    var lng = aryData[i].lng;
+                    var count2G = aryData[i]._2Gcounter;
+                    var count3G = aryData[i]._3Gcounter;
+                    var rssi = aryData[i].rssiSum;
+                    var ecno = aryData[i].ecnoSum;
+                    var rscp = aryData[i].rscpSum;
+                    var posL = [lat, lng];
+                    var poly = makeVPolygonKientn2(lat, lng, zoom, count2G, count3G, rssi, ecno, rscp);
+
+                    poly.posL = posL;
+
+
+                    console.log("poly", poly);
+
+                    dataPoly.push(poly);
+
+                    coverageLayer.getVertexAndBoundinLatLng(poly);
+                    poly.in = function(currentlatLng) {
+                        var x = currentlatLng.lat,
+                            y = currentlatLng.lng;
+
+                        var vertexsL = this.vertexsL;
+                        var inside = false;
+                        for (var i = 0, j = vertexsL.length - 1; i < vertexsL.length; j = i++) {
+                            var xi = vertexsL[i].lat,
+                                yi = vertexsL[i].lng;
+                            var xj = vertexsL[j].lat,
+                                yj = vertexsL[j].lng;
+
+                            var intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                            if (intersect) inside = !inside;
+                        }
+
+                        return inside;
+                    }
+
+                    lBounds = poly.lBounds;
+                    var a = [lBounds.getSouth(), lBounds.getWest(), lBounds.getNorth(), lBounds.getEast(), poly, id++];
+                    dPoly.push(a);
+                }
+                coverageLayer._rtreePolygon = new rbush(32);
+                // coverageLayer._rtreePolygon.load(null);
+                coverageLayer._rtreePolygon.load(dPoly);
+                socket.disconnect();
+            });
+
+            socket.on('filter_boundary', function(msg) {
+                var aryData = msg.data.result;
+
+                var dataPoly = [];
+                var id = 0;
+                for (k = 0; k < aryData.length; k++) {
+                    var lat = aryData[k].lat;
+                    var lng = aryData[k].lng;
+                    var count2G = aryData[k]._2Gcounter;
+                    var count3G = aryData[k]._3Gcounter;
+                    var rssi = aryData[k].rssiSum;
+                    var ecno = aryData[k].ecnoSum;
+                    var rscp = aryData[k].rscpSum;
+                    var posL = [lat, lng];
+                    var poly = makeVPolygonKientn2_backup(lat, lng, zoom, count2G, count3G, rssi, ecno, rscp);
+
+                    dataPoly.push(poly);
+                }
+
+                if (!settedData) {
+                    coverageLayer.setDataPoly(dataPoly);
+                    settedData = true;
+                } else {
+                    coverageLayer.clearPolyMarker();
+                    coverageLayer.addPolygonMarker(dataPoly);
+                    // coverageLayer.setDataPoly(dataPoly);
+                    coverageLayer.redraw();
+                }
+
+                map.dragging.enable();
+                map.touchZoom.enable();
+                map.doubleClickZoom.enable();
+                map.scrollWheelZoom.enable();
+                socket.disconnect();
+            });
+        });
+    } else {
+        coverageLayer.setDataPoly();
+        coverageLayer.setDataCell();
+    }
 
     function cropImage(canvas, centrePoint, WIDTH, HEIGHT, alph) {
         var context = canvas.getContext('2d');
@@ -428,7 +430,6 @@ $(function() {
 
         return tileIDs;
     }
-
 
     function draw(topPointlatlng, WIDTH, HEIGHT, coords, img) {
         var w = WIDTH >> 1;
@@ -692,8 +693,10 @@ $(function() {
 
                     lastRecentInfo.polyID = polys.topPolyID;
                     lastRecentInfo.poly = poly;
-                    lastRecentInfo.imgCropped = cropImgBoxs(poly.posL, poly.size[0], poly.size[1], coords);
-                    draw(poly.posL, poly.size[0], poly.size[1], coords, poly.canvas2);
+                    if (poly.size) {
+                        lastRecentInfo.imgCropped = cropImgBoxs(poly.posL, poly.size[0], poly.size[1], coords);
+                        draw(poly.posL, poly.size[0], poly.size[1], coords, poly.canvas2);
+                    }
                 }
 
             } else {

@@ -15,6 +15,10 @@
 
 
 const NUMPOLYGON = 10000;
+const NUMCELL = 100;   
+
+const RED = "#FF0066";
+const BLUE = "#6666FF";  
 
 L.GridLayer.MaskCanvas = L.GridLayer.extend({
     options: {
@@ -30,7 +34,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         img_on: undefined,
         img_off: undefined,
         map: undefined,
-        useGlobalData: false
+        useGlobalData: false,
+        boundary: true,
     },
 
     ready: false,
@@ -210,11 +215,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     makeDataPoly: function(dataPoly) {
         var id = 0;
         if (!dataPoly) {
-            var dlength = dataset.length;
-            var interval = (dlength / NUMPOLYGON) >> 0;
-            // console.log("interval ", interval);
+
             var dPoly = [];
-            var id = 0;
             var maxWith = 0.0025674919142666397;
             var maxHeight = 0.0274658203125;
 
@@ -222,7 +224,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             // var ctx = canvas.getContext('2d');
             // ctx.fillStyle = 'rgba(20,250,200,0.1)';
 
-            for (var i = 0, j = 0; i < dlength && j < NUMPOLYGON; i += interval, j++) {
+            for (j = 0; j < NUMPOLYGON; j++) {
                 // 20.9204, 105.59578
                 // 21.11269, 105.88451
 
@@ -323,6 +325,43 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         }
     },
 
+    /* segment format
+    var segment = {
+        radius: 100,
+        lat: 200,
+        lng: 200,
+        startingAngle: 200, //cloclwise, start from 0 degree, in degree
+        arcSize: 100, // in degree
+        color: "#FF0066"
+    }
+    */
+
+    makeDataCell: function() {
+        var segments = [];
+
+        for (var i = 0; i < NUMCELL; i++) {
+            var lat = 20.76831 + Math.random() * (21.15176 - 20.76831);
+            var lng = 105.25108 + Math.random() * (105.65826 - 105.25108);
+
+            var rand = Math.random();
+
+            var item = {};
+            item.lat = lat;
+            item.lng = lng;
+            item.startingAngle = 360 * rand;
+            item.arcSize = 65;
+
+            var colorcode = (rand * 2) >> 0;
+            item.color = colorcode == 0 ? RED : BLUE;
+            // console.log(item);
+            var segment = [lat, lng, lat, lng, item, i];
+            segments.push(segment);
+        }
+
+        return segments;
+    },
+
+
     // makeRtree: function() {
     //     var self = this;
 
@@ -397,9 +436,9 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
     setDataPoly: function(dataPoly) {
         var self = this;
-        this.bounds = new L.LatLngBounds(dataset);
+        // this.bounds = new L.LatLngBounds(dataset);
 
-        this._rtree = new rbush(32);
+        // this._rtree = new rbush(32);
         // this.rtree_loaded = false;
 
         // this.makeRtree(self.rtree_loaded).then(function(res) {
@@ -421,6 +460,15 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         this._maxRadius = this.options.radius;
     },
 
+    setDataCell: function(dataCell) {
+        if (dataCell) {
+
+        } else {
+            this._rtreeCell = new rbush(32);
+            this._rtreeCell.load(this.makeDataCell());
+        }
+    },
+
     clearPolyMarker: function(boundaryBox) {
         if (boundaryBox) {
             var items = this._rtreePolygon.search(boundaryBox);
@@ -432,7 +480,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             this._rtreePolygon.clear();
         }
     },
-
 
     addPolygonMarker: function(dataPoly) {
         if (this._rtreePolygon)
@@ -997,8 +1044,39 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         }
 
         var id = this.getId(coords);
+        this.canvases.set(id, canvas);
 
         var self = this;
+
+        var getBB = function(coords, padSize) {            
+            var tileSize = self.options.tileSize;
+            var nwPoint = coords.multiplyBy(tileSize);
+            var sePoint = nwPoint.add(new L.Point(tileSize, tileSize));
+
+            if (self.options.useAbsoluteRadius) {
+                var centerPoint = nwPoint.add(new L.Point(tileSize / 2, tileSize / 2));
+                self._latLng = self._map.unproject(centerPoint, coords.z);
+            }
+
+            // padding
+            var pad;
+            if (!padSize)
+                pad = new L.Point(self._getMaxRadius(coords.z), self._getMaxRadius(coords.z));
+            else
+                pad = new L.Point(padSize, padSize);
+
+            // console.log(pad);
+            nwPoint = nwPoint.subtract(pad);
+            sePoint = sePoint.add(pad);
+
+            var bounds = new L.LatLngBounds(self._map.unproject(sePoint, coords.z),
+                self._map.unproject(nwPoint, coords.z));
+
+            var currentBounds = self._boundsToQuery(bounds);
+            var bb = [currentBounds.y, currentBounds.x, currentBounds.y + currentBounds.height, currentBounds.x + currentBounds.width];
+
+            return bb;
+        }
 
         var queryPolys = function(coords, self) {
             var tileSize = self.options.tileSize;
@@ -1024,12 +1102,25 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         }
 
         var vpolyCoordinates = queryPolys(coords, this);
+        this._drawVPolys(canvas, coords, vpolyCoordinates);
 
-        var id = this.getId(coords);
+        var queryCells = function(coords, self) {
 
-        this.canvases.set(id, canvas);
+            var bb = getBB(coords, coords.z * coords.z);
 
-        self._drawVPolys(canvas, coords, vpolyCoordinates);
+            var cellCoordinates = self._rtreeCell.search(bb);
+
+            // if (cellCoordinates.length > 0)
+            // console.log("---------------------??", cellCoordinates);
+
+            cellCoordinates.sort(function(a, b) {
+                return a[5] - b[5];
+            })
+            return cellCoordinates;
+        }
+
+        var cells = queryCells(coords, self);
+        this.drawCells(canvas, coords, cells);
     },
 
     /**
@@ -1109,11 +1200,13 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             subctx.lineTo(pi[0], pi[1]);
         }
 
-        // subctx.strokeStyle = "black";
+
         subctx.closePath();
         subctx.fill();
-        // subctx.stroke();
-
+        if (this.options.boundary) {
+            subctx.strokeStyle = "black";
+            subctx.stroke();
+        }
         vpoly.size = [width, height];
 
         return canvas;
@@ -1138,14 +1231,14 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             // poly.size = [width, height];
         }
 
+        console.log(poly.canvas);
+
         ctx.drawImage(poly.canvas, topLeft[0], topLeft[1]);
     },
 
-
     _drawVPolys: function(canvas, coords, pointCoordinates) {
 
-        var ctx = canvas.getContext('2d'),
-            tilePoint;
+        var ctx = canvas.getContext('2d');            
 
         // ctx.globalCompositeOperation = 'lighter';
         if (this.options.lineColor) {
@@ -1162,7 +1255,41 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                 this.drawVPoly(poly, ctx, coords);
             }
         }
-    }
+    },
+
+    degreeToRadian: function(degree) {
+        return (degree * Math.PI) / 180;
+    },
+
+    drawCell: function(ctx, pos, cell, radius) {
+        var start = this.degreeToRadian(cell.startingAngle);
+        var end = this.degreeToRadian(cell.startingAngle + cell.arcSize);
+        var x = pos[0];
+        var y = pos[1];
+
+        // console.log(start, end, ctx, x, y);
+
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.arc(x, y, radius, start, end, false);
+        ctx.closePath();
+
+        ctx.fillStyle = cell.color;
+        ctx.stroke();
+        ctx.fill();
+    },
+
+    drawCells: function(canvas, coords, cells) {
+        var ctx = canvas.getContext('2d');
+        for (var i = 0; i < cells.length; i++) {
+            var cell = cells[i][4];
+            var pos = this._tilePoint(coords, [cell.lat, cell.lng]);
+            // console.log(coords.z, "-----------");
+
+            this.drawCell(ctx, pos, cell, coords.z * coords.z);
+        }
+    },
+
 });
 
 L.TileLayer.maskCanvas = function(options) {
