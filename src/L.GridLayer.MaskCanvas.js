@@ -3,6 +3,15 @@
  * For Leaflet 0.7.x, please use L.TileLayer.MaskCanvas
  */
 
+// const LOADED = 1;
+// const LOADING = -1;
+// const UNLOAD = 0;
+// const EMPTY = {
+//     empty: true,
+//     needSave: false,
+//     numPoints: 0,
+//     status: LOADED
+// };
 
 
 const NUMPOLYGON = 10000;
@@ -199,6 +208,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     // },
 
     makeDataPoly: function(dataPoly) {
+        var id = 0;
         if (!dataPoly) {
             var dlength = dataset.length;
             var interval = (dlength / NUMPOLYGON) >> 0;
@@ -401,6 +411,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         // }).catch(function(err) {
         //     console.log(err);
         // })
+
 
         this._rtreePolygon = new rbush(32);
         if (dataPoly)
@@ -1098,10 +1109,10 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             subctx.lineTo(pi[0], pi[1]);
         }
 
-        subctx.strokeStyle = "black";
+        // subctx.strokeStyle = "black";
         subctx.closePath();
         subctx.fill();
-        subctx.stroke();
+        // subctx.stroke();
 
         vpoly.size = [width, height];
 
@@ -1137,7 +1148,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             tilePoint;
 
         // ctx.globalCompositeOperation = 'lighter';
-
         if (this.options.lineColor) {
             ctx.strokeStyle = this.options.lineColor;
             ctx.lineWidth = this.options.lineWidth || 1;

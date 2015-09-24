@@ -88,6 +88,98 @@ function makeVPolygon2(lat, lng, maxwidth, maxheight) {
     return polygon;
 }
 
+function makeVPolygonKientn2(lat, lng, zoom, count2G, count3G, rssi, ecno, rscp) {
+    var num = 4; // 4 diem
+    var polygon = [];
+    var average2G = rssi / count2G;
+    var color;
+    if (average2G > -77) {
+        color = "rgba(233,20,1,1)";
+    } else if (average2G < -77 && average2G > -90) {
+        color = "rgba(20,1,2,1)";
+    } else {
+        color = "rgba(2,11,111,1)";
+    }
+    var first = {
+        x: lat - zoom / 2,
+        y: lng - zoom / 2,
+        c: color,
+    };
+    var second = {
+        x: lat - zoom / 2,
+        y: lng + zoom / 2,
+        //c: color,
+    };
+    var third = {
+        x: lat + zoom / 2,
+        y: lng + zoom / 2,
+        //c: color,
+    };
+    var forth = {
+        x: lat + zoom / 2,
+        y: lng - zoom / 2,
+        //c: color,
+    }
+    polygon.push(first);
+    polygon.push(second);
+    polygon.push(third);
+    polygon.push(forth);
+    //polygon.push(color);
+    return polygon;
+}
+
+function makeVPolygonKientn2_backup(lat, lng, zoom, count2G, count3G, rssi, ecno, rscp) {
+    var zoomIndex = {
+        '6': 0.02, //160
+        '7': 0.01, //80
+        '8': 0.005, //40
+        '9': 0.0025, //20
+        '10': 0.00125, //10
+        '11': 0.000625, //5
+        '12': 0.000375, //3
+        '13': 0.00025, //2
+        '14': 0.000125, //1
+        '15': 0.000125,
+        '16': 0.000125,
+        '17': 0.000125,
+        '18': 0.000125
+    };
+    var num = 4; // 4 diem
+    var average2G = rssi / count2G;
+    var color;
+    if (average2G > -77) {
+        color = "rgba(233,20,1,1)";
+    } else if (average2G < -77 && average2G > -90) {
+        color = "rgba(255,248,1,1)";
+    } else {
+        color = "rgba(23,23,0,1)";
+    }
+    var polygon = [];
+    var first = {
+        x: lat - zoomIndex['' + zoom],
+        y: lng - zoomIndex['' + zoom],
+        c: color,
+    };
+    var second = {
+        x: lat - zoomIndex['' + zoom],
+        y: Number.parseFloat(lng) + Number.parseFloat(zoomIndex['' + zoom]),
+    };
+    var third = {
+        x: Number.parseFloat(lat) + zoomIndex['' + zoom],
+        y: Number.parseFloat(lng) + zoomIndex['' + zoom],
+    };
+    var forth = {
+        x: Number.parseFloat(lat) + zoomIndex['' + zoom],
+        y: lng - zoomIndex['' + zoom],
+    }
+    polygon.push(first);
+    polygon.push(second);
+    polygon.push(third);
+    polygon.push(forth);
+    return polygon;
+}
+
+
 function makeBPolygons() {
     var canvas = drawPolygon('#8ED6FF');
     poly.canvas = canvas;

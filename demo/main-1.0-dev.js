@@ -23,65 +23,18 @@ $(function() {
 
     map.addLayer(ggl);
 
-    var isInsideObject = false;
-    var canvas;
-    var remoteCouch = false;
-
-    var red_canvas = document.createElement('canvas');
     const RADIUS = 10;
     const NUM_POLYGON = 50;
     const TILESIZE = 256;
 
-    var numCircles = 10000;
-    var WIDTH = 2000;
-    var HEIGHT = 2000;
-
-    red_canvas.width = RADIUS << 1;
-    red_canvas.height = RADIUS << 1;
-    var red_context = red_canvas.getContext('2d');
-    red_context.beginPath();
-
-    red_context.arc(RADIUS, RADIUS, RADIUS, 0, 2 * Math.PI, true);
-    red_context.fillStyle = 'red';
-    red_context.fill();
-    red_context.lineWidth = 1;
-
-    red_context.strokeStyle = '#003300';
-    red_context.stroke();
-
-    var img_redCircle = new Image();
-    img_redCircle.src = red_canvas.toDataURL("image/png");
-
-
-    var blue_canvas = document.createElement('canvas');
-    blue_canvas.width = RADIUS << 1;
-    blue_canvas.height = RADIUS << 1;
-    var blue_context = blue_canvas.getContext('2d');
-    blue_context.beginPath();
-
-    blue_context.arc(RADIUS, RADIUS, RADIUS, 0, 2 * Math.PI, true);
-    blue_context.fillStyle = 'blue';
-    blue_context.fill();
-    blue_context.lineWidth = 1;
-
-    blue_context.strokeStyle = '#003300';
-    blue_context.stroke();
-
-    var img_blueCircle = new Image();
-    img_blueCircle.src = blue_canvas.toDataURL("image/png");
 
     var coverageLayer = new L.GridLayer.MaskCanvas({
         opacity: 0.5,
         radius: RADIUS,
         useAbsoluteRadius: false,
-        img_on: img_redCircle,
-        img_off: img_blueCircle,
         debug: true,
         map: map
     });
-
-    coverageLayer.setDataPoly();
-    // coverageLayer.globalData();
 
     map.addLayer(coverageLayer);
 
@@ -89,48 +42,203 @@ $(function() {
     var neBound = L.latLng(21.09130007, 105.89789663);
     var bound = L.latLngBounds(swBound, neBound);
     map.fitBounds(bound);
-    // map.fitBounds(coverageLayer.bounds);
 
-    function alpha(point, canvas) {
+    var settedData = false;
+    var zoom = map.getZoom();
+    // map.dragging.disable();
+    // map.touchZoom.disable();
+    // map.doubleClickZoom.disable();
+    // map.scrollWheelZoom.disable();
 
-        if (!canvas) {
-            return -1;
+    var socket = io.connect('http://10.61.64.127:8822');
+    socket.on('connect', function() {
+        socket.emit("filter_boundary", {
+            request: {
+                zoomLevel: zoom + '',
+                mnc: '4',
+                endDate: 1442547396748,
+                point4: {
+                    lng: 125,
+                    lat: 25
+                },
+                point1: {
+                    lng: 105,
+                    lat: 15
+                },
+                point2: {
+                    lng: 105,
+                    lat: 25
+                },
+                startDate: 1380339396748,
+                point3: {
+                    lng: 125,
+                    lat: 15
+                }
+            }
+        });
+    });
+
+    socket.on('filter_boundary', function(msg) {
+        var aryData = msg.data.result;
+
+        var dataPoly = [];
+        var id = 0;
+        for (k = 0; k < aryData.length; k++) {
+            var lat = aryData[k].lat;
+            var lng = aryData[k].lng;
+            var count2G = aryData[k]._2Gcounter;
+            var count3G = aryData[k]._3Gcounter;
+            var rssi = aryData[k].rssiSum;
+            var ecno = aryData[k].ecnoSum;
+            var rscp = aryData[k].rscpSum;
+            var posL = [lat, lng];
+            var poly = makeVPolygonKientn2_backup(lat, lng, zoom, count2G, count3G, rssi, ecno, rscp);
+
+            dataPoly.push(poly);
         }
 
-        var context = canvas.getContext('2d');
-
-        var buffer;
-
-        if (!canvas.imgData) {
-            // console.log("Create new ImageData");
-            var pix = context.getImageData(0, 0, TILESIZE, TILESIZE);
-            canvas.imgData = new ImageBuffer(pix);
-            buffer = canvas.imgData
+        if (!settedData) {
+            coverageLayer.setDataPoly(dataPoly);
+            settedData = true;
         } else {
-            buffer = canvas.imgData;
+            coverageLayer.clearPolyMarker();
+            coverageLayer.addPolygonMarker(dataPoly);
+            coverageLayer.redraw();
         }
 
-        var x = (point.x + 0.5) >> 0;
-        var y = (point.y + 0.5) >> 0;
+        map.dragging.enable();
+        map.touchZoom.enable();
+        map.doubleClickZoom.enable();
+        map.scrollWheelZoom.enable();
+        socket.disconnect();
+    });
 
-        var i = ~~(x + (y * TILESIZE)); //floor()
-        var location = (i << 2) + 3;
+    map.on('zoomend', function() {
 
-        var alph = buffer.uint8[location];
+        var zoom = map.getZoom();
 
-        return (!alph) ? -1 : alph;
-    }
+        map.dragging.disable();
+        map.touchZoom.disable();
+        map.doubleClickZoom.disable();
+        map.scrollWheelZoom.disable();
+        var socket = io.connect('http://10.61.64.127:8822');
+        socket.on('connect', function() {
+            socket.emit("filter_boundary", {
+                request: {
+                    zoomLevel: zoom + '',
+                    mnc: '4',
+                    endDate: 1442547396748,
+                    point4: {
+                        lng: 125,
+                        lat: 25
+                    },
+                    point1: {
+                        lng: 105,
+                        lat: 15
+                    },
+                    point2: {
+                        lng: 105,
+                        lat: 25
+                    },
+                    startDate: 1380339396748,
+                    point3: {
+                        lng: 125,
+                        lat: 15
+                    }
+                }
+            });
+        });
+        socket.on('filter_district', function(msg) {
+            var aryData = msg.data.result;
+            var dPoly = [];
+            var id = 0;
 
-    // var MEM;
-    /**
-     * [cropImage description]
-     * @param  {[type]} canvas      [description]
-     * @param  {[type]} centrePoint : point relative with tile
-     * @param  {[type]} WIDTH       [description]
-     * @param  {[type]} HEIGHT      [description]
-     * @param  {[type]} alph        [description]
-     * @return {[type]}             [description]
-     */
+            var dataPoly = [];
+            for (i = 0; i < aryData.length; i++) {
+                var lat = aryData[i].lat;
+                var lng = aryData[i].lng;
+                var count2G = aryData[i]._2Gcounter;
+                var count3G = aryData[i]._3Gcounter;
+                var rssi = aryData[i].rssiSum;
+                var ecno = aryData[i].ecnoSum;
+                var rscp = aryData[i].rscpSum;
+                var posL = [lat, lng];
+                var poly = makeVPolygonKientn2(lat, lng, zoom, count2G, count3G, rssi, ecno, rscp);
+
+                poly.posL = posL;
+
+
+                console.log("poly", poly);
+
+                dataPoly.push(poly);
+
+                coverageLayer.getVertexAndBoundinLatLng(poly);
+                poly.in = function(currentlatLng) {
+                    var x = currentlatLng.lat,
+                        y = currentlatLng.lng;
+
+                    var vertexsL = this.vertexsL;
+                    var inside = false;
+                    for (var i = 0, j = vertexsL.length - 1; i < vertexsL.length; j = i++) {
+                        var xi = vertexsL[i].lat,
+                            yi = vertexsL[i].lng;
+                        var xj = vertexsL[j].lat,
+                            yj = vertexsL[j].lng;
+
+                        var intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                        if (intersect) inside = !inside;
+                    }
+
+                    return inside;
+                }
+
+                lBounds = poly.lBounds;
+                var a = [lBounds.getSouth(), lBounds.getWest(), lBounds.getNorth(), lBounds.getEast(), poly, id++];
+                dPoly.push(a);
+            }
+            coverageLayer._rtreePolygon = new rbush(32);
+            // coverageLayer._rtreePolygon.load(null);
+            coverageLayer._rtreePolygon.load(dPoly);
+            socket.disconnect();
+        });
+
+        socket.on('filter_boundary', function(msg) {
+            var aryData = msg.data.result;
+
+            var dataPoly = [];
+            var id = 0;
+            for (k = 0; k < aryData.length; k++) {
+                var lat = aryData[k].lat;
+                var lng = aryData[k].lng;
+                var count2G = aryData[k]._2Gcounter;
+                var count3G = aryData[k]._3Gcounter;
+                var rssi = aryData[k].rssiSum;
+                var ecno = aryData[k].ecnoSum;
+                var rscp = aryData[k].rscpSum;
+                var posL = [lat, lng];
+                var poly = makeVPolygonKientn2_backup(lat, lng, zoom, count2G, count3G, rssi, ecno, rscp);
+
+                dataPoly.push(poly);
+            }
+
+            if (!settedData) {
+                coverageLayer.setDataPoly(dataPoly);
+                settedData = true;
+            } else {
+                coverageLayer.clearPolyMarker();
+                coverageLayer.addPolygonMarker(dataPoly);
+                // coverageLayer.setDataPoly(dataPoly);
+                coverageLayer.redraw();
+            }
+
+            map.dragging.enable();
+            map.touchZoom.enable();
+            map.doubleClickZoom.enable();
+            map.scrollWheelZoom.enable();
+            socket.disconnect();
+        });
+    });
+
     function cropImage(canvas, centrePoint, WIDTH, HEIGHT, alph) {
         var context = canvas.getContext('2d');
         // w = w << 1;
@@ -245,10 +353,6 @@ $(function() {
         return img;
     }
 
-    var popup = L.popup();
-
-    var i = 0;
-
     function getID(zoom, x, y) {
         var _x = x < 0 ? 0 : x;
         var _y = y < 0 ? 0 : y;
@@ -273,109 +377,6 @@ $(function() {
         return result;
     }
 
-    function getIntersectPoly(currentlatlng) {
-        var rtree = coverageLayer._rtreePolygon;
-        if (rtree) {
-            var lat = currentlatlng.lat;
-            var lng = currentlatlng.lng;
-            var result = rtree.search([lat, lng, lat, lng]);
-
-            if (result.length > 0) {
-                var polys = [];
-                var topPoly, id = -1;
-                for (var i = 0; i < result.length; i++) {
-                    var r = result[i];
-                    var poly = r[4];
-
-                    if (poly.in(currentlatlng)) {
-                        polys.push(poly);
-                        if (r[5] > id) {
-                            topPoly = poly;
-                            id = r[5];
-                        }
-                    }
-                }
-                polys.topPoly = topPoly;
-                polys.topPolyID = id;
-
-                return polys;
-            }
-        }
-        return [];
-    }
-
-    function getInfo(e) {
-        // calulate ID
-        var currentlatlng = e.latlng;
-        var currentPoint = map.project(currentlatlng);
-
-        var x = (currentPoint.x / TILESIZE) >> 0;
-        var y = (currentPoint.y / TILESIZE) >> 0;
-        var zoom = map.getZoom();
-        //
-        var tileID = zoom + "_" + x + "_" + y;
-
-        //get tile
-
-        //calculate Point relative to Tile
-        var tileTop = x * TILESIZE;
-        var tileLeft = y * TILESIZE;
-        var point = L.point(tileTop, tileLeft);
-        var coords = L.point(x, y);
-        coords.z = zoom;
-        var tilePoint = coverageLayer._tilePoint(coords, [currentlatlng.lat, currentlatlng.lng]);
-        //
-        tilePoint = L.point(tilePoint[0], tilePoint[1]);
-        var result = {};
-
-        var intersectPolys = getIntersectPoly(currentlatlng);
-        result.intersectPolys = intersectPolys;
-        // calculate alpha
-
-
-        var tile = coverageLayer.tiles.get(tileID) || coverageLayer.hugeTiles.get(tileID);
-        // var alph = (tile) ? alpha(tilePoint, tile.canvas) : -1;
-
-        var alph = alpha(tilePoint, coverageLayer.canvases.get(tileID));
-
-        //calculate points and top point.
-        var pointslatlng = circleCentrePointCover(currentPoint);
-        //calculate TopPoints
-        // if(pointslatlng.length!=0){}
-        var topPointlatlng = getTopPoint(pointslatlng);
-        var topPointTile;
-        var topCircleID;
-        if (topPointlatlng) {
-            topPointTile = coverageLayer._tilePoint(coords, [topPointlatlng[0], topPointlatlng[1]]);
-            topCircleID = topPointlatlng[5];
-        }
-
-        // var topPoint = getTopPoint(points);                
-        result.tileIDX = x;
-        result.tileIDY = y;
-        result.tileIDZoom = zoom;
-        result.tileID = tileID;
-        result.coords = coords;
-        result.tile = tile;
-        result.tilePoint = tilePoint; //current point relative with tile
-        result.alpha = alph;
-        result.pointslatlng = pointslatlng; //[]
-
-        result.topPointlatlng = topPointlatlng; //[lat,lng,lat,lng,item,id] or undefined
-        result.topCircleID = topCircleID; //id of top points or undefined        
-        result.topPointTile = topPointTile; //top points relative with tile, [x,y,z]
-
-        return result;
-    }
-
-    /**
-     * [getTileIDs description]
-     * @param  {[type]} centrePoint point relative with tile
-     * @param  {[type]} WIDTH       [description]
-     * @param  {[type]} HEIGHT      [description]
-     * @param  {[type]} coords      [description]
-     * @return {[type]}             [description]
-     */
     function getTileIDs(centrePoint, WIDTH, HEIGHT, coords) {
         // var TopPoint = info.topPointTile;
         // console.log("--------",info)
@@ -487,10 +488,8 @@ $(function() {
         }
     }
 
-
     function redraw(imgs) {
         if (imgs && imgs.length) {
-            console.log("redraw image");
             for (var i = 0; i < imgs.length; i++) {
                 var image = imgs[i];
                 image.draw();
@@ -612,13 +611,6 @@ $(function() {
         return result;
     }
 
-    var count = 0;
-
-    var insidePoly = false;
-
-    var timeoutID = undefined;
-
-
     var lastRecentInfo = {
         imgCropped: undefined,
         polyID: undefined,
@@ -627,6 +619,8 @@ $(function() {
     var currentInfo = {
         isInsidePoly: undefined,
     }
+
+    var timeoutID = undefined;
 
     function onMouseMove(e) {
         if (timeoutID) clearTimeout(timeoutID);
@@ -648,6 +642,7 @@ $(function() {
 
             var tilePoint = coverageLayer._tilePoint(coords, [currentLatLng.lat, currentLatLng.lng]);
             tilePoint = L.point(tilePoint[0], tilePoint[1]);
+
 
             function getIntersectPoly(currentlatlng) {
                 var rtree = coverageLayer._rtreePolygon;
@@ -681,20 +676,22 @@ $(function() {
             }
 
             var polys = getIntersectPoly(currentLatLng);
+
+            // console.log(polys);
             if (polys.topPoly) {
                 $('.leaflet-container').css('cursor', 'pointer');
                 var poly = polys.topPoly;
 
                 if (lastRecentInfo.polyID && (polys.topPolyID == lastRecentInfo.polyID)) {
-                    console.log("is in the same poly");
+
                     return;
                 } else {
-                    console.log("not in the same poly");
+
                     if (lastRecentInfo.imgCropped)
                         redraw(lastRecentInfo.imgCropped);
 
                     lastRecentInfo.polyID = polys.topPolyID;
-
+                    lastRecentInfo.poly = poly;
                     lastRecentInfo.imgCropped = cropImgBoxs(poly.posL, poly.size[0], poly.size[1], coords);
                     draw(poly.posL, poly.size[0], poly.size[1], coords, poly.canvas2);
                 }
@@ -702,7 +699,7 @@ $(function() {
             } else {
                 $('.leaflet-container').css('cursor', 'auto');
                 if (lastRecentInfo.polyID == undefined) {
-                    console.log("is in the same blank");
+                    // console.log("is in the same blank");
                     return;
                 } else {
                     lastRecentInfo.polyID = undefined;
@@ -711,679 +708,17 @@ $(function() {
             }
 
         }, 0);
-
-
-        /*
-            //-----------------------------------------------------------------------------------------------------
-            var info = getInfo(e);
-
-            var radius = coverageLayer.options.radius;
-
-            insidePoly = false;
-
-            if (info.intersectPolys && info.intersectPolys.length > 0) {
-                insidePoly = true;
-                isInsideObject = false;
-                // console.log("inside poly: ", insidePoly, "isInsideObject: ", isInsideObject);
-            } else {
-                insidePoly = false;
-                if (info.alpha == 255) {
-                    $('.leaflet-container').css('cursor', 'pointer');
-                    isInsideObject = true;
-                    // console.log("inside poly: ", insidePoly, "isInsideObject: ", isInsideObject);
-                } else {
-                    isInsideObject = false;
-                    // console.log("inside poly: ", insidePoly, "isInsideObject: ", isInsideObject);
-                }
-            }
-
-
-            if (insidePoly) {
-                $('.leaflet-container').css('cursor', 'pointer');
-
-                var poly = info.intersectPolys.topPoly;
-                if (!poly || !poly.size || poly.size.length == 0) return;
-
-                var insideTheSamePoly = function(info, lastRecentInfo) {
-                    // console.log("inside the same poly");
-                    return lastRecentInfo && lastRecentInfo.imgsPolyCropped && lastRecentInfo.intersectPolys && info.intersectPolys && (lastRecentInfo.intersectPolys.topPolyID == info.intersectPolys.topPolyID);
-                }
-
-                if (insideTheSamePoly(info, lastRecentInfo)) {
-                    return;
-                }
-
-                if (lastRecentInfo && lastRecentInfo.imgsPolyCropped) {
-                    redraw(lastRecentInfo.imgsPolyCropped);
-                }
-
-
-                var imgsPolyCropped = cropImgBoxs(poly.posL, poly.size[0], poly.size[1], info.coords, poly.canvas);
-                info.imgsPolyCropped = imgsPolyCropped;
-
-                // console.log(poly);
-                if (lastRecentInfo && lastRecentInfo.img) {
-                    redraw(lastRecentInfo.img);
-                }
-
-                console.log("poly", poly);
-
-                draw(poly.posL, poly.size[0], poly.size[1], info.coords, poly.canvas2);
-
-                lastRecentInfo = info;
-
-            } else {
-                if (lastRecentInfo && lastRecentInfo.imgsPolyCropped) {
-                    redraw(lastRecentInfo.imgsPolyCropped);
-                    lastRecentInfo.imgsPolyCropped = null;
-                }
-            }
-
-            //--------------------------------------------------------------------------------------------------        
-
-            if (isInsideObject) {
-                if (info.topCircleID && lastRecentInfo && lastRecentInfo.img &&
-                    lastRecentInfo.topCircleID && info.topCircleID == lastRecentInfo.topCircleID) {
-                    return;
-                }
-
-                if (lastRecentInfo && lastRecentInfo.img) {
-                    var lastTopPointTile = lastRecentInfo.topPointTile;
-                    if (lastTopPointTile) {
-                        redraw(lastRecentInfo.img);
-                    }
-                }
-
-                var topPointTile = info.topPointTile;
-
-                if (topPointTile) {
-                    var WIDTH, HEIGHT;
-                    WIDTH = HEIGHT = radius << 1;
-                    var imgs = cropImgBoxs(info.topPointlatlng, WIDTH, HEIGHT, info.coords);
-                    info.img = imgs;
-                    // console.log("Draw ",++count);                    
-                    draw(info.topPointlatlng, WIDTH, HEIGHT, info.coords, img_blueCircle);
-                }
-
-                lastRecentInfo = info;
-            } else {
-                if (lastRecentInfo && lastRecentInfo.img) {
-                    var topPointTileRecent = lastRecentInfo.topPointTile;
-                    if (topPointTileRecent) {
-                        // console.log("Redraw ",count);
-                        redraw(lastRecentInfo.img);
-                    }
-                    lastRecentInfo = undefined;
-                }
-                $('.leaflet-container').css('cursor', 'auto');
-            }
-
-
-        */
     }
-
-    function squaredistance(point1, point2) {
-        return (point1.x - point2.x) * (point1.x - point2.x) + (point1.y - point2.y) * (point1.y - point2.y);
-    }
-
-    function circleCentrePointCover(currentPositionPoint) {
-        var rtree = coverageLayer._rtree;
-
-        var topLeft = currentPositionPoint.subtract(L.point(RADIUS, RADIUS));
-        var nw = map.unproject(topLeft);
-        var bottemRight = currentPositionPoint.add(L.point(RADIUS, RADIUS));
-        var se = map.unproject(bottemRight);
-
-        var box = [se.lat, nw.lng, nw.lat, se.lng];
-
-        var result = rtree.search(box);
-
-        var a = [];
-        var radius = coverageLayer.options.radius / 2;
-        for (var i = 0; i < result.length; i++) {
-            var r = result[i];
-            var latLng = L.latLng(r[0], r[1]);
-            var point = map.project(latLng);
-
-            if (squaredistance(currentPositionPoint, point) <= radius * radius) {
-                a.push(r);
-            }
-        }
-        return a;
-    }
-
-    function getTopPoint(Points) {
-        var maxId = -1;
-        var TopPoint;
-        for (var i = 0; i < Points.length; i++) {
-            var p = Points[i];
-            if (p[5] > maxId) {
-                maxId = p[5];
-                TopPoint = p;
-            }
-        }
-
-        if (TopPoint)
-            TopPoint.id = maxId;
-
-        return TopPoint;
-    }
-
-    function onMouseClick_getID(e) {
-        var currentPositionPoint = map.project(e.latlng);
-        var Points = circleCentrePointCover(currentPositionPoint);
-        if (!isInsideObject && !insidePoly) {
-            alert("Not inside object");
-            return;
-        }
-
-        if (insidePoly) {
-            var intersectPolys = getIntersectPoly(e.latlng);
-            if (!intersectPolys) return;
-
-
-            var topPoly = intersectPolys.topPoly;
-            var topPolyID = intersectPolys.topPolyID;
-
-            var posL = topPoly.posL;
-            var message = "lat: " + posL[0] + ",lng: " + posL[1] + ", id: " + topPolyID;
-            popup.setLatLng(posL).setContent(message).openOn(map);
-
-        } else if (isInsideObject) {
-            var TopPoint = getTopPoint(Points);
-            if (!TopPoint) return;
-            var latLng = new L.LatLng(TopPoint[0], TopPoint[1]);
-            var message = latLng.toString() + "id: " + TopPoint.id;
-            popup.setLatLng(latLng).setContent(message).openOn(map);
-        }
-    }
-
-    $('.leaflet-container').css('cursor', 'auto');
 
     map.on('mousemove', onMouseMove);
 
     map.on('contextmenu', onContextMenu);
 
+    map.on('click', onContextMenu);
+
     function onContextMenu(e) {
-        alert(lastRecentInfo.polyID);
-        console.log("onContextMenu", lastRecentInfo.polyID);
+        console.log("onContextMenu", lastRecentInfo.poly, lastRecentInfo.polyID);
+        // alert(lastRecentInfo.polyID);
     }
 
-
-    function onMouseMove_backUpOne(e) {
-        // coverageLayer.backupOne();
-    }
-
-    map.on('mousemove', onMouseMove_backUpOne);
-
-    function onMouseClick_showLatLng(e) {
-        popup
-            .setLatLng(e.latlng)
-            .setContent("You clicked the map at " + e.latlng.toString())
-            .openOn(map);
-    }
-
-    // map.on('click', onMouseClick_removeMarker);
-    var pad = L.point(red_canvas.width >> 1, red_canvas.height >> 1);
-    var _pad = L.point(red_canvas.width, red_canvas.height);
-
-    function removeMarker(item, coords) {
-        coverageLayer._rtree.remove(item);
-        var itemPos = L.latLng(item[0], item[1]);
-        var db = coverageLayer.options.db;
-
-        var createImageData = function(coords) {
-            var zoom = coords.z;
-
-            var itemPosPoint = map.project(itemPos, zoom);
-            var tlCanvas = itemPosPoint.subtract(pad);
-
-            var tlBoundQuery = itemPosPoint.subtract(_pad);
-            var brBoundQuery = itemPosPoint.add(_pad);
-
-            var nwBoundQuery = map.unproject(tlBoundQuery, zoom);
-            var seBoundQuery = map.unproject(brBoundQuery, zoom);
-            var boundQuery = [seBoundQuery.lat, nwBoundQuery.lng, nwBoundQuery.lat, seBoundQuery.lng];
-
-            var _items = coverageLayer._rtree.search(boundQuery);
-            _items.sort(function(a, b) {
-                return a[5] - b[5];
-            });
-
-            var subCanvas = document.createElement('canvas');
-            subCanvas.width = red_canvas.width;
-            subCanvas.height = red_canvas.height;
-            var context = subCanvas.getContext('2d');
-
-            var ll = map.unproject(tlCanvas, zoom);
-            var pointTileCanvas = coverageLayer._tilePoint(coords, [ll.lat, ll.lng]);
-
-            for (var i = 0; i < _items.length; i++) {
-                var _item = _items[i];
-                var tilePointItem = coverageLayer._tilePoint(coords, [_item[0], _item[1]]);
-
-                var _x = tilePointItem[0] - pointTileCanvas[0];
-                var _y = tilePointItem[1] - pointTileCanvas[1];
-
-                context.drawImage(red_canvas, _x - (red_canvas.width >> 1), _y - (red_canvas.height >> 1));
-            }
-
-            context.strokeStyle = '#000';
-            context.beginPath();
-            context.moveTo(0, 0);
-            context.lineTo(red_canvas.width, 0);
-            context.lineTo(red_canvas.width, red_canvas.height);
-            context.lineTo(0, red_canvas.height);
-            context.closePath();
-            context.stroke();
-
-            var imageData = context.getImageData(0, 0, subCanvas.width, subCanvas.height);
-
-            return {
-                'imageData': imageData,
-                'pointTileCanvas': pointTileCanvas,
-            }
-        }
-
-
-        var obj = createImageData(coords);
-        var imageData = obj.imageData;
-        putImageData([itemPos.lat, itemPos.lng], red_canvas.width, red_canvas.height, coords, imageData);
-
-        if (coverageLayer.rtree_cachedTile) {
-            var result = coverageLayer.rtree_cachedTile.search([itemPos.lat, itemPos.lng, itemPos.lat, itemPos.lng]);
-            result.sort(function(a, b) {
-                var za = coverageLayer.getCoords(a[4]).z;
-                var zb = coverageLayer.getCoords(b[4]).z;
-                // console.log(za, zb);
-                return za - zb;
-            })
-
-            console.log(result.length, result);
-
-            var updateTile = function(tile) {
-
-                console.log(tile);
-
-                var promise = new Promise(function(resolve, reject) {
-
-                    var coords = coverageLayer.getCoords(tile._id);
-                    tile.numPoints--;
-                    // console.log("------", tile);
-                    // resolve(tile);
-                    // return;
-
-                    if (tile.data && !coverageLayer.options.useGlobalData) {
-                        if (tile.sorted)
-                            data.pop();
-                        else {
-                            var index = data.lastIndexOf(item); //Note: browser support for indexOf is limited; it is not supported in Internet Explorer 7 and 8.
-                            if (index > -1) {
-                                data.splice(index, 1);
-                            }
-                        }
-                    }
-
-                    // var promise = new Promise(resolve, response) {
-                    if (tile.img) {
-                        // console.log("--------------------------------------------------------------------");
-                        var canvas = document.createElement('canvas');
-                        canvas.width = canvas.height = TILESIZE;
-                        var ctx = canvas.getContext('2d');
-                        var img = tile.img;
-
-                        if (img.complete) {
-                            // console.log("img complete", tile._id);
-                            ctx.drawImage(img, 0, 0);
-
-                            var obj = createImageData(coords);
-                            var imageData = obj.imageData;
-                            var pos = obj.pointTileCanvas;
-                            ctx.putImageData(imageData, pos[0], pos[1]);
-                            // ctx.putImageData(imageData, 0, 0);
-                            // tile.img.src = canvas.toDataURL("image/png");
-                            tile.img = new Image(); //prevent fire loading function recursively 
-                            tile.img.src = canvas.toDataURL("image/png");
-                            // tile.canvas = canvas;
-                            console.log(tile);
-                            resolve(tile);
-                        } else {
-                            tile.img.onload = function(e) {
-                                console.log("img onload", tile._id);
-                                if (e.target.complete) {
-                                    ctx.drawImage(img, 0, 0);
-
-                                    var obj = createImageData(coords);
-                                    var imageData = obj.imageData;
-                                    var pos = obj.pointTileCanvas;
-                                    ctx.putImageData(imageData, pos[0], pos[1]);
-                                    // ctx.putImageData(imageData, 0, 0);
-
-                                    // tile.img.src = canvas.toDataURL("image/png");
-                                    // console.log("img onload2")
-                                    tile.img = new Image();
-                                    tile.img.src = canvas.toDataURL("image/png");
-                                    // tile.canvas = canvas;
-                                    resolve(tile);
-                                    console.log(tile);
-                                } else {
-                                    var maxTimes = 10;
-                                    var countTimes = 0;
-                                    var resolved = false;
-
-                                    function retryLoadImage() {
-                                        setTimeout(function() {
-                                            if (countTimes > maxTimes) {
-                                                // -- cannot load image.
-                                                // console.log("cannot load image");
-                                                if (!resolved) {
-                                                    reject("cannot load image")
-                                                    resolved = true;
-                                                };
-                                                return;
-                                            } else {
-                                                if (e.target.complete) {
-                                                    // console.log("retry load image");
-                                                    ctx.drawImage(img, 0, 0);
-
-                                                    var obj = createImageData(coords);
-                                                    var imageData = obj.imageData;
-                                                    var pos = obj.pointTileCanvas;
-                                                    ctx.putImageData(imageData, pos[0], pos[1]);
-                                                    // ctx.putImageData(imageData, 0, 0);
-                                                    tile.img = new Image();
-                                                    tile.img.src = canvas.toDataURL("image/png");
-                                                    // tile.canvas = canvas;
-                                                    console.log("retryLoadImage");
-                                                    if (!resolved) {
-                                                        resolve(tile);
-                                                        resolved = true;
-                                                        console.log(tile);
-                                                    }
-                                                } else {
-                                                    if (!resolved) retryLoadImage();
-                                                }
-                                            }
-                                            countTimes++;
-                                        }, 50);
-                                    };
-
-                                    retryLoadImage();
-                                }
-                            }
-                        }
-                    } else {
-                        resolve(tile);
-                    }
-
-                });
-
-                return promise;
-            }
-
-            var removeTileInDB = function(tile) {
-                var promise = new Promise(function(resolve, reject) {
-
-                    db.get(tile._id).then(function(tile) {
-                        return db.remove(tile);
-
-                    }).then(function(response) {
-
-                        resolve();
-                    }).catch(function(err) {
-
-                        console.log("Err", err);
-                        reject();
-                    });
-                });
-
-                return promise;
-            }
-
-
-            var backUptoDBSequently = function(tiles) {
-
-                var prev = Promise.resolve();
-                var size = tiles.length;
-                var count = 0;
-
-                console.log("in here2", tiles);
-
-                var promise = new Promise(function(resolve, reject) {
-                    tiles.forEach(function(tile) {
-                        prev = prev.then(function(response) {
-                            if (tile) {
-
-                                console.log("----", HUGETILE_THREADSHOLD, EMPTY, tile.numPoints);
-
-                                if ((tile.numPoints > 0) && (tile.numPoints < HUGETILE_THREADSHOLD)) {
-                                    coverageLayer.hugeTiles.remove(tile._id);
-                                    console.log("tile not empty", tile);
-                                    return coverageLayer.store(tile._id, tile);
-                                } else if (tile.numPoints == 0) {
-                                    console.log("tile is empty");
-                                    coverageLayer.tiles.remove(tile._id);
-                                    coverageLayer.hugeTiles.remove(tile._id);
-                                    coverageLayer.emptyTiles.set(tile._id, EMPTY);
-                                    return removeTileInDB(tile);
-                                } else {
-                                    console.log("why here", tile);
-                                }
-
-                            } else {
-                                return Promise.resolve();
-                            }
-                        }).then(function(response) {
-
-                            var _tile = coverageLayer.tiles.get(tile._id);
-                            console.log(_tile, " tile in here");
-
-                            count++;
-                            if (count == size) {
-                                resolve();
-                            }
-                        }).catch(function(err) {
-                            console.log("Err", err);
-                            reject(err);
-                        });
-                    });
-                })
-
-                return promise;
-            }
-
-
-            var updateInDb = function(id) {
-                console.log("hehehehehehehehhehehehehe");
-
-                var promise = new Promise(function(resolve, reject) {
-                    coverageLayer.getStoreObj(id).then(function(tile) {
-                        return updateTile(tile);
-                    }).then(function(tile) {
-                        tile.needSave = true;
-                        if (tile.numPoints == 0) {
-                            coverageLayer.emptyTiles.set(tile._id, EMPTY);
-                            coverageLayer.tiles.remove(tile._id);
-                        }
-                    }).catch(function(err) {
-                        console.log("Err", err, id);
-                        resolve();
-                    });
-                });
-
-                return promise;
-            }
-
-            var ids = []; //id of tile not in cache
-            var tiles = []; //tiles containt all tile from cache
-            for (var i = 0; i < result.length; i++) {
-                var id = result[i][4];
-                var tile = coverageLayer.tiles.get(id) || coverageLayer.hugeTiles.get(id);
-
-                if (tile) {
-                    tiles.push(tile);
-                } else {
-                    if (!coverageLayer.emptyTiles.get(id))
-                        ids.push(id);
-                }
-            }
-
-            Promise.all(tiles.map(function(tile) {
-                return updateTile(tile);
-            })).then(function(tiles) {
-                for (var i = 0; i < tiles.length; i++) {
-                    var tile = tiles[i];
-                    tile.needSave = true;
-                    if (tile.numPoints > 0 && tile.numPoints < HUGETILE_THREADSHOLD)
-                        coverageLayer.hugeTiles.remove(tile._id);
-                    else if (tile.numPoints == 0) {
-                        coverageLayer.emptyTiles.set(tile._id, EMPTY);
-                        coverageLayer.tiles.remove(tile._id);
-                    }
-                }
-
-                return backUptoDBSequently(tiles);
-            }).then(function(response) {
-                if (ids.length > 0) {
-                    console.log("herere")
-                    coverageLayer.ready = false;
-                    return db.destroy().then(function(response) {
-                        coverageLayer.options.db = new PouchDB('vmts');
-                        console.log("Refresh database");
-                        coverageLayer.ready = true;
-                    })
-                }
-
-                // return Promise.all(ids.map(function(id) {
-                //     return updateInDb(id);
-                // }));
-            }).then(function(tiles) {
-                // return backUptoDBSequently(tiles);
-            });
-
-        }
-    }
-
-    function onMouseClick_removeMarker(e) {
-        var zoom = map.getZoom();
-        var latlng = e.latlng;
-
-        var currentlatLng = L.latLng(latlng.lat, latlng.lng);
-        var currentPoint = map.project(currentlatLng, zoom);
-
-        var pad = L.point(red_canvas.width >> 1, red_canvas.height >> 1);
-        var topLeft = currentPoint.subtract(pad);
-        var bottomRight = currentPoint.add(pad);
-
-        var nw = map.unproject(topLeft, zoom);
-        var se = map.unproject(bottomRight, zoom);
-        var bb = [se.lat, nw.lng, nw.lat, se.lng];
-
-        var x = (currentPoint.x / TILESIZE) >> 0;
-        var y = (currentPoint.y / TILESIZE) >> 0;
-
-        var coords = L.point(x, y);
-        coords.z = zoom;
-        var id = coverageLayer.getId(coords);
-
-        var tile = coverageLayer.tiles.get(id);
-
-        // if (tile)
-        //     bb = tile.bb;
-
-        var items = coverageLayer._rtree.search(bb);
-
-        if (items.length == 0) {
-            console.log("not found", coverageLayer._rtree);
-            return;
-        }
-
-        items.sort(function(a, b) {
-            return a[5] - b[5];
-        });
-
-
-        var item = items.pop();
-        // items.pop();
-        // items.pop();
-        // items.pop();
-
-        console.log(item);
-        removeMarker(item, coords);
-
-
-        // var prev = Promise.resolve();
-        // items.forEach(function(item) {
-        //     prev2 = prev2.then(function(response) {
-        //         return removeMarker(item, coords);
-        //     }).then(function(response) {
-        //         console.log(response);
-        //     })
-        // });
-    }
-
-    var markerID = dataset.length;
-
-    function drawMarker(marker) {
-        var WIDTH, HEIGHT;
-        WIDTH = HEIGHT = red_canvas.width;
-        var centerlatLng = [marker.lat, marker.lng];
-
-        var currentlatlng = L.latLng(marker.lat, marker.lng);
-        var currentPoint = map.project(currentlatlng);
-
-        var x = (currentPoint.x / TILESIZE) >> 0;
-        var y = (currentPoint.y / TILESIZE) >> 0;
-        var zoom = map.getZoom();
-        //
-        var tileID = zoom + "_" + x + "_" + y;
-
-        //calculate Point relative to Tile
-        var tileTop = x * TILESIZE;
-        var tileLeft = y * TILESIZE;
-        var point = L.point(tileTop, tileLeft);
-        var coords = L.point(x, y);
-        coords.z = zoom;
-
-
-        var tilePoint = coverageLayer._tilePoint(coords, [marker.lat, marker.lng]);
-        // console.log(tilePoint);
-
-        var tileIds = getTileIDs(tilePoint, WIDTH, HEIGHT, coords);
-        // console.log(tileIds,tileIds.length);        
-
-        draw(centerlatLng, WIDTH, HEIGHT, coords, red_canvas);
-
-        for (var i = 0; i < tileIds.length; i++) {
-            var tileID = tileIds[i].id;
-            var canvas = coverageLayer.canvases.get(tileID);
-            if (canvas && canvas.imgData) delete canvas.imgData;
-        }
-
-        var item = [marker.lat, marker.lng];
-        var x = item[0];
-        var y = item[1];
-        var data = [x, y, x, y, item, ++markerID];
-        coverageLayer._rtree.insert(data);
-
-        var pad = L.point(red_canvas.width >> 1, red_canvas.height >> 1);
-        var topLeft = currentPoint.subtract(pad);
-        var bottomRight = currentPoint.add(pad);
-        var nw = map.unproject(topLeft);
-        var se = map.unproject(bottomRight);
-        var bb = [se.lat, nw.lng, nw.lat, se.lng];
-    }
-
-    function onMouseClick_drawMarker(e) {
-
-        var marker = {
-            lat: e.latlng.lat,
-            lng: e.latlng.lng,
-            img: blue_canvas,
-            data: {},
-            title: 'title',
-        };
-
-        drawMarker(marker);
-    }
 });
