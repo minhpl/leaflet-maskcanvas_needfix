@@ -34,15 +34,12 @@ $(function() {
     blue_canvas.height = RADIUS << 1;
     var blue_context = blue_canvas.getContext('2d');
     blue_context.beginPath();
-
     blue_context.arc(RADIUS, RADIUS, RADIUS, 0, 2 * Math.PI, true);
     blue_context.fillStyle = 'blue';
     blue_context.fill();
     blue_context.lineWidth = 1;
-
     blue_context.strokeStyle = '#003300';
     blue_context.stroke();
-
     var img_blueCircle = new Image();
     img_blueCircle.src = blue_canvas.toDataURL("image/png");
 
@@ -255,7 +252,7 @@ $(function() {
         });
     } else {
         coverageLayer.setDataPoly();
-        coverageLayer.setDataCell();
+        coverageLayer.setDataCell(celldata);
     }
 
     map.addLayer(coverageLayer);
@@ -635,6 +632,7 @@ $(function() {
     var lastRecentInfo = {
         imgCropped: undefined,
         polyID: undefined,
+        poly: undefined,
     };
 
     var currentInfo = {
@@ -650,12 +648,12 @@ $(function() {
             timeoutID = 0;
 
             // coverageLayer.backupOne();
+            var zoom = map.getZoom();
             var currentLatLng = e.latlng;
-            var currentPoint = map.project(currentLatLng);
+            var currentPoint = map.project(currentLatLng, zoom);
 
             var x = (currentPoint.x / TILESIZE) >> 0;
             var y = (currentPoint.y / TILESIZE) >> 0;
-            var zoom = map.getZoom();
 
             var tileID = zoom + "_" + x + "_" + y;
             var coords = L.point(x, y);
@@ -695,8 +693,54 @@ $(function() {
                 }
                 return [];
             }
-
             var polys = getIntersectPoly(currentLatLng);
+
+
+            var radius = coverageLayer.getRadius(zoom);
+            var pad = L.point(radius, radius);
+            var tlPts = currentPoint.subtract(pad);
+            var brPts = currentPoint.add(pad);
+            var nw = map.unproject(tlPts, zoom);
+            var se = map.unproject(brPts, zoom);
+            var bound = [se.lat, nw.lng, nw.lat, se.lng];
+
+
+
+            function isInsideSector(point, center, radius, angle1, angle2) {
+                function areClockwise(center, radius, angle, point2) {
+                    var point1 = {
+                        x: (center.x + radius) * Math.cos(angle),
+                        y: (center.y + radius) * Math.sin(angle)
+                    };
+                    return -point1.x * point2.y + point1.y * point2.x > 0;
+                }
+
+                var relPoint = {
+                    x: point.x - center.x,
+                    y: point.y - center.y
+                };
+
+                return !areClockwise(center, radius, angle1, relPoint) &&
+                    areClockwise(center, radius, angle2, relPoint) &&
+                    (relPoint.x * relPoint.x + relPoint.y * relPoint.y <= radius * radius);
+            }
+
+            function getIntersectCell(bound) {
+                var cells = coverageLayer._rtreeCell.search(bound);
+
+                var result = [];
+                for (var i = 0; i < cells.length; i++) {
+                    var cell = cells[i][4];                    
+                    var center = map.project(L.latLng(cell.lat, cell.lng));
+                    if (isInsideSector(currentPoint, center, radius, cell.startRadian, cell.endRadian))
+                        result.push(cell);
+                }
+
+                return result;
+            }
+
+            var cells = getIntersectCell(bound);
+            console.log(cells);
 
             // console.log(polys);
             if (polys.topPoly) {
@@ -726,6 +770,7 @@ $(function() {
                     return;
                 } else {
                     lastRecentInfo.polyID = undefined;
+                    lastRecentInfo.poly = undefined;
                     redraw(lastRecentInfo.imgCropped);
                 }
             }
