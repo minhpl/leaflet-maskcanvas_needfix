@@ -646,7 +646,6 @@ $(function() {
 
         timeoutID = setTimeout(function() {
             timeoutID = 0;
-
             // coverageLayer.backupOne();
             var zoom = map.getZoom();
             var currentLatLng = e.latlng;
@@ -659,9 +658,8 @@ $(function() {
             var coords = L.point(x, y);
             coords.z = zoom;
 
-            var tilePoint = coverageLayer._tilePoint(coords, [currentLatLng.lat, currentLatLng.lng]);
-            tilePoint = L.point(tilePoint[0], tilePoint[1]);
-
+            // var tilePoint = coverageLayer._tilePoint(coords, [currentLatLng.lat, currentLatLng.lng]);
+            // tilePoint = L.point(tilePoint[0], tilePoint[1]);
 
             function getIntersectPoly(currentlatlng) {
                 var rtree = coverageLayer._rtreePolygon;
@@ -695,7 +693,6 @@ $(function() {
             }
             var polys = getIntersectPoly(currentLatLng);
 
-
             var radius = coverageLayer.getRadius(zoom);
             var pad = L.point(radius, radius);
             var tlPts = currentPoint.subtract(pad);
@@ -703,8 +700,6 @@ $(function() {
             var nw = map.unproject(tlPts, zoom);
             var se = map.unproject(brPts, zoom);
             var bound = [se.lat, nw.lng, nw.lat, se.lng];
-
-
 
             function isInsideSector(point, center, radius, angle1, angle2) {
                 function areClockwise(center, radius, angle, point2) {
@@ -729,27 +724,42 @@ $(function() {
                 var cells = coverageLayer._rtreeCell.search(bound);
 
                 var result = [];
-                for (var i = 0; i < cells.length; i++) {
-                    var cell = cells[i][4];                    
-                    var center = map.project(L.latLng(cell.lat, cell.lng));
-                    if (isInsideSector(currentPoint, center, radius, cell.startRadian, cell.endRadian))
-                        result.push(cell);
+                var id = -1,
+                    topCell = undefined;
+
+                if (cells.length > 0) {
+
+                    for (var i = 0; i < cells.length; i++) {
+                        var r = cells[i];
+                        var cell = r[4];
+                        var center = map.project(L.latLng(cell.lat, cell.lng));
+                        if (isInsideSector(currentPoint, center, radius, cell.startRadian, cell.endRadian)) {
+                            result.push(cell);
+                            var a = r[5];
+                            if (id < a) {
+                                topCell = cell;
+                                id = a;
+                            }
+                        }
+                    }
+
+                    result.topCell = topCell;
+                    result.id = id;
+                    return result;
                 }
 
-                return result;
+                return [];
             }
 
             var cells = getIntersectCell(bound);
-            console.log(cells);
 
-            // console.log(polys);
             if (polys.topPoly) {
                 $('.leaflet-container').css('cursor', 'pointer');
                 var poly = polys.topPoly;
 
                 if (lastRecentInfo.polyID && (polys.topPolyID == lastRecentInfo.polyID)) {
-                    return;
-                } else {
+                    // return;
+                } else {                    
                     if (lastRecentInfo.imgCropped)
                         redraw(lastRecentInfo.imgCropped);
 
@@ -758,8 +768,9 @@ $(function() {
 
                     var sizeWidth = poly.size[0];
                     var sizeHeigth = poly.size[1];
-                    if (sizeWidth != 0 && sizeHeigth != 0) {
+                    if (sizeWidth != 0 && sizeHeigth != 0) {                        
                         lastRecentInfo.imgCropped = cropImgBoxs(poly.posL, poly.size[0], poly.size[1], coords);
+                        // console.log("here");
                         draw(poly.posL, poly.size[0], poly.size[1], coords, poly.canvas2);
                     }
                 }
@@ -767,13 +778,22 @@ $(function() {
                 $('.leaflet-container').css('cursor', 'auto');
                 if (lastRecentInfo.polyID == undefined) {
                     // console.log("is in the same blank");
-                    return;
+                    // return;
                 } else {
                     lastRecentInfo.polyID = undefined;
                     lastRecentInfo.poly = undefined;
                     redraw(lastRecentInfo.imgCropped);
                 }
             }
+
+            // if (cells.topCell) {
+            //     $('.leaflet-container').css('cursor', 'pointer');                
+            // }
+            // else
+            // {
+            //     $('.leaflet-container').css('cursor', 'auto');
+            // }
+
         }, 0);
     }
 

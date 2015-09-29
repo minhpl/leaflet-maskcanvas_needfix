@@ -261,10 +261,14 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                 // 20.9204, 105.59578
                 // 21.11269, 105.88451
 
+                // lat: 21.056267652104697, lng: 105.8020305633545
+
+                // lat: 21.00952219788383, lng: 105.72898864746095
+
                 // 21.15176, 105.65826
                 // 20.76831, 105.25108
-                var lat = 20.76831 + Math.random() * (21.15176 - 20.76831);
-                var lng = 105.25108 + Math.random() * (105.65826 - 105.25108);
+                var lat = 21.00952219788383 + Math.random() * (21.056267652104697 - 21.00952219788383);
+                var lng = 105.72898864746095 + Math.random() * (105.8020305633545 - 105.72898864746095);
 
                 var poly = makeVPolygon2(lat, lng, maxWith, maxHeight); //tao hinh dang cua polygon                        
                 poly[0].c = 'rgba(255, 255, 102,1)';
@@ -1101,7 +1105,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     //important function
     _draw: function(canvas, coords) {
         // var valid = this.iscollides(coords);
-        // if (!valid) return;  
+        // if (!valid) return;          
         if (!this._rtreePolygon || !this._map) {
             return;
         }
@@ -1167,6 +1171,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         var vpolyCoordinates = queryPolys(coords, this);
         this._drawVPolys(canvas, coords, vpolyCoordinates);
 
+
         var queryCells = function(coords) {
 
             var bb = getBB(coords, self.getRadius(coords.z));
@@ -1182,7 +1187,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             return cellCoordinates;
         }
 
-        var cells = queryCells(coords);        
+        var cells = queryCells(coords);
         this.drawCells(canvas, coords, cells);
     },
 
@@ -1290,7 +1295,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             var canvas = this.getCanvas(poly, coords, poly[0].c);
 
             poly.canvas = canvas;
-            poly.canvas2 = this.getCanvas(poly, coords, "rgba(250, 235, 215,1)");
+            poly.canvas2 = this.getCanvas(poly, coords, "rgba(250, 0, 215,1)");
             // poly.size = [width, height];
         }
 
