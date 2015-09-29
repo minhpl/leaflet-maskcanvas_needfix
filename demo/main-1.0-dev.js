@@ -25,7 +25,7 @@ $(function() {
 
     const RADIUS = 10;
     const NUM_POLYGON = 50;
-    const REALDATA = true;
+    const REALDATA = false;
     const serverAdress = 'http://10.61.64.118:9000';
 
     var blue_canvas = document.createElement('canvas');
@@ -43,10 +43,20 @@ $(function() {
     img_blueCircle.src = blue_canvas.toDataURL("image/png");
 
     var coverageLayer = new L.GridLayer.MaskCanvas({
-        opacity: 0.5,
+        opacity: 1,
         radius: RADIUS,
         useAbsoluteRadius: false,
         debug: true,
+        map: map,
+        boundary: true,
+        img_on: img_blueCircle,
+    });
+
+    var coverageLayer2 = new L.GridLayer.MaskCanvas({
+        opacity: 1,
+        radius: RADIUS,
+        useAbsoluteRadius: false,
+        debug: false,
         map: map,
         boundary: true,
         img_on: img_blueCircle,
@@ -122,6 +132,7 @@ $(function() {
             map.doubleClickZoom.disable();
             map.scrollWheelZoom.disable();
             var socket = io.connect(serverAdress);
+
             socket.on('connect', function() {
                 socket.emit("get_coverage_info", {
                     zoom_level: zoom,
@@ -134,57 +145,37 @@ $(function() {
                     }
                 });
             });
+
             socket.on('get_coverage_info', function(data) {
                 var aryData = data;
                 var dPoly = [];
                 var id = 0;
 
                 var dataPoly = [];
-                for (i = 0; i < aryData.length; i++) {
-                    var lat = aryData[i].lat;
-                    var lng = aryData[i].lng;
-                    var count2G = aryData[i]._2Gcounter;
-                    var count3G = aryData[i]._3Gcounter;
-                    var rssi = aryData[i].rssiSum;
-                    var ecno = aryData[i].ecnoSum;
-                    var rscp = aryData[i].rscpSum;
+                var id = 0;
+                for (k = 0; k < aryData.length; k++) {
+                    var lat = aryData[k].lat;
+                    var lng = aryData[k].lng;
+                    var count2G = aryData[k]._2Gcounter;
+                    var count3G = aryData[k]._3Gcounter;
+                    var rssi = aryData[k].rssiSum;
+                    var ecno = aryData[k].ecnoSum;
+                    var rscp = aryData[k].rscpSum;
                     var posL = [lat, lng];
-                    var poly = makeVPolygonKientn2(lat, lng, zoom, count2G, count3G, rssi, ecno, rscp);
-
-                    poly.posL = posL;
-
-
-                    console.log("poly", poly);
+                    var poly = makeVPolygonKientn2_backup(lat, lng, zoom, count2G, count3G, rssi, ecno, rscp);
 
                     dataPoly.push(poly);
-
-                    coverageLayer.getVertexAndBoundinLatLng(poly);
-                    poly.in = function(currentlatLng) {
-                        var x = currentlatLng.lat,
-                            y = currentlatLng.lng;
-
-                        var vertexsL = this.vertexsL;
-                        var inside = false;
-                        for (var i = 0, j = vertexsL.length - 1; i < vertexsL.length; j = i++) {
-                            var xi = vertexsL[i].lat,
-                                yi = vertexsL[i].lng;
-                            var xj = vertexsL[j].lat,
-                                yj = vertexsL[j].lng;
-
-                            var intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-                            if (intersect) inside = !inside;
-                        }
-
-                        return inside;
-                    }
-
-                    lBounds = poly.lBounds;
-                    var a = [lBounds.getSouth(), lBounds.getWest(), lBounds.getNorth(), lBounds.getEast(), poly, id++];
-                    dPoly.push(a);
                 }
 
-
-
+                if (!settedData) {
+                    coverageLayer.setDataPoly(dataPoly);
+                    settedData = true;
+                } else {
+                    coverageLayer.clearPolyMarker();
+                    coverageLayer.addPolygonMarker(dataPoly);
+                    // coverageLayer.setDataPoly(dataPoly);
+                    coverageLayer.redraw();
+                }
 
 
                 coverageLayer._rtreePolygon = new rbush(32);
@@ -232,15 +223,20 @@ $(function() {
     } else {
         coverageLayer.setDataPoly();
         coverageLayer.setDataCell(celldata);
+
+        coverageLayer2.setDataPoly();
+        coverageLayer2.setDataCell(celldata);
     }
 
     map.addLayer(coverageLayer);
+    map.addLayer(coverageLayer2);
 
     //crop images at Position
     map.on('mousemove', onMouseMove);
 
     function onMouseMove(e) {
         coverageLayer.onMouseMove(e);
+        coverageLayer2.onMouseMove(e);
     }
 
     map.on('contextmenu', onContextMenu);
@@ -248,9 +244,17 @@ $(function() {
     map.on('click', onContextMenu);
 
     function onContextMenu(e) {
+
+        coverageLayer2.setOpacity(0);
+        coverageLayer2.redraw();
+
         var info = coverageLayer.lastRecentInfo;
         console.log("onContextMenu poly info", info.poly, info.polyID);
         console.log("onContextMenu cell info", info.cell, info.cellID);
+
+        info = coverageLayer2.lastRecentInfo;
+        console.log("onContextMenu poly info2", info.poly, info.polyID);
+        console.log("onContextMenu cell info2", info.cell, info.cellID);
     }
 
 });

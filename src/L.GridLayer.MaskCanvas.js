@@ -21,6 +21,8 @@ const NORTH = 3 * (Math.PI / 2);
 const RED = "#FF0066";
 const BLUE = "#6666FF";
 const TILESIZE = 256;
+const POLY = 1;
+const CELL = 2;
 
 L.GridLayer.MaskCanvas = L.GridLayer.extend({
     options: {
@@ -38,6 +40,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         map: undefined,
         useGlobalData: false,
         boundary: true,
+        type: undefined,
     },
 
     ready: false,
@@ -267,7 +270,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             }
 
             var cells;
-            if (self._rtreeCell) {                  
+            if (self._rtreeCell) {
                 cells = getIntersectCell(bound);
             }
 
@@ -297,7 +300,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
                     } else {
                         if (self.lastRecentInfo.imgPolyCropped)
-                            self.redraw(self.lastRecentInfo.imgPolyCropped);
+                            self.redrawImage(self.lastRecentInfo.imgPolyCropped);
 
                         self.lastRecentInfo.polyID = polys.topPolyID;
                         self.lastRecentInfo.poly = poly;
@@ -315,7 +318,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     } else {
                         self.lastRecentInfo.polyID = undefined;
                         self.lastRecentInfo.poly = undefined;
-                        self.redraw(self.lastRecentInfo.imgPolyCropped);
+                        self.redrawImage(self.lastRecentInfo.imgPolyCropped);
                     }
                 }
 
@@ -330,13 +333,13 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     self.lastRecentInfo.polyID = undefined;
                     self.lastRecentInfo.poly = undefined;
 
-                    self.redraw(self.lastRecentInfo.imgPolyCropped);
+                    self.redrawImage(self.lastRecentInfo.imgPolyCropped);
                 }
             }
         }, 0);
     },
 
-    redraw: function(imgs) {
+    redrawImage: function(imgs) {
         if (imgs && imgs.length) {
             for (var i = 0; i < imgs.length; i++) {
                 var image = imgs[i];
@@ -1093,7 +1096,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         if (dataCell) {
             this._rtreeCell = new rbush(32);
             this._rtreeCell.load(this.makeDataCell(dataCell));
-        } else {            
+        } else {
             this._rtreeCell = new rbush(32);
             this._rtreeCell.load(this.makeDataCell());
         }
@@ -1670,7 +1673,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     //important function
     _draw: function(canvas, coords) {
         // var valid = this.iscollides(coords);
-        // if (!valid) return;          
+        // if (!valid) return;   
+
         if (!this._rtreePolygon || !this._map) {
             return;
         }
@@ -1734,7 +1738,9 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         }
 
         var vpolyCoordinates = queryPolys(coords, this);
-        this._drawVPolys(canvas, coords, vpolyCoordinates);
+        if (!this.options.debug) {
+            this._drawVPolys(canvas, coords, vpolyCoordinates);
+        }
 
         if (this._rtreeCell) {
             var queryCells = function(coords) {
@@ -1753,7 +1759,10 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             }
 
             var cells = queryCells(coords);
-            this.drawCells(canvas, coords, cells);
+
+            if (this.options.debug) {
+                this.drawCells(canvas, coords, cells);
+            }
         }
 
     },
