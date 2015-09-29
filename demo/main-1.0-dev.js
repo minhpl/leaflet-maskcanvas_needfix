@@ -43,23 +43,25 @@ $(function() {
     img_blueCircle.src = blue_canvas.toDataURL("image/png");
 
     var coverageLayer = new L.GridLayer.MaskCanvas({
-        opacity: 1,
+        opacity: 0.5,
         radius: RADIUS,
         useAbsoluteRadius: false,
         debug: true,
         map: map,
         boundary: true,
         img_on: img_blueCircle,
+        type: POLY
     });
 
     var coverageLayer2 = new L.GridLayer.MaskCanvas({
-        opacity: 1,
+        opacity: 0.5,
         radius: RADIUS,
         useAbsoluteRadius: false,
         debug: false,
         map: map,
         boundary: true,
         img_on: img_blueCircle,
+        type: CELL,
     });
 
     var swBound = L.latLng(20.69814614, 105.72596769);
@@ -221,10 +223,7 @@ $(function() {
             });
         });
     } else {
-        coverageLayer.setDataPoly();
-        coverageLayer.setDataCell(celldata);
-
-        coverageLayer2.setDataPoly();
+        coverageLayer.setDataPoly();            
         coverageLayer2.setDataCell(celldata);
     }
 
@@ -244,10 +243,6 @@ $(function() {
     map.on('click', onContextMenu);
 
     function onContextMenu(e) {
-
-        coverageLayer2.setOpacity(0);
-        coverageLayer2.redraw();
-
         var info = coverageLayer.lastRecentInfo;
         console.log("onContextMenu poly info", info.poly, info.polyID);
         console.log("onContextMenu cell info", info.cell, info.cellID);

@@ -274,7 +274,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                 cells = getIntersectCell(bound);
             }
 
-            if (cells && polys && cells.topCell || polys.topPoly) {
+            if ((cells && cells.topCell) || (polys && polys.topPoly)) {
                 $('.leaflet-container').css('cursor', 'pointer');
 
                 var cell = cells.topCell;
@@ -304,6 +304,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
                         self.lastRecentInfo.polyID = polys.topPolyID;
                         self.lastRecentInfo.poly = poly;
+
+                        console.log(self.options.type == POLY);
 
                         var sizeWidth = poly.size[0];
                         var sizeHeigth = poly.size[1];
@@ -406,7 +408,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             }
         }
     },
-
 
     getTileIDs: function(centrePoint, WIDTH, HEIGHT, coords) {
         // var TopPoint = info.topPointTile;
@@ -1674,8 +1675,11 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     _draw: function(canvas, coords) {
         // var valid = this.iscollides(coords);
         // if (!valid) return;   
+        if ((!this._rtreePolygon || !this._map) && this.options.type == POLY) {
+            return;
+        }
 
-        if (!this._rtreePolygon || !this._map) {
+        if ((!this._rtreeCell || !this._map) && this.options.type == CELL) {
             return;
         }
 
@@ -1714,35 +1718,38 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             return bb;
         }
 
-        var queryPolys = function(coords, self) {
-            var tileSize = self.options.tileSize;
+        if (this.options.type == POLY) {
 
-            var nwPoint = coords.multiplyBy(tileSize);
-            var sePoint = nwPoint.add(new L.Point(tileSize, tileSize));
+            var queryPolys = function(coords, self) {
+                var tileSize = self.options.tileSize;
 
-            if (self.options.useAbsoluteRadius) {
-                var centerPoint = nwPoint.add(new L.Point(tileSize >> 1, tileSize >> 1));
-                this._latLng = this._map.unproject(centerPoint, coords.z);
+                var nwPoint = coords.multiplyBy(tileSize);
+                var sePoint = nwPoint.add(new L.Point(tileSize, tileSize));
+
+                if (self.options.useAbsoluteRadius) {
+                    var centerPoint = nwPoint.add(new L.Point(tileSize >> 1, tileSize >> 1));
+                    this._latLng = this._map.unproject(centerPoint, coords.z);
+                }
+
+                var bounds = new L.LatLngBounds(self._map.unproject(sePoint, coords.z), self._map.unproject(nwPoint, coords.z));
+
+                var currentBounds = self._boundsToQuery(bounds);
+                var bb = [currentBounds.y, currentBounds.x, currentBounds.y + currentBounds.height, currentBounds.x + currentBounds.width];
+                var vpolyCoordinates = self._rtreePolygon.search(bb);
+
+                vpolyCoordinates.sort(function(a, b) {
+                    return a[5] - b[5];
+                })
+                return vpolyCoordinates;
             }
 
-            var bounds = new L.LatLngBounds(self._map.unproject(sePoint, coords.z), self._map.unproject(nwPoint, coords.z));
+            var vpolyCoordinates = queryPolys(coords, this);
 
-            var currentBounds = self._boundsToQuery(bounds);
-            var bb = [currentBounds.y, currentBounds.x, currentBounds.y + currentBounds.height, currentBounds.x + currentBounds.width];
-            var vpolyCoordinates = self._rtreePolygon.search(bb);
-
-            vpolyCoordinates.sort(function(a, b) {
-                return a[5] - b[5];
-            })
-            return vpolyCoordinates;
-        }
-
-        var vpolyCoordinates = queryPolys(coords, this);
-        if (!this.options.debug) {
             this._drawVPolys(canvas, coords, vpolyCoordinates);
         }
 
-        if (this._rtreeCell) {
+        if (this.options.type == CELL) {
+
             var queryCells = function(coords) {
 
                 var bb = getBB(coords, self.getRadius(coords.z));
@@ -1760,11 +1767,9 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
             var cells = queryCells(coords);
 
-            if (this.options.debug) {
-                this.drawCells(canvas, coords, cells);
-            }
-        }
 
+            this.drawCells(canvas, coords, cells);
+        }
     },
 
     /**
