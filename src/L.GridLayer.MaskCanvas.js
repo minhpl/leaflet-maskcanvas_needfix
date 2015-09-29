@@ -28,7 +28,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         radius: 5, // this is the default radius (specific radius values may be passed with the data)
         useAbsoluteRadius: false, // true: radius in meters, false: radius in pixels
         color: '#000',
-        opacity: 0.5,
+        opacity: 0,
         noMask: false, // true results in normal (filled) circled, instead masked circles
         lineColor: undefined, // color of the circle outline if noMask is true
         debug: false,
@@ -266,10 +266,12 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                 return [];
             }
 
-            var cells = getIntersectCell(bound);
+            var cells;
+            if (self._rtreeCell) {                  
+                cells = getIntersectCell(bound);
+            }
 
-
-            if (cells.topCell || polys.topPoly) {
+            if (cells && polys && cells.topCell || polys.topPoly) {
                 $('.leaflet-container').css('cursor', 'pointer');
 
                 var cell = cells.topCell;
@@ -1091,7 +1093,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         if (dataCell) {
             this._rtreeCell = new rbush(32);
             this._rtreeCell.load(this.makeDataCell(dataCell));
-        } else {
+        } else {            
             this._rtreeCell = new rbush(32);
             this._rtreeCell.load(this.makeDataCell());
         }
@@ -1734,24 +1736,26 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         var vpolyCoordinates = queryPolys(coords, this);
         this._drawVPolys(canvas, coords, vpolyCoordinates);
 
+        if (this._rtreeCell) {
+            var queryCells = function(coords) {
 
-        var queryCells = function(coords) {
+                var bb = getBB(coords, self.getRadius(coords.z));
 
-            var bb = getBB(coords, self.getRadius(coords.z));
+                var cellCoordinates = self._rtreeCell.search(bb);
 
-            var cellCoordinates = self._rtreeCell.search(bb);
+                // if (cellCoordinates.length > 0)
+                // console.log("---------------------??", cellCoordinates);
 
-            // if (cellCoordinates.length > 0)
-            // console.log("---------------------??", cellCoordinates);
+                cellCoordinates.sort(function(a, b) {
+                    return a[5] - b[5];
+                })
+                return cellCoordinates;
+            }
 
-            cellCoordinates.sort(function(a, b) {
-                return a[5] - b[5];
-            })
-            return cellCoordinates;
+            var cells = queryCells(coords);
+            this.drawCells(canvas, coords, cells);
         }
 
-        var cells = queryCells(coords);
-        this.drawCells(canvas, coords, cells);
     },
 
     /**

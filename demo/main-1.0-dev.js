@@ -24,8 +24,9 @@ $(function() {
     map.addLayer(ggl);
 
     const RADIUS = 10;
-    const NUM_POLYGON = 50;    
-    const REALDATA = false;
+    const NUM_POLYGON = 50;
+    const REALDATA = true;
+    const serverAdress = 'http://10.61.64.118:9000';
 
     var blue_canvas = document.createElement('canvas');
     blue_canvas.width = RADIUS << 1;
@@ -59,37 +60,26 @@ $(function() {
     var settedData = false;
 
     if (REALDATA) {
+        // coverageLayer.setDataCell(celldata);
+
         var zoom = map.getZoom();
-        var socket = io.connect('http://10.61.64.127:8822');
+
+        var socket = io.connect(serverAdress);
         socket.on('connect', function() {
-            socket.emit("filter_boundary", {
-                request: {
-                    zoomLevel: zoom + '',
-                    mnc: '4',
-                    endDate: 1442547396748,
-                    point4: {
-                        lng: 125,
-                        lat: 25
-                    },
-                    point1: {
-                        lng: 105,
-                        lat: 15
-                    },
-                    point2: {
-                        lng: 105,
-                        lat: 25
-                    },
-                    startDate: 1380339396748,
-                    point3: {
-                        lng: 125,
-                        lat: 15
-                    }
+            socket.emit("get_coverage_info", {
+                zoom_level: zoom,
+                mnc: 4,
+                boundary: {
+                    lat1: 10,
+                    lat2: 30,
+                    lng1: 100,
+                    lng2: 130
                 }
             });
         });
 
-        socket.on('filter_boundary', function(msg) {
-            var aryData = msg.data.result;
+        socket.on('get_coverage_info', function(data) {
+            var aryData = data;
 
             var dataPoly = [];
             var id = 0;
@@ -131,35 +121,21 @@ $(function() {
             map.touchZoom.disable();
             map.doubleClickZoom.disable();
             map.scrollWheelZoom.disable();
-            var socket = io.connect('http://10.61.64.127:8822');
+            var socket = io.connect(serverAdress);
             socket.on('connect', function() {
-                socket.emit("filter_boundary", {
-                    request: {
-                        zoomLevel: zoom + '',
-                        mnc: '4',
-                        endDate: 1442547396748,
-                        point4: {
-                            lng: 125,
-                            lat: 25
-                        },
-                        point1: {
-                            lng: 105,
-                            lat: 15
-                        },
-                        point2: {
-                            lng: 105,
-                            lat: 25
-                        },
-                        startDate: 1380339396748,
-                        point3: {
-                            lng: 125,
-                            lat: 15
-                        }
+                socket.emit("get_coverage_info", {
+                    zoom_level: zoom,
+                    mnc: 4,
+                    boundary: {
+                        lat1: 10,
+                        lat2: 30,
+                        lng1: 100,
+                        lng2: 130
                     }
                 });
             });
-            socket.on('filter_district', function(msg) {
-                var aryData = msg.data.result;
+            socket.on('get_coverage_info', function(data) {
+                var aryData = data;
                 var dPoly = [];
                 var id = 0;
 
@@ -206,6 +182,11 @@ $(function() {
                     var a = [lBounds.getSouth(), lBounds.getWest(), lBounds.getNorth(), lBounds.getEast(), poly, id++];
                     dPoly.push(a);
                 }
+
+
+
+
+
                 coverageLayer._rtreePolygon = new rbush(32);
                 // coverageLayer._rtreePolygon.load(null);
                 coverageLayer._rtreePolygon.load(dPoly);
@@ -256,11 +237,9 @@ $(function() {
     map.addLayer(coverageLayer);
 
     //crop images at Position
-
     map.on('mousemove', onMouseMove);
 
-    function onMouseMove(e)
-    {
+    function onMouseMove(e) {
         coverageLayer.onMouseMove(e);
     }
 
