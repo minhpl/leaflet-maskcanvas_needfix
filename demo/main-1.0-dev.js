@@ -25,7 +25,7 @@ $(function() {
 
     const RADIUS = 10;
     const NUM_POLYGON = 50;
-    const REALDATA = true;
+    const REALDATA = false;
     const serverAdress = 'http://10.61.64.118:9000';
 
     var blue_canvas = document.createElement('canvas');

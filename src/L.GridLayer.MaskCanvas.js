@@ -65,7 +65,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
      * @return {[type]}          [description]
      */
 
-    getRadius: function(zoom) {
+    getRadiusFn: function(zoom) {
         switch (zoom) {
             case 1:
             case 2:
@@ -208,7 +208,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             }
 
             var polys = getIntersectPoly(currentLatLng);
-            var radius = self.getRadius(zoom);
+            var radius = self.getRadiusFn(zoom);
             var pad = L.point(radius, radius);
             var tlPts = currentPoint.subtract(pad);
             var brPts = currentPoint.add(pad);
@@ -1737,7 +1737,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
         var queryCells = function(coords) {
 
-            var bb = getBB(coords, self.getRadius(coords.z));
+            var bb = getBB(coords, self.getRadiusFn(coords.z));
 
             var cellCoordinates = self._rtreeCell.search(bb);
 
@@ -2029,7 +2029,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             var cell = cells[i][4];
             var pos = this._tilePoint(coords, [cell.lat, cell.lng]);
             // console.log(coords.z, "-----------");
-            this.drawCell(ctx, pos, cell, this.getRadius(coords.z));
+            this.drawCell(ctx, pos, cell, this.getRadiusFn(coords.z));
         }
     },
 
