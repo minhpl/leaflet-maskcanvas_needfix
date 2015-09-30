@@ -1825,10 +1825,10 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         if (poly.zoom != coords.z) {
             poly.zoom = coords.z;
 
-            var canvas = this.getCanvas(poly, coords, poly[0].c);
+            var canvas = this.getCanvas(poly, coords, "rgba(0, 255, 0,1)");
 
             poly.canvas = canvas;
-            poly.canvas2 = this.getCanvas(poly, coords, "rgba(250, 240, 215,1)");
+            poly.canvas2 = this.getCanvas(poly, coords, "rgba(255, 0, 0,1)");
             // poly.size = [width, height];
         }
 
