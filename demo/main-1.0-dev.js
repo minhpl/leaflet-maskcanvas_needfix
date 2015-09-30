@@ -239,12 +239,21 @@ $(function() {
 
     map.on('contextmenu', onContextMenu);
 
-    map.on('click', onContextMenu);
+    map.on('click', onClick);
 
-    function onContextMenu(e) {
+    function onClick(e) {
         var info = coverageLayer.lastRecentInfo;
         console.log("onContextMenu poly info", info.poly, info.polyID);
         console.log("onContextMenu cell info", info.cell, info.cellID);
     }
 
+
+    function onContextMenu(e) {
+        var radius = prompt("cell radius", "10");
+        if (radius) {
+            coverageLayer.cellRadius = radius;
+            coverageLayer.inputRadius = true;
+            coverageLayer.redraw();
+        }
+    }
 });

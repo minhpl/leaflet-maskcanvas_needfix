@@ -58,6 +58,10 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     // rtreeLCTilePoly: new lru(40),    
     BBAllPointLatlng: [-9999, -9999, -9999, -9999],
 
+
+    cellRadius: 30,
+    inputRadius: false,
+
     /**
      * [updateCachedTile description]
      * @param  {[type]} coords   [description]
@@ -72,29 +76,39 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             case 3:
             case 4:
             case 5:
+                this.cellRadius = 4;
                 return 4;
             case 6:
             case 7:
             case 8:
             case 9:
+                this.cellRadius = 6;
                 return 6;
             case 10:
             case 11:
             case 12:
+                this.cellRadius = 8;
                 return 8;
             case 13:
+                this.cellRadius = 12;
                 return 12;
             case 14:
+                this.cellRadius = 16;
                 return 16;
             case 15:
+                this.cellRadius = 20;
                 return 20;
             case 16:
+                this.cellRadius = 24;
                 return 24;
             case 17:
+                this.cellRadius = 30;
                 return 30;
             case 18:
+                this.cellRadius = 36;
                 return 36;
             default:
+                this.cellRadius = 38;
                 return 38;
         }
     },
@@ -208,8 +222,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             }
 
             var polys = getIntersectPoly(currentLatLng);
-            var radius = self.getRadiusFn(zoom);
-            var pad = L.point(radius, radius);
+            var pad = L.point(self.cellRadius, self.cellRadius);
             var tlPts = currentPoint.subtract(pad);
             var brPts = currentPoint.add(pad);
             var nw = map.unproject(tlPts, zoom);
@@ -248,7 +261,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                         var r = cells[i];
                         var cell = r[4];
                         var center = map.project(L.latLng(cell.lat, cell.lng));
-                        if (isInsideSector(currentPoint, center, radius, cell.startRadian, cell.endRadian)) {
+                        if (isInsideSector(currentPoint, center, self.cellRadius, cell.startRadian, cell.endRadian)) {
                             result.push(cell);
                             var a = r[5];
                             if (id < a) {
@@ -295,7 +308,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
                     } else {
                         if (self.lastRecentInfo.imgPolyCropped)
-                            self.redraw(self.lastRecentInfo.imgPolyCropped);
+                            self.redrawImgCropped(self.lastRecentInfo.imgPolyCropped);
 
                         self.lastRecentInfo.polyID = polys.topPolyID;
                         self.lastRecentInfo.poly = poly;
@@ -313,7 +326,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     } else {
                         self.lastRecentInfo.polyID = undefined;
                         self.lastRecentInfo.poly = undefined;
-                        self.redraw(self.lastRecentInfo.imgPolyCropped);
+                        self.redrawImgCropped(self.lastRecentInfo.imgPolyCropped);
                     }
                 }
 
@@ -328,13 +341,13 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     self.lastRecentInfo.polyID = undefined;
                     self.lastRecentInfo.poly = undefined;
 
-                    self.redraw(self.lastRecentInfo.imgPolyCropped);
+                    self.redrawImgCropped(self.lastRecentInfo.imgPolyCropped);
                 }
             }
         }, 0);
     },
 
-    redraw: function(imgs) {
+    redrawImgCropped: function(imgs) {
         if (imgs && imgs.length) {
             for (var i = 0; i < imgs.length; i++) {
                 var image = imgs[i];
@@ -401,7 +414,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             }
         }
     },
-
 
     getTileIDs: function(centrePoint, WIDTH, HEIGHT, coords) {
         // var TopPoint = info.topPointTile;
@@ -741,7 +753,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         // var savedTile = this.hugeTiles.get(id) || this.tiles.get(id); //check if tile in lru mem cache
 
         // var canvas = (savedTile && savedTile.canvas) ? savedTile.canvas : document.createElement('canvas');
-
         var canvas = document.createElement('canvas');
         canvas.width = canvas.height = this.options.tileSize;
 
@@ -834,7 +845,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                 var lng = 105.72898864746095 + Math.random() * (105.8020305633545 - 105.72898864746095);
 
                 var poly = makeVPolygon2(lat, lng, maxWith, maxHeight); //tao hinh dang cua polygon                        
-                poly[0].c = 'rgba(255, 255, 102,1)';
+                poly[0].c = 'rgba(0, 255, 0,1)';
 
                 // this.getVertexAndBoundinLatLng(poly);
                 var vertexsL = [];
@@ -959,25 +970,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
                 cell.startRadian = NORTH + azimuthR - HCELLARCSIZE;
                 cell.endRadian = NORTH + azimuthR + HCELLARCSIZE;
-
-                cell.in = function isInsideSector(point, center, radius, angle1, angle2) {
-                    function areClockwise(center, radius, angle, point2) {
-                        var point1 = {
-                            x: (center.x + radius) * Math.cos(angle),
-                            y: (center.y + radius) * Math.sin(angle)
-                        };
-                        return -point1.x * point2.y + point1.y * point2.x > 0;
-                    }
-
-                    var relPoint = {
-                        x: point.x - center.x,
-                        y: point.y - center.y
-                    };
-
-                    return !areClockwise(center, radius, angle1, relPoint) &&
-                        areClockwise(center, radius, angle2, relPoint) &&
-                        (relPoint.x * relPoint.x + relPoint.y * relPoint.y <= radius * radius);
-                };
 
                 var sector = [cell.lat, cell.lng, cell.lat, cell.lng, cell, i];
 
@@ -1734,10 +1726,11 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         var vpolyCoordinates = queryPolys(coords, this);
         this._drawVPolys(canvas, coords, vpolyCoordinates);
 
+        if (!self.inputRadius)
+            self.getRadiusFn(coords.z);
 
         var queryCells = function(coords) {
-
-            var bb = getBB(coords, self.getRadiusFn(coords.z));
+            var bb = getBB(coords, self.cellRadius);
 
             var cellCoordinates = self._rtreeCell.search(bb);
 
@@ -1751,7 +1744,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         }
 
         var cells = queryCells(coords);
-        this.drawCells(canvas, coords, cells);
+        this.drawCells(canvas, coords, cells);        
     },
 
     /**
@@ -1858,7 +1851,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             var canvas = this.getCanvas(poly, coords, poly[0].c);
 
             poly.canvas = canvas;
-            poly.canvas2 = this.getCanvas(poly, coords, "rgba(250, 240, 215,1)");
+            poly.canvas2 = this.getCanvas(poly, coords, "rgba(250, 0, 0,1)");
             // poly.size = [width, height];
         }
 
@@ -2008,7 +2001,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     //     // ctx.fill();
     // },
 
-    drawCell: function(ctx, pts, cell, radius) {
+    drawCell: function(ctx, pts, cell) {
         var x = pts[0];
         var y = pts[1];
 
@@ -2016,7 +2009,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
         ctx.beginPath();
         ctx.moveTo(x, y);
-        ctx.arc(x, y, radius, cell.startRadian, cell.endRadian, false);
+        ctx.arc(x, y, this.cellRadius, cell.startRadian, cell.endRadian, false);
         ctx.closePath();
         ctx.fillStyle = color;
         ctx.fill();
@@ -2029,7 +2022,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             var cell = cells[i][4];
             var pos = this._tilePoint(coords, [cell.lat, cell.lng]);
             // console.log(coords.z, "-----------");
-            this.drawCell(ctx, pos, cell, this.getRadiusFn(coords.z));
+            this.drawCell(ctx, pos, cell);
         }
     },
 
