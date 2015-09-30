@@ -68,6 +68,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
      * @return {[type]}          [description]
      */
 
+    //ok
     getRadius: function(zoom) {
         switch (zoom) {
             case 1:
@@ -102,10 +103,12 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         }
     },
 
+    //ok
     initialize: function(options) {
         L.setOptions(this, options);
         var db = this.options.db;
         var self = this;
+        console.log(this);
         if (db) {
 
             var refreshDB = function(self) {
@@ -163,184 +166,97 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         var map = this.options.map;
         if (self.timeoutID) clearTimeout(self.timeoutID);
 
-        self.timeoutID = setTimeout(function() {
-            timeoutID = 0;
-            // coverageLayer.backupOne();
-            var zoom = map.getZoom();
-            var currentLatLng = e.latlng;
-            var currentPoint = map.project(currentLatLng, zoom);
+        if (self.options.type == POLY) {
+            // return;
+            self.timeoutID = setTimeout(function() {
+                self.timeoutID = 0;
 
-            var x = (currentPoint.x / TILESIZE) >> 0;
-            var y = (currentPoint.y / TILESIZE) >> 0;
+                // coverageLayer.backupOne();
+                var currentLatLng = e.latlng;
+                var currentPoint = map.project(currentLatLng);
 
-            var tileID = zoom + "_" + x + "_" + y;
-            var coords = L.point(x, y);
-            coords.z = zoom;
+                var x = (currentPoint.x / TILESIZE) >> 0;
+                var y = (currentPoint.y / TILESIZE) >> 0;
+                var zoom = map.getZoom();
 
-            // var tilePoint = coverageLayer._tilePoint(coords, [currentLatLng.lat, currentLatLng.lng]);
-            // tilePoint = L.point(tilePoint[0], tilePoint[1]);
-            function getIntersectPoly(currentlatlng) {
-                var rtree = self._rtreePolygon;
-                if (rtree) {
-                    var lat = currentlatlng.lat;
-                    var lng = currentlatlng.lng;
-                    var result = rtree.search([lat, lng, lat, lng]);
+                var tileID = zoom + "_" + x + "_" + y;
+                var coords = L.point(x, y);
+                coords.z = zoom;
 
-                    if (result.length > 0) {
-                        var polys = [];
-                        var topPoly, id = -1;
-                        for (var i = 0; i < result.length; i++) {
-                            var r = result[i];
-                            var poly = r[4];
+                var tilePoint = self._tilePoint(coords, [currentLatLng.lat, currentLatLng.lng]);
+                tilePoint = L.point(tilePoint[0], tilePoint[1]);
 
-                            if (poly.in(currentlatlng)) {
-                                polys.push(poly);
-                                if (r[5] > id) {
-                                    topPoly = poly;
-                                    id = r[5];
+
+                function getIntersectPoly(currentlatlng) {
+                    var rtree = self._rtreePolygon;
+                    if (rtree) {
+                        var lat = currentlatlng.lat;
+                        var lng = currentlatlng.lng;
+                        var result = self._rtreePolygon.search([lat, lng, lat, lng]);
+
+                        if (result.length > 0) {
+                            var polys = [];
+                            var topPoly, id = -1;
+                            for (var i = 0; i < result.length; i++) {
+                                var r = result[i];
+                                var poly = r[4];
+
+                                if (poly.in(currentlatlng)) {
+                                    polys.push(poly);
+                                    if (r[5] > id) {
+                                        topPoly = poly;
+                                        id = r[5];
+                                    }
                                 }
                             }
-                        }
-                        polys.topPoly = topPoly;
-                        polys.topPolyID = id;
+                            polys.topPoly = topPoly;
+                            polys.topPolyID = id;
 
-                        return polys;
-                    }
-                }
-                return [];
-            }
-
-            var polys = getIntersectPoly(currentLatLng);
-            var radius = self.getRadius(zoom);
-            var pad = L.point(radius, radius);
-            var tlPts = currentPoint.subtract(pad);
-            var brPts = currentPoint.add(pad);
-            var nw = map.unproject(tlPts, zoom);
-            var se = map.unproject(brPts, zoom);
-            var bound = [se.lat, nw.lng, nw.lat, se.lng];
-
-            function isInsideSector(point, center, radius, angle1, angle2) {
-                function areClockwise(center, radius, angle, point2) {
-                    var point1 = {
-                        x: (center.x + radius) * Math.cos(angle),
-                        y: (center.y + radius) * Math.sin(angle)
-                    };
-                    return -point1.x * point2.y + point1.y * point2.x > 0;
-                }
-
-                var relPoint = {
-                    x: point.x - center.x,
-                    y: point.y - center.y
-                };
-
-                return !areClockwise(center, radius, angle1, relPoint) &&
-                    areClockwise(center, radius, angle2, relPoint) &&
-                    (relPoint.x * relPoint.x + relPoint.y * relPoint.y <= radius * radius);
-            }
-
-            function getIntersectCell(bound) {
-                var cells = self._rtreeCell.search(bound);
-
-                var result = [];
-                var id = -1,
-                    topCell = undefined;
-
-                if (cells.length > 0) {
-
-                    for (var i = 0; i < cells.length; i++) {
-                        var r = cells[i];
-                        var cell = r[4];
-                        var center = map.project(L.latLng(cell.lat, cell.lng));
-                        if (isInsideSector(currentPoint, center, radius, cell.startRadian, cell.endRadian)) {
-                            result.push(cell);
-                            var a = r[5];
-                            if (id < a) {
-                                topCell = cell;
-                                id = a;
-                            }
+                            return polys;
                         }
                     }
-
-                    result.topCell = topCell;
-                    result.topCellID = id;
-                    return result;
+                    return [];
                 }
 
-                return [];
-            }
+                var polys = getIntersectPoly(currentLatLng);
 
-            var cells;
-            if (self._rtreeCell) {
-                cells = getIntersectCell(bound);
-            }
+                // console.log(polys);
+                if (polys.topPoly) {
+                    $('.leaflet-container').css('cursor', 'pointer');
+                    var poly = polys.topPoly;
 
-            if ((cells && cells.topCell) || (polys && polys.topPoly)) {
-                $('.leaflet-container').css('cursor', 'pointer');
-
-                var cell = cells.topCell;
-                if (cell) {
-                    if (self.lastRecentInfo.cellID == cells.topCellID) {
-
-                    } else {
-                        self.lastRecentInfo.cellID = cells.topCellID;
-                        self.lastRecentInfo.cell = cell;
-                    }
-                } else {
-                    if (self.lastRecentInfo.cellID = undefined) {
-
-                    } else {
-                        self.lastRecentInfo.cellID = undefined;
-                        self.lastRecentInfo.cell = undefined;
-                    }
-                }
-
-                var poly = polys.topPoly;
-                if (poly && !cell) {
                     if (self.lastRecentInfo.polyID && (polys.topPolyID == self.lastRecentInfo.polyID)) {
-
+                        console.log("is in the same poly");
+                        return;
                     } else {
-                        if (self.lastRecentInfo.imgPolyCropped)
-                            self.redrawImage(self.lastRecentInfo.imgPolyCropped);
+                        if (self.lastRecentInfo.imgCropped)
+                            self.redrawImage(self.lastRecentInfo.imgCropped);
 
                         self.lastRecentInfo.polyID = polys.topPolyID;
                         self.lastRecentInfo.poly = poly;
 
-                        console.log(self.options.type == POLY);
-
                         var sizeWidth = poly.size[0];
                         var sizeHeigth = poly.size[1];
                         if (sizeWidth != 0 && sizeHeigth != 0) {
-                            self.lastRecentInfo.imgPolyCropped = self.cropImgBoxs(poly.posL, poly.size[0], poly.size[1], coords);
+                            self.lastRecentInfo.imgCropped = self.cropImgBoxs(poly.posL, poly.size[0], poly.size[1], coords);
                             self.draw(poly.posL, poly.size[0], poly.size[1], coords, poly.canvas2);
                         }
                     }
                 } else {
+                    $('.leaflet-container').css('cursor', 'auto');
                     if (self.lastRecentInfo.polyID == undefined) {
-
+                        // console.log("is in the same blank");
+                        return;
                     } else {
                         self.lastRecentInfo.polyID = undefined;
-                        self.lastRecentInfo.poly = undefined;
-                        self.redrawImage(self.lastRecentInfo.imgPolyCropped);
+                        self.redrawImage(self.lastRecentInfo.imgCropped);
                     }
                 }
-
-            } else {
-                $('.leaflet-container').css('cursor', 'auto');
-                if (self.lastRecentInfo.cellID == undefined && self.lastRecentInfo.polyID == undefined) {
-
-                } else {
-
-                    self.lastRecentInfo.cellID = undefined;
-                    self.lastRecentInfo.cell = undefined;
-                    self.lastRecentInfo.polyID = undefined;
-                    self.lastRecentInfo.poly = undefined;
-
-                    self.redrawImage(self.lastRecentInfo.imgPolyCropped);
-                }
-            }
-        }, 0);
+            }, 0);
+        }
     },
 
+    //ok
     redrawImage: function(imgs) {
         if (imgs && imgs.length) {
             for (var i = 0; i < imgs.length; i++) {
@@ -350,6 +266,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         }
     },
 
+    //ok
     putImageData: function(topPointlatlng, WIDTH, HEIGHT, coords, imgData) {
         var w = WIDTH >> 1;
         var h = HEIGHT >> 1;
@@ -379,6 +296,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         }
     },
 
+    //ok
     draw: function(topPointlatlng, WIDTH, HEIGHT, coords, img) {
         var w = WIDTH >> 1;
         var h = HEIGHT >> 1;
@@ -409,6 +327,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         }
     },
 
+    //ok
     getTileIDs: function(centrePoint, WIDTH, HEIGHT, coords) {
         // var TopPoint = info.topPointTile;
         // console.log("--------",info)
@@ -461,6 +380,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         return tileIDs;
     },
 
+    //ok
     getID: function(zoom, x, y) {
         var _x = x < 0 ? 0 : x;
         var _y = y < 0 ? 0 : y;
@@ -485,6 +405,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         return result;
     },
 
+    //ok
     cropImage: function(canvas, centrePoint, WIDTH, HEIGHT, alph) {
         var context = canvas.getContext('2d');
         // w = w << 1;
@@ -599,6 +520,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         return img;
     },
 
+    // ok
     drawImage: function(ctx, image, x, y) {
         function f() {
             this.drawImage(ctx, image, x, y);
@@ -620,6 +542,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         }
     },
 
+    //ok
     cropImgBoxs: function(centreLatLng, WIDTH, HEIGHT, coords) {
         var topPointTile = this._tilePoint(coords, [centreLatLng[0], centreLatLng[1]]);
 
@@ -656,7 +579,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             // globalResults.push(o);
 
             o.draw = function() {
-                0
+
                 // var WIDTH = (w << 1);
                 // var HEIGHT = (h << 1);
                 var minX = (this.tilePoint[0] - w);
@@ -671,15 +594,17 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     minY = 0;
 
                 var self = this;
+                console.log(this);
 
                 if (self.img.complete) {
                     self2.drawImage(self.ctx, self.img, minX, minY);
-                    // self.ctx.drawImage(self.img, 0, 0);
+                    self.ctx.drawImage(self.img, 0, 0);
                 } else {
                     self.img.onload = function(e) {
                         // self.img.loaded = true;
                         if (self.img.complete) {
                             self.ctx.drawImage(self.img, minX, minY);
+                            self.ctx.drawImage(self.img, 0, 0);
                         } else {
                             var maxTimes = 10;
                             var countTimes = 0;
@@ -706,15 +631,18 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     }
                 }
             }
+
             result.push(o);
         }
         return result;
     },
 
+    //ok
     getId: function(coords) {
         return coords.z + "_" + coords.x + "_" + coords.y;
     },
 
+    //ok
     getCoords: function(id) {
         var res = id.split("_");
         var coords = L.point(res[1], res[2]);
@@ -722,6 +650,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         return coords;
     },
 
+    //ok
     iscollides: function(coords) {
         var tileSize = this.options.tileSize;
 
@@ -742,6 +671,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         return GBB.intersects(tileBB);
     },
 
+    //ok
     createTile: function(coords) {
         // var id = this.getId(coords);
         // var savedTile = this.hugeTiles.get(id) || this.tiles.get(id); //check if tile in lru mem cache
@@ -764,6 +694,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         return canvas;
     },
 
+    //ok
     _drawDebugInfo: function(canvas, coords) {
         var tileSize = this.options.tileSize;
         var ctx = canvas.getContext('2d');
@@ -817,6 +748,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     //     poly.lBounds = L.latLngBounds(vertexsL);
     // },
 
+    // ok
     makeDataPoly: function(dataPoly) {
         var id = 0;
         if (!dataPoly) {
@@ -930,6 +862,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     }
     */
 
+    // ok
     makeDataCell: function(dataCell) {
         if (!dataCell) {
             var sectors = [];
@@ -1067,6 +1000,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     //     return promise;
     // },
 
+    // ok
     setDataPoly: function(dataPoly) {
         var self = this;
         // this.bounds = new L.LatLngBounds(dataset);
@@ -1093,6 +1027,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         this._maxRadius = this.options.radius;
     },
 
+    // ok
     setDataCell: function(dataCell) {
         if (dataCell) {
             this._rtreeCell = new rbush(32);
@@ -1104,6 +1039,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         this._maxRadius = this.options.radius;
     },
 
+    //ok
     clearPolyMarker: function(boundaryBox) {
         if (boundaryBox) {
             var items = this._rtreePolygon.search(boundaryBox);
@@ -1117,6 +1053,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         this._maxRadius = this.options.radius;
     },
 
+    // ok
     addPolygonMarker: function(dataPoly) {
         if (this._rtreePolygon)
             this._rtreePolygon.load(this.makeDataPoly(dataPoly));
@@ -1338,6 +1275,9 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
      *
      * @param {number} radius
      */
+
+
+     //ok
     setRadius: function(radius) {
         this.options.radius = radius;
         this.redraw();
@@ -1350,6 +1290,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
      * @returns {number}
      * @private
      */
+
+     // ok
     _getMaxRadius: function(zoom) {
         return this._calcRadius(this._maxRadius, zoom);
     },
@@ -1360,6 +1302,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
      * @returns {[number, number, number]}
      * @private
      */
+
+     //ok
     _tilePoint: function(coords, pointCoordinate) {
         // start coords to tile 'space'
 
@@ -1379,6 +1323,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         return [x, y, r];
     },
 
+    //ok
     _boundsToQuery: function(bounds) {
         if (bounds.getSouthWest() == undefined) {
             return {
@@ -1404,6 +1349,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
      * @returns {number} Projected radius (stays the same distance in meters across zoom levels).
      * @private
      */
+
+     // ok
     _calcRadius: function(radius, zoom) {
         var projectedRadius;
 
@@ -1431,6 +1378,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
      * @returns {L.Point}
      * @private
      */
+
+     // ok
     _latLngToLayerPoint: function(latLng, zoom) {
         var point = this._map.project(latLng, zoom)._round();
         return point._subtract(this._map.getPixelOrigin());
@@ -1672,6 +1621,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
      */
 
     //important function
+    // ok
     _draw: function(canvas, coords) {
         // var valid = this.iscollides(coords);
         // if (!valid) return;   
@@ -1817,6 +1767,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     //     ctx.drawImage(this.options.img_on, 0, 0);
     // },
 
+    // ok
     getCanvas: function(vpoly, coords, fillColor) {
         var boundsL = vpoly.lBounds;
         var nw = boundsL.getNorthWest();
@@ -1861,6 +1812,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         return canvas;
     },
 
+    // ok
     drawVPoly: function(poly, ctx, coords) {
 
         var id = this.getId(coords);
@@ -1885,6 +1837,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         }
     },
 
+    //ok
     _drawVPolys: function(canvas, coords, pointCoordinates) {
         var ctx = canvas.getContext('2d');
         // ctx.globalCompositeOperation = 'lighter';
@@ -1904,6 +1857,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         }
     },
 
+    // ok
     degreeToRadian: function(degree) {
         return (degree * Math.PI) / 180;
     },
@@ -2026,6 +1980,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     //     // ctx.fill();
     // },
 
+
+    // ok
     drawCell: function(ctx, pts, cell, radius) {
         var x = pts[0];
         var y = pts[1];
@@ -2041,6 +1997,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         ctx.stroke();
     },
 
+
+    // ok
     drawCells: function(canvas, coords, cells) {
         var ctx = canvas.getContext('2d');
         for (var i = 0; i < cells.length; i++) {
