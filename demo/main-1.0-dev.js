@@ -237,22 +237,50 @@ $(function() {
         coverageLayer.onMouseMove(e);
     }
 
-    map.on('contextmenu', onContextMenu);
+    map.on('contextmenu', onContextMenu_ShowCellName);
 
     map.on('click', onClick);
 
     function onClick(e) {
         var info = coverageLayer.lastRecentInfo;
-        console.log("onContextMenu poly info", info.poly, info.polyID);
-        console.log("onContextMenu cell info", info.cell, info.cellID);
+        console.log("onClick poly info", info.poly, info.polyID);
+        console.log("onClick cell info", info.cell, info.cellID, info.cells);
     }
 
 
-    function onContextMenu(e) {
-        var radius = prompt("cell radius", "10");
+    function onContextMenu_hideCell(e) {
+        var flag = prompt("not draw 2d:2,not draw 3d: 3, draw all: 1", "1");
+        if (flag) {
+            if (flag == 2) {
+                coverageLayer.drawCell2D = false;
+                coverageLayer.redraw();
+            } else if (flag == 3) {
+                coverageLayer.drawCell3D = false;
+                coverageLayer.redraw();
+            } else if (flag == 1) {
+                coverageLayer.drawCell2D = true;
+                coverageLayer.drawCell3D = true;
+                coverageLayer.redraw();
+            }
+        }
+    }
+
+    function onContextMenu_changeCellRadius(e) {
+        var radius = prompt("radius cell ", "10");
         if (radius) {
-            coverageLayer.cellRadius = radius;
             coverageLayer.inputRadius = true;
+            coverageLayer.cellRadius = radius;
+            coverageLayer.redraw();
+        }
+    }
+
+    function onContextMenu_ShowCellName(e) {
+        var show = prompt("show cell name ", 'ok');
+        if (show && show == 'ok') {
+            coverageLayer.showCellName = true;
+            coverageLayer.redraw();
+        } else {
+            coverageLayer.showCellName = false;
             coverageLayer.redraw();
         }
     }

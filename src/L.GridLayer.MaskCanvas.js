@@ -61,6 +61,10 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
     cellRadius: 30,
     inputRadius: false,
+    drawCell2D: true,
+    drawCell3D: true,
+    showCellName: true,
+    cellNameRadius: 30,
 
     /**
      * [updateCachedTile description]
@@ -256,7 +260,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     topCell = undefined;
 
                 if (cells.length > 0) {
-
                     for (var i = 0; i < cells.length; i++) {
                         var r = cells[i];
                         var cell = r[4];
@@ -284,7 +287,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
             if (cells.topCell || polys.topPoly) {
                 $('.leaflet-container').css('cursor', 'pointer');
-
                 var cell = cells.topCell;
                 if (cell) {
                     if (self.lastRecentInfo.cellID == cells.topCellID) {
@@ -292,13 +294,15 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     } else {
                         self.lastRecentInfo.cellID = cells.topCellID;
                         self.lastRecentInfo.cell = cell;
+                        self.lastRecentInfo.cells = cells;
                     }
                 } else {
-                    if (self.lastRecentInfo.cellID = undefined) {
+                    if (self.lastRecentInfo.cellID == undefined) {
 
                     } else {
                         self.lastRecentInfo.cellID = undefined;
                         self.lastRecentInfo.cell = undefined;
+                        self.lastRecentInfo.cells = undefined;
                     }
                 }
 
@@ -340,6 +344,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     self.lastRecentInfo.cell = undefined;
                     self.lastRecentInfo.polyID = undefined;
                     self.lastRecentInfo.poly = undefined;
+                    self.lastRecentInfo.cells = undefined;
 
                     self.redrawImgCropped(self.lastRecentInfo.imgPolyCropped);
                 }
@@ -961,15 +966,16 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         } else {
 
             var sectors = [];
-
+            console.log(dataCell.length);
             for (var i = 0; i < dataCell.length; i++) {
                 var cell = dataCell[i];
 
                 var azimuth = cell.azimuth;
                 var azimuthR = this.degreeToRadian(azimuth);
 
-                cell.startRadian = NORTH + azimuthR - HCELLARCSIZE;
-                cell.endRadian = NORTH + azimuthR + HCELLARCSIZE;
+                cell.biRadian = NORTH + azimuth;
+                cell.startRadian = cell.biRadian - HCELLARCSIZE;
+                cell.endRadian = cell.biRadian + HCELLARCSIZE;
 
                 var sector = [cell.lat, cell.lng, cell.lat, cell.lng, cell, i];
 
@@ -1744,8 +1750,27 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         }
 
         var cells = queryCells(coords);
-        this.drawCells(canvas, coords, cells);        
+        this.drawCells(canvas, coords, cells);
+
+        // this.drawCellName(canvas, coords, cells);
     },
+
+
+    // drawCellNames: function(canvas, coords, cells) {
+
+    //     var drawCellName = function(ctx, coords, cell) {
+    //         var name = cell.cell_code;
+    //         context.font = '40pt Calibri';
+    //         context.fillStyle = 'blue';
+    //         context.fillText('Hello World!', 150, 100);//     }
+
+
+    //     var ctx = canvas.getContext('2d');
+    //     for (var i = 0; i < cells.length; i++) {
+    //         var cell = cells[i];
+    //         drawCellName(ctx, coords, cell);
+    //     }
+    // }
 
     /**
      * @param {HTMLCanvasElement} canvas
@@ -2007,6 +2032,11 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
         var color = cell.cell_type == 2 ? RED : BLUE;
 
+        if (this.drawCell2D == false && cell.cell_type == 2)
+            return;
+        if (this.drawCell3D == false && cell.cell_type == 3)
+            return;
+
         ctx.beginPath();
         ctx.moveTo(x, y);
         ctx.arc(x, y, this.cellRadius, cell.startRadian, cell.endRadian, false);
@@ -2014,10 +2044,20 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         ctx.fillStyle = color;
         ctx.fill();
         ctx.stroke();
+
+        if (this.showCellName) {
+            // console.log(cell);
+            var xt = this.cellRadius * Math.cos(cell.biRadian);
+            var yt = this.cellRadius * Math.sin(cell.biRadian);
+
+            ctx.fillStyle = 'black';
+            ctx.fillText(cell.cell_code, xt + x, yt + y);
+        }
     },
 
     drawCells: function(canvas, coords, cells) {
         var ctx = canvas.getContext('2d');
+        ctx.font = '12pt Calibri'; // Calibri';
         for (var i = 0; i < cells.length; i++) {
             var cell = cells[i][4];
             var pos = this._tilePoint(coords, [cell.lat, cell.lng]);
