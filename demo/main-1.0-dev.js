@@ -237,7 +237,7 @@ $(function() {
         coverageLayer.onMouseMove(e);
     }
 
-    map.on('contextmenu', onContextMenu_ShowCellName);
+    map.on('contextmenu', onContextMenu_changeCellRadius);
 
     map.on('click', onClick);
 
