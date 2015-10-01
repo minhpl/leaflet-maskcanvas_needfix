@@ -1,0 +1,62 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <title>pixi.js example 1</title>
+    <style>
+    body {
+        margin: 0;
+        padding: 0;
+        /*background-color: #000000;*/
+    }
+    </style>
+    <script src="pixi.js"></script>
+</head>
+
+<body>
+    <script>
+    console.time('draw');
+    var startTime = new Date();
+
+    const NUMDRAW = 1000000;
+    var renderer = new PIXI.CanvasRenderer(800, 600, {
+    // var renderer = new PIXI.WebGLRenderer(800, 600, {
+        transparent: true,
+    });
+    document.body.appendChild(renderer.view);
+
+    // create the root of the scene graph
+    var stage = new PIXI.Container();
+
+    stage.interactive = true;
+
+    var graphics = new PIXI.Graphics();
+
+    // set a fill and line style
+    graphics.beginFill(0xFF3300);
+    graphics.lineStyle(4, 0xffd900, 1);
+
+    // draw a shape
+
+    for (var i = 0; i < NUMDRAW; i++) {
+        graphics.moveTo(i + 50, i + 50);
+        graphics.lineTo(i + 250, i + 50);
+        graphics.lineTo(i + 100, i + 100);
+        graphics.lineTo(i + 50, i + 50);
+        graphics.endFill();
+
+
+        stage.addChild(graphics);
+    }
+
+
+    renderer.render(stage);
+    console.timeEnd('draw');
+    var endTime = new Date();
+
+    var duration = endTime - startTime;
+    console.log("duration time", duration);
+    </script>
+</body>
+
+</html>

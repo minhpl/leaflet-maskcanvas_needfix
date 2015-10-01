@@ -1,0 +1,44 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <style>
+    body {
+        margin: 0px;
+        padding: 0px;
+    }
+    </style>
+</head>
+
+<body>
+    <canvas id="myCanvas" width="800" height="600"></canvas>
+    <script>
+
+    console.time("draw");
+
+    var canvas = document.getElementById('myCanvas');
+    var context = canvas.getContext('2d');
+
+    context.fillStyle = '#FF3300';
+    context.lineWidth = 4;
+    context.strokeStyle = '#ffd900';
+
+
+    const NUMDRAW = 1000000;
+
+    for (var i = 0; i < NUMDRAW; i++) {
+        context.beginPath();
+        context.moveTo(i + 50, i + 50);
+        context.lineTo(i + 250, i + 50);
+        context.lineTo(i + 100, i + 100);
+        context.lineTo(i + 50, i + 50);
+        context.closePath();
+        context.stroke();
+        context.fill();
+    }
+
+    console.timeEnd("draw");
+    </script>
+</body>
+
+</html>
