@@ -13,6 +13,26 @@
 <body>
     <canvas id="myCanvas" width="800" height="600"></canvas>
     <script>
+    const RADIUS = 10;
+    const NUM_POLYGON = 50;
+    const REALDATA = false;
+    
+
+    var blue_canvas = document.createElement('canvas');
+    blue_canvas.width = RADIUS << 1;
+    blue_canvas.height = RADIUS << 1;
+    var blue_context = blue_canvas.getContext('2d');
+    blue_context.beginPath();
+    blue_context.arc(RADIUS, RADIUS, RADIUS, 0, 2 * Math.PI, true);
+    blue_context.fillStyle = 'blue';
+    blue_context.fill();
+    blue_context.lineWidth = 1;
+    blue_context.strokeStyle = '#003300';
+    blue_context.stroke();
+    var img_blueCircle = new Image();
+    img_blueCircle.src = blue_canvas.toDataURL("image/png");
+
+
 
     console.time("draw");
 
@@ -27,14 +47,18 @@
     const NUMDRAW = 1000000;
 
     for (var i = 0; i < NUMDRAW; i++) {
-        context.beginPath();
-        context.moveTo(i + 50, i + 50);
-        context.lineTo(i + 250, i + 50);
-        context.lineTo(i + 100, i + 100);
-        context.lineTo(i + 50, i + 50);
-        context.closePath();
-        context.stroke();
-        context.fill();
+        // context.beginPath();
+        // context.moveTo(i + 50, i + 50);
+        // context.lineTo(i + 250, i + 50);
+        // context.lineTo(i + 100, i + 100);
+        // context.lineTo(i + 50, i + 50);
+        // context.closePath();
+        // context.stroke();
+        // context.fill();
+        var x = Math.round(i*Math.random() + 50) % 800;
+        var y = Math.round(i*Math.random() + 50) % 600;
+
+        context.drawImage(img_blueCircle,x,y);
     }
 
     console.timeEnd("draw");
