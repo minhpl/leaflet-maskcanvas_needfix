@@ -15,6 +15,12 @@
 
 <body>
     <script>
+    var renderer = new PIXI.CanvasRenderer(800, 600, {
+        transparent: true,
+    });
+    document.body.appendChild(renderer.view);
+
+
     const RADIUS = 10;
     const NUM_POLYGON = 50;
     const REALDATA = false;
@@ -44,63 +50,37 @@
     var img_blueCircle = new Image();
     img_blueCircle.src = blue_canvas.toDataURL("image/png");
 
-    var startTime = new Date();
 
-    const NUMDRAW = 1000000;
+    // create the root of the scene graph
+    var stage = new PIXI.Container();
 
-    // var renderer = new PIXI.CanvasRenderer(800, 600, {
-    var renderer = new PIXI.WebGLRenderer(800, 600, {
-        transparent: true,
-    });
-    document.body.appendChild(renderer.view);
-
+    // create a texture from an image path
     var texture = PIXI.Texture.fromCanvas(blue_canvas);
 
-    // var container = new PIXI.ParticleContainer(NUMDRAW, [false, false, false, false, false], NUMDRAW);
-    var container = new PIXI.Container();
+    // create a new Sprite using the texture
+    var bunny = new PIXI.Sprite(texture);
 
-    var sprites = [];
-    for (var i = 0; i < NUMDRAW; i++) {
+    // center the sprite's anchor point
+    bunny.anchor.x = 0.1;
+    bunny.anchor.y = 0.1;
 
-        var x = Math.round(i * Math.random() + 50) % renderer.width;
-        var y = Math.round(i * Math.random() + 50) % renderer.height;
+    // move the sprite to the center of the screen
+    bunny.position.x = 200;
+    bunny.position.y = 150;
 
-        if (x > renderer.width || y > renderer.height) {
-            continue;
-        }
+    stage.addChild(bunny);
 
-        sprite = new PIXI.Sprite(texture);
-
-        sprite.position.x = x;
-        sprite.position.y = y;
-
-
-        sprite.anchor.x = 0.5;
-        sprite.anchor.y = 0.5;
-
-
-        sprites.push(sprite);
-
-        container.addChild(sprite);
-    }
-
-    console.time('render');
-    renderer.render(container);
-    console.timeEnd('render');
-
-    // animate();
+    // start animating
+    animate();
 
     function animate() {
-
         requestAnimationFrame(animate);
 
-        for (var i = 0; i < NUMDRAW; i++) {
-            sprites[i].rotation += 0.4;
-        }
+        // just for fun, let's rotate mr rabbit a little
+        bunny.rotation += 0.1;
 
-        console.time('render');
-        renderer.render(container);
-        console.timeEnd('render');
+        // render the container
+        renderer.render(stage);
     }
     </script>
 </body>

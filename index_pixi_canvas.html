@@ -15,11 +15,10 @@
 
 <body>
     <script>
-
     const RADIUS = 10;
     const NUM_POLYGON = 50;
     const REALDATA = false;
-    
+
 
     var blue_canvas = document.createElement('canvas');
     blue_canvas.width = RADIUS << 1;
@@ -32,90 +31,77 @@
     blue_context.lineWidth = 1;
     blue_context.strokeStyle = '#003300';
     blue_context.stroke();
+    blue_context.closePath();
+
+    blue_context.beginPath();
+    blue_context.moveTo(0, 0);
+    blue_context.lineTo(0, blue_canvas.height);
+    blue_context.lineTo(blue_canvas.width, blue_canvas.height);
+    blue_context.lineTo(blue_canvas.width, 0);
+    blue_context.closePath();
+    blue_context.stroke();
+
     var img_blueCircle = new Image();
     img_blueCircle.src = blue_canvas.toDataURL("image/png");
 
-    console.time('draw');
     var startTime = new Date();
 
     const NUMDRAW = 1000000;
+
     var renderer = new PIXI.CanvasRenderer(800, 600, {
     // var renderer = new PIXI.WebGLRenderer(800, 600, {
         transparent: true,
     });
     document.body.appendChild(renderer.view);
 
-    // requestAnimeFrame( animate );
+    var texture = PIXI.Texture.fromCanvas(blue_canvas);
 
-    // create the root of the scene graph
-    // var stage = new PIXI.Container();
-    // var stage = new PIXI.Stage(0xFFFFFF);
-
-    // stage.interactive = false;
-
-    var base = new PIXI.BaseTexture(img_blueCircle),
-    // var base = new PIXI.BaseTexture.fromCanvas(blue_canvas),
-    texture = new PIXI.Texture(base);
-    
-
-    // var loader = PIXI.loader;
-    // loader.add("img_blueCircle",)
-
-    // var graphics = new PIXI.Graphics();
-
-    // set a fill and line style
-    // graphics.beginFill(0xFF3300);
-    // graphics.lineStyle(4, 0xffd900, 1);
-
-    // draw a shape
-    
-    // var container = new PIXI.ParticleContainer(NUMDRAW, [false, false, false, false, false],NUMDRAW);    
+    // var container = new PIXI.ParticleContainer(NUMDRAW, [false, false, false, false, false], NUMDRAW);
     var container = new PIXI.Container();
-    // stage.addChild(container);
 
+    var sprites = [];
     for (var i = 0; i < NUMDRAW; i++) {
 
-        var x = Math.round(i*Math.random() + 50) % renderer.width;
-        var y = Math.round(i*Math.random() + 50) % renderer.height;
+        var x = Math.round(i * Math.random() + 50) % renderer.width;
+        var y = Math.round(i * Math.random() + 50) % renderer.height;
 
-        if (x>renderer.width || y>renderer.height) continue;
+        if (x > renderer.width || y > renderer.height) {
+            continue;
+        }
 
-        var sprite = new PIXI.Sprite(texture);
-        // graphics.moveTo(i + 50, i + 50);
-        // graphics.lineTo(i + 250, i + 50);
-        // graphics.lineTo(i + 100, i + 100);
-        // graphics.lineTo(i + 50, i + 50);
-        // graphics.endFill();
-
-        
-
+        sprite = new PIXI.Sprite(texture);
 
         sprite.position.x = x;
         sprite.position.y = y;
 
-        
+
+        sprite.anchor.x = 0.5;
+        sprite.anchor.y = 0.5;
+
+
+        sprites.push(sprite);
+
         container.addChild(sprite);
-        // stage.addChild(graphics);
     }
 
-
-    //  function animate() {
- 
-    //     requestAnimFrame( animate );
- 
-    //     // just for fun, lets rotate mr rabbit a little
-    //     sprite.rotation += 0.1;
- 
-    //     // render the stage   
-    //     renderer.render(stage);
-    // }
-
+    console.time('render');
     renderer.render(container);
-    console.timeEnd('draw');
-    var endTime = new Date();
+    console.timeEnd('render');
 
-    var duration = endTime - startTime;
-    console.log("duration time", duration);
+    // animate();
+
+    function animate() {
+
+        requestAnimationFrame(animate);
+
+        for (var i = 0; i < NUMDRAW; i++) {
+            sprites[i].rotation += 0.4;
+        }
+
+        console.time('render');
+        renderer.render(container);
+        console.timeEnd('render');
+    }
     </script>
 </body>
 

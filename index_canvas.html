@@ -16,7 +16,7 @@
     const RADIUS = 10;
     const NUM_POLYGON = 50;
     const REALDATA = false;
-    
+
 
     var blue_canvas = document.createElement('canvas');
     blue_canvas.width = RADIUS << 1;
@@ -29,8 +29,19 @@
     blue_context.lineWidth = 1;
     blue_context.strokeStyle = '#003300';
     blue_context.stroke();
+
+    blue_context.beginPath();
+    blue_context.moveTo(0, 0);
+    blue_context.lineTo(0, blue_canvas.height);
+    blue_context.lineTo(blue_canvas.width, blue_canvas.height);
+    blue_context.lineTo(blue_canvas.width, 0);
+    blue_context.closePath();
+    blue_context.stroke();
+
     var img_blueCircle = new Image();
     img_blueCircle.src = blue_canvas.toDataURL("image/png");
+
+
 
 
 
@@ -44,6 +55,7 @@
     context.strokeStyle = '#ffd900';
 
 
+    // const NUMDRAW = 1000000;
     const NUMDRAW = 1000000;
 
     for (var i = 0; i < NUMDRAW; i++) {
@@ -55,10 +67,10 @@
         // context.closePath();
         // context.stroke();
         // context.fill();
-        var x = Math.round(i*Math.random() + 50) % 800;
-        var y = Math.round(i*Math.random() + 50) % 600;
+        var x = Math.round(i * Math.random() + 50) % 800;
+        var y = Math.round(i * Math.random() + 50) % 600;
 
-        context.drawImage(img_blueCircle,x,y);
+        context.drawImage(img_blueCircle, x, y);
     }
 
     console.timeEnd("draw");
