@@ -81,7 +81,7 @@ $(function() {
     });
 
     coverageLayer.setData(dataset);
-    coverageLayer.globalData();
+    coverageLayer.localData();
 
     map.addLayer(coverageLayer);
     map.fitBounds(coverageLayer.bounds);
@@ -1190,6 +1190,7 @@ $(function() {
         items.pop();
         items.pop();
 
+        console.log("items.length", items.length, bb);
 
         if (items.length == 0) return;
 
@@ -1259,13 +1260,15 @@ $(function() {
         // context.closePath();
         // context.stroke();
 
-        context.beginPath();
-        context.moveTo(pad.x, pad.y);
-        context.lineTo(canvas.width - pad.x, pad.y);
-        context.lineTo(canvas.width - pad.x, canvas.height - pad.y);
-        context.lineTo(pad.x, canvas.height - pad.y);
-        context.closePath();
-        context.stroke();
+        if (coverageLayer.options.debug) {
+            context.beginPath();
+            context.moveTo(pad.x, pad.y);
+            context.lineTo(canvas.width - pad.x, pad.y);
+            context.lineTo(canvas.width - pad.x, canvas.height - pad.y);
+            context.lineTo(pad.x, canvas.height - pad.y);
+            context.closePath();
+            context.stroke();
+        }
 
         var imageData = context.getImageData(0, 0, width, height);
         putImageData([_pos.lat, _pos.lng], width, height, coords, imageData);
@@ -1294,37 +1297,37 @@ $(function() {
                 }
 
                 // if (!inCache && !coverageLayer.emptyTiles.get(id))
-                coverageLayer.tilesNeedUpdate[id] = true;
+                coverageLayer.tilesInDBNeedUpdate[id] = true;
             }
 
-            console.log("length", ids.length, coverageLayer.tilesNeedUpdate);
+            // console.log("length", ids.length, coverageLayer.tilesNeedUpdate);
 
-            var removeTileInDB = function(id) {
+            // var removeTileInDB = function(id) {
 
-                var promise = new Promise(function(resolve, reject) {
-                    // console.log("removeTileInDB", id, db);
-                    db.get(id).then(function(tile) {
-                        // console.log("get tile", tile);
-                        return db.remove(tile);
-                    }).then(function(response) {
-                        console.log("remove tile", response, id);
-                        resolve();
-                    }).catch(function(err) {
-                        // console.log("Err", id, err);
-                        resolve();
-                    });
-                });
+            //     var promise = new Promise(function(resolve, reject) {
+            //         // console.log("removeTileInDB", id, db);
+            //         db.get(id).then(function(tile) {
+            //             // console.log("get tile", tile);
+            //             return db.remove(tile);
+            //         }).then(function(response) {
+            //             console.log("remove tile", response, id);
+            //             resolve();
+            //         }).catch(function(err) {
+            //             // console.log("Err", id, err);
+            //             resolve();
+            //         });
+            //     });
 
-                return promise;
-            }
+            //     return promise;
+            // }
 
-            var prev = Promise.resolve();
+            // var prev = Promise.resolve();
 
-            Promise.all(ids.map(function(id) {
-                removeTileInDB(id);
-            })).then(function(id) {
-                console.log("successfully remove markers");
-            });
+            // Promise.all(ids.map(function(id) {
+            //     removeTileInDB(id);
+            // })).then(function(id) {
+            //     console.log("successfully remove markers");
+            // });
         }
     }
 
@@ -1345,6 +1348,7 @@ $(function() {
         var nw = map.unproject(topLeft, zoom);
         var se = map.unproject(bottomRight, zoom);
         var bb = [se.lat, nw.lng, nw.lat, se.lng];
+        // var bb;
 
         var x = (currentPoint.x / TILESIZE) >> 0;
         var y = (currentPoint.y / TILESIZE) >> 0;
@@ -1353,10 +1357,16 @@ $(function() {
         coords.z = zoom;
         var id = coverageLayer.getId(coords);
 
-        var tile = coverageLayer.tiles.get(id);
+        var tile = coverageLayer.tiles.get(id) || coverageLayer.hugeTiles.get(id);
 
         if (tile)
             bb = tile.bb;
+        else {
+            var cachedTile = coverageLayer.all_tiles_id
+            console.log("here");
+        }
+
+        console.log(bb);
 
 
         var nw = L.latLng(bb[2], bb[1]);
@@ -1364,8 +1374,13 @@ $(function() {
         var tl = map.project(nw, coords.z);
         var br = map.project(se, coords.z);
 
+
+        console.log(tl, br);
         var tl = tl.add(pad);
         var br = br.subtract(pad);
+
+        console.log(tl, br);
+
         var nw = map.unproject(tl, coords.z);
         var se = map.unproject(br, coords.z);
         bb = [se.lat, nw.lng, nw.lat, se.lng];

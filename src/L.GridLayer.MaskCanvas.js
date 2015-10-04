@@ -55,7 +55,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     emptyTiles: new lru(4000),
     canvases: new lru(100),
 
-    tilesNeedUpdate: {},
+    tilesInDBNeedUpdate: {},
 
     // rtreeLCTilePoly: new lru(40),    
     BBAllPointLatlng: [-9999, -9999, -9999, -9999],
@@ -366,6 +366,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             // console.log(res);
             if (self._map) {
                 self.redraw();
+                // console.log("redraw", self.rtree_loaded);
             }
             // console.log(self.rtree_loaded);
         }).catch(function(err) {
@@ -388,8 +389,10 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
          * if tile is founded, then it immediately set it up to lru head
          */
 
-        if (this.tilesNeedUpdate[id] == true)
+        if (this.tilesInDBNeedUpdate[id] == true) {
+            // console.log("needUpdate getStoreObj", id);
             return Promise.reject();
+        }
 
         var db = this.options.db;
 
@@ -456,7 +459,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
     //important function
     getTile: function(coords) {
-
         /**
 
          * @general description: this function check if tile in cache (lru or db)
@@ -471,10 +473,15 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         var self = this;
         // if (tile) console.log("Status ",tile.status);
 
+        if (!self.rtree_loaded) {
+            return Promise.reject();
+        }
+
         // if not found
         if (!tile || tile.status == UNLOAD) {
             //use empty tiles( save almost empty tile) to prevent find empty tile in dabase many time, because
             //query data in db is time comsuming , so we check if tile is empty by query it in memory first.
+
             if (self.emptyTiles.get(id))
                 return Promise.resolve(EMPTY);
 
@@ -504,7 +511,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     resolve(res);
 
                 }, function(err) {
-                    //neu trong o cung khong co thi lay trong RTREE                    
+                    //neu trong o cung khong co thi lay trong RTREE         
+                    //                             
 
                     var tileSize = self.options.tileSize;
                     var nwPoint = coords.multiplyBy(tileSize);
@@ -525,9 +533,11 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
                     var currentBounds = self._boundsToQuery(bounds);
                     var bb = [currentBounds.y, currentBounds.x, currentBounds.y + currentBounds.height, currentBounds.x + currentBounds.width];
-                    // console.log(bb);
+                    console.log(id, bb);
                     var pointCoordinates = (self.options.useGlobalData) ? null : self._rtree.search(bb);
 
+                    // if (err == "needUpdate")
+                    //     console.log("needUpdate", pointCoordinates);
 
                     //Create RTREE_cached
                     if (!self.all_tiles_id.get(id)) {
@@ -541,6 +551,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                         // console.log("here");
 
                         // console.log("Store empty tile ", self.emptyTiles.size);
+
                         self.emptyTiles.set(id, {});
 
                         self.tiles.remove(id);
@@ -549,13 +560,10 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                         // console.log("Remove empty tile from current saved tiles",self.tiles.size);
                         resolve(EMPTY);
                         return;
+
                     }
 
                     var numPoints = (pointCoordinates) ? pointCoordinates.length : 0;
-
-                    if (id == "10_813_451") {
-                        console.log("here", "10_813_451");
-                    }
 
                     tile = {
                         _id: id,
@@ -567,18 +575,22 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                         neverSavedDB: true,
                     }
 
-                    if (self.tilesNeedUpdate[id] == true) {
-                        delete self.tilesNeedUpdate[id];
-                        console.log("delete", self.tilesNeedUpdate[id], id);
+                    // if (err == "needUpdate")
+                    // console.log("needUpdate numPoints", tile._id, tile.numPoints, self.tilesInDBNeedUpdate[id] == true);
+
+                    if (self.tilesInDBNeedUpdate[id] == true) {
+                        // console.log("-------------------------");
+                        delete self.tilesInDBNeedUpdate[id];
+                        console.log("delete", self.tilesInDBNeedUpdate[id], id);
                     }
 
                     // console.log("in here 7", tile);
-
                     //after create tile with RTREE, we save it down to lru cache and db immediately/
 
                     if (numPoints >= HUGETILE_THREADSHOLD) {
                         // console.log("here1");
                         var nTile = self.hugeTiles.get(id);
+                        console.log(nTile, "nTIle");
                         if (!nTile || nTile.status != LOADED) {
                             self.hugeTiles.set(id, tile);
                             self.tiles.remove(id);
@@ -587,6 +599,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
                     } else {
                         var nTile = self.tiles.get(id);
+                        console.log(nTile, "nTIle", tile.bb);
                         if (!nTile || nTile.status != LOADED) {
                             self.store(id, tile);
                             resolve(tile);
@@ -931,7 +944,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         self.tiles.set(id, tile, function(removed) {
             // console.log("here1");
             if (removed) {
-                // console.log("removed tile", removed.value.needSave, removed.value);
+                console.log("removed tile", removed.value.needSave, removed.value._id, removed.value);
                 return self.backupToDb(self.options.db, removed.value);
             } else {
                 // console.log("not removed", tile._id, tile);
@@ -952,7 +965,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     //important function
     _draw: function(canvas, coords) {
         // var valid = this.iscollides(coords);
-        // if (!valid) return;  
+        // if (!valid) return;         
+
         if (!this._rtree || !this._map) {
             return;
         }
@@ -997,8 +1011,13 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
             self.getTile(coords).then(function(tile) {
 
+                // if (self.rtree_loaded)
+                // console.log("getitles 2", tile);
+
                 if (!tile || tile.status == LOADING || tile.empty) {
-                    return;
+
+                    if (self.rtree_loaded)
+                        return;
                 }
 
                 var ctx = canvas.getContext('2d');
@@ -1069,7 +1088,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                             if (self.rtree_loaded) {
                                 // console.log("Store empty tile ", self.emptyTiles.size);
                                 /**                            
-                                 * @description if rtree_loeaded = false, because rtree_loaded in asynchronous manner,
+                                 * @description if rtree_loaded = false, because rtree_loaded in asynchronous manner,
                                  * so data have not been loaded in tile.
                                  * and we cannot store tile to empty tile                                
                                  */
@@ -1081,7 +1100,9 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                                 // console.log("Remove empty tile from current saved tiles",self.tiles.size);                                                                                       
                             }
                         }
-                    } else self._drawPoints(canvas, coords, tile.data, tile.sorted);
+                    } else {
+                        self._drawPoints(canvas, coords, tile.data, tile.sorted);
+                    }
                     tile.sorted = true;
 
                     if (tile.numPoints > 0) {
@@ -1127,7 +1148,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                 }
             }).then(function() {
                 self._drawVPolys(canvas, coords, vpolyCoordinates);
-            }).catch(function() {
+            }).catch(function(err) {
+                // console.log("here", err);
                 // self.drawLinhTinh(canvas, coords, vpolyCoordinates);
             })
         })(self, canvas, coords);
