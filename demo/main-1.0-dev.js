@@ -901,11 +901,11 @@ $(function() {
                     return za - zb;
                 })
 
-                console.log(result.length, result);
+                // console.log(result.length, result);
 
                 var updateTile = function(tile) {
 
-                    console.log(tile);
+                    // console.log(tile);
 
                     var promise = new Promise(function(resolve, reject) {
 
@@ -947,11 +947,11 @@ $(function() {
                                 tile.img = new Image(); //prevent fire loading function recursively 
                                 tile.img.src = canvas.toDataURL("image/png");
                                 // tile.canvas = canvas;
-                                console.log(tile);
+                                // console.log(tile);
                                 resolve(tile);
                             } else {
                                 tile.img.onload = function(e) {
-                                    console.log("img onload", tile._id);
+                                    // console.log("img onload", tile._id);
                                     if (e.target.complete) {
                                         ctx.drawImage(img, 0, 0);
 
@@ -967,7 +967,7 @@ $(function() {
                                         tile.img.src = canvas.toDataURL("image/png");
                                         // tile.canvas = canvas;
                                         resolve(tile);
-                                        console.log(tile);
+                                        // console.log(tile);
                                     } else {
                                         var maxTimes = 10;
                                         var countTimes = 0;
@@ -996,11 +996,11 @@ $(function() {
                                                         tile.img = new Image();
                                                         tile.img.src = canvas.toDataURL("image/png");
                                                         // tile.canvas = canvas;
-                                                        console.log("retryLoadImage");
+                                                        // console.log("retryLoadImage");
                                                         if (!resolved) {
                                                             resolve(tile);
                                                             resolved = true;
-                                                            console.log(tile);
+                                                            // console.log(tile);
                                                         }
                                                     } else {
                                                         if (!resolved) retryLoadImage();
@@ -1034,7 +1034,7 @@ $(function() {
                             resolve();
                         }).catch(function(err) {
 
-                            console.log("Err", err, tile._id, tile);
+                            // console.log("Err", err, tile._id, tile);
                             resolve();
                         });
                     });
@@ -1049,7 +1049,7 @@ $(function() {
                     var size = tiles.length;
                     var count = 0;
 
-                    console.log("in here2", tiles);
+                    // console.log("in here2", tiles);
 
                     if (tiles.length == 0)
                         return Promise.resolve();
@@ -1059,15 +1059,15 @@ $(function() {
                             prev = prev.then(function(response) {
                                 if (tile) {
 
-                                    console.log("----", HUGETILE_THREADSHOLD, EMPTY, tile.numPoints);
+                                    // console.log("----", HUGETILE_THREADSHOLD, EMPTY, tile.numPoints);
 
                                     if ((tile.numPoints > 0) && (tile.numPoints < HUGETILE_THREADSHOLD)) {
                                         coverageLayer.hugeTiles.remove(tile._id);
-                                        console.log("tile not empty", tile);
+                                        // console.log("tile not empty", tile);
                                         // return Promise.resolve();
                                         return coverageLayer.store(tile._id, tile);
                                     } else if (tile.numPoints == 0) {
-                                        console.log("tile is empty");
+                                        // console.log("tile is empty");
                                         coverageLayer.tiles.remove(tile._id);
                                         coverageLayer.hugeTiles.remove(tile._id);
                                         coverageLayer.emptyTiles.set(tile._id, EMPTY);
@@ -1075,7 +1075,7 @@ $(function() {
                                     }
                                     return Promise.resolve();
                                 } else {
-                                    console.log("tile is undefined");
+                                    // console.log("tile is undefined");
                                     return Promise.resolve();
                                 }
                             }).then(function(response) {
@@ -1085,11 +1085,11 @@ $(function() {
 
                                 count++;
                                 if (count == size) {
-                                    console.log("ok ok");
+                                    // console.log("ok ok");
                                     resolve();
                                 }
                             }).catch(function(err) {
-                                console.log("Err", err);
+                                // console.log("Err", err);
                                 reject(err);
                             });
                         });
@@ -1103,7 +1103,7 @@ $(function() {
                     var promise = new Promise(function(resolve, reject) {
 
                         coverageLayer.getStoreObj(id).then(function(tile) {
-                            console.log("get stored obj", tile._id, tile);
+                            // console.log("get stored obj", tile._id, tile);
                             tile.neverSavedDB = true;
                             return updateTile(tile);
                         }).then(function(tile) {
@@ -1112,7 +1112,7 @@ $(function() {
                                 coverageLayer.emptyTiles.set(tile._id, EMPTY);
                                 coverageLayer.tiles.remove(tile._id);
                             }
-                            console.log("updated stored obj", tile._id, tile);
+                            // console.log("updated stored obj", tile._id, tile);
                             resolve(tile);
                         }).catch(function(err) {
                             console.log("Err", "cannot get stored obj", err, id);
@@ -1158,10 +1158,10 @@ $(function() {
                             return updateInDb(id);
                         }));
                     }).then(function(tiles) {
-                        console.log("all tiles get from db", tiles);
+                        // console.log("all tiles get from db", tiles);
                         return backUptoDBSequently(tiles);
                     }).then(function(response) {
-                        console.log("remove marker successfully");
+                        // console.log("remove marker successfully");
                         resolve2();
                     })
                     .catch(function(err) {
@@ -1171,9 +1171,6 @@ $(function() {
             }
 
         });
-
-
-        return promise2;
     }
 
 
@@ -1231,9 +1228,7 @@ $(function() {
         items.forEach(function(item) {
             prev2 = prev2.then(function(response) {
                 return removeMarker(item, coords);
-            }).then(function(response) {
-                console.log(response);
-            })
+            });
         });
     }
 

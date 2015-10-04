@@ -433,7 +433,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     // resolve(res);  
                     res(doc);
                 }).catch(function(err) {
-                    console.log(err);
+                    // console.log(err);
                     rej(err);
                 });
             } else rej(new Error("No DB found"));
@@ -488,7 +488,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                         self.tiles.remove(id);
                         if (self.needPersistents > self.tiles.size)
                             self.needPersistents--;
-                        console.log("Store empty tile ", self.emptyTiles.size);
+                        // console.log("Store empty tile ", self.emptyTiles.size);
                     }
 
                     resolve(res);
@@ -528,9 +528,9 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
                     if (pointCoordinates && pointCoordinates.length === 0) {
 
-                        console.log("here");
+                        // console.log("here");
 
-                        console.log("Store empty tile ", self.emptyTiles.size);
+                        // console.log("Store empty tile ", self.emptyTiles.size);
                         self.emptyTiles.set(id, {});
 
                         self.tiles.remove(id);
@@ -552,12 +552,12 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                         neverSavedDB: true,
                     }
 
-                    console.log("in here 7", tile);
+                    // console.log("in here 7", tile);
 
                     //after create tile with RTREE, we save it down to lru cache and db immediately/
 
                     if (numPoints >= HUGETILE_THREADSHOLD) {
-                        console.log("here1");
+                        // console.log("here1");
                         var nTile = self.hugeTiles.get(id);
                         if (!nTile || nTile.status != LOADED) {
                             self.hugeTiles.set(id, tile);
@@ -580,7 +580,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
         tile.needSave = (tile.status == LOADED) ? false : true;
         if (tile.neverSavedDB) tile.needSave = true;
-        console.log("get tile", tile);
+        // console.log("get tile", tile);
         return Promise.resolve(tile);
     },
 
@@ -753,8 +753,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                         delete simpleTile.sorted;
                     }
 
-                    if (tile._id == "10_813_451")
-                        console.log("in here5");
+                    // if (tile._id == "10_813_451")
+                    // console.log("in here5");
 
 
                     var getBlob = function(tile) {
@@ -773,8 +773,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                         if (tile.numPoints > 0 && (tile.canvas || tile.img)) {
                             getBlob(tile).then(function(blob) {
 
-                                if (tile._id == "10_813_451")
-                                    console.log("in here4");
+                                // if (tile._id == "10_813_451")
+                                //     console.log("in here4");
 
                                 simpleTile.image = blob;
 
@@ -806,19 +806,22 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                                             }
 
                                             this.db.get(simpleTile._id).then(function(doc) {
-                                                //doc._rev co khi len toi 3, tuc la da duoc update lai 3 lan
-                                                console.log(doc._rev, doc.needSave);
-                                                simpleTile._rev = doc._rev;
-                                                return this.db.put(simpleTile);
-                                            }).then(function() {
-                                                callback('ok');
-                                                return this.db.get(simpleTile._id);
-                                            }).then(function(doc) {
-                                                console.log("successfully update stored object: ", doc);
-                                            }).catch(function(err) {
+                                                    //doc._rev co khi len toi 3, tuc la da duoc update lai 3 lan
+                                                    // console.log(doc._rev, doc.needSave);
+                                                    simpleTile._rev = doc._rev;
+                                                    return this.db.put(simpleTile);
+                                                })
+                                                // .then(function() {
+                                                //     callback('ok');
+                                                //     return this.db.get(simpleTile._id);
+                                                // }).then(function(doc) {
+                                                //     // console.log("successfully update stored object: ", doc);
+                                                // })
+
+                                            .catch(function(err) {
                                                 if (err.status == 404) {
                                                     this.db.put(simpleTile).then(function(res) {
-                                                        console.log('successfully save new object ', res);
+                                                        console.log('successfully save new object ', simpleTile._id, res);
                                                         callback('ok');
                                                     }).catch(function(err) {
                                                         console.log('other err2');
@@ -848,28 +851,28 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                                 }
 
                             }).catch(function(err) {
-                                console.log("cannot convert img or canvas to blob", err);
+                                // console.log("cannot convert img or canvas to blob", err);
                                 reject();
                             })
                         } else {
-                            console.log("in here3", tile);
+                            // console.log("in here3", tile);
                             resolved();
                         }
                     });
 
                     if (!self.prev) self.prev = Promise.resolve();
                     self.prev = self.prev.then(function() {
-                        console.log("before promise");
+                        // console.log("before promise");
                         return promise;
                     }).then(function(response) {
-                        console.log("after promise");
+                        // console.log("after promise");
                         if (!resolved2) {
-                            console.log("here");
+                            // console.log("here");
                             resolve2();
                             resolved2 = true;
                         }
                     }).catch(function(err) {
-                        console.log("Err", err);
+                        // console.log("Err", err);
                         reject2();
                     });
 
@@ -910,7 +913,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                 console.log("removed tile", removed.value.needSave, removed.value);
                 return self.backupToDb(self.options.db, removed.value);
             } else {
-                console.log("not removed", tile._id, tile);
+                // console.log("not removed", tile._id, tile);
                 return Promise.resolve();
             }
         });
@@ -976,6 +979,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                 if (!tile || tile.status == LOADING || tile.empty) {
                     return;
                 }
+
                 var ctx = canvas.getContext('2d');
                 if (tile) {
                     // if (!tile.canvas) {
@@ -1002,6 +1006,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                                     //     console.log("img from DB:", tile._id, " ctx.drawImage(tile.img, 50, 50)");
                                     // } else
                                     ctx.drawImage(tile.img, 0, 0);
+                                    console.log("image complete loaded");
                                 } else {
                                     var maxTimes = 10;
                                     var countTimes = 0;
@@ -1018,12 +1023,13 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                                                     //     console.log("img from DB:", tile._id, " ctx.drawImage(tile.img, 50, 50)");
                                                     // } else
                                                     ctx.drawImage(tile.img, 0, 0);
+                                                    console.log("retryLoadImage");
                                                 } else {
                                                     retryLoadImage();
                                                 }
                                             }
                                             countTimes++;
-                                        }, 50);
+                                        }, 20);
                                     };
                                     retryLoadImage();
                                 }
@@ -1074,7 +1080,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
                             if (tile.numPoints >= HUGETILE_THREADSHOLD) {
                                 self.hugeTiles.set(id, tile);
-                                tile.needSave = false; //hugetile don't need to save to cached.
+                                tile.needSave = false; //hugetile don't need to save to db.
                             } else self.store(id, tile);
 
                             if (tile.needSave) {
