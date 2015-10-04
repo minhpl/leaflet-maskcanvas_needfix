@@ -1185,6 +1185,12 @@ $(function() {
         var items = coverageLayer._rtree.search(bb);
         var db = coverageLayer.options.db;
 
+        items.pop();
+        items.pop();
+        items.pop();
+        items.pop();
+
+
         if (items.length == 0) return;
 
         var inPoly = function(item) {
@@ -1281,22 +1287,17 @@ $(function() {
                 if (coverageLayer.tiles.get(id)) {
                     coverageLayer.tiles.remove(id);
                     inCache = true;
-
-
-                    console.log("here");
                 }
                 if (coverageLayer.hugeTiles.get(id)) {
                     coverageLayer.hugeTiles.remove(id);
                     inCache = true;
                 }
 
-
-
                 // if (!inCache && !coverageLayer.emptyTiles.get(id))
-                ids.push(id);
+                coverageLayer.tilesNeedUpdate[id] = true;
             }
 
-            console.log("length", ids.length);
+            console.log("length", ids.length, coverageLayer.tilesNeedUpdate);
 
             var removeTileInDB = function(id) {
 

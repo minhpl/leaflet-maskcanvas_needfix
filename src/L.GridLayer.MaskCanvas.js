@@ -36,7 +36,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         img_on: undefined,
         img_off: undefined,
         map: undefined,
-        useGlobalData: false
+        useGlobalData: false,
+        log: false,
     },
 
     ready: false,
@@ -53,6 +54,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
     emptyTiles: new lru(4000),
     canvases: new lru(100),
+
+    tilesNeedUpdate: {},
 
     // rtreeLCTilePoly: new lru(40),    
     BBAllPointLatlng: [-9999, -9999, -9999, -9999],
@@ -385,6 +388,9 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
          * if tile is founded, then it immediately set it up to lru head
          */
 
+        if (this.tilesNeedUpdate[id] == true)
+            return Promise.reject();
+
         var db = this.options.db;
 
         var self = this;
@@ -546,6 +552,11 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     }
 
                     var numPoints = (pointCoordinates) ? pointCoordinates.length : 0;
+
+                    if (id == "10_813_451") {
+                        console.log("here", "10_813_451");
+                    }
+
                     tile = {
                         _id: id,
                         numPoints: numPoints,
@@ -554,6 +565,11 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                         status: LOADED,
                         needSave: true,
                         neverSavedDB: true,
+                    }
+
+                    if (self.tilesNeedUpdate[id] == true) {
+                        delete self.tilesNeedUpdate[id];
+                        console.log("delete", self.tilesNeedUpdate[id], id);
                     }
 
                     // console.log("in here 7", tile);
@@ -817,27 +833,26 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                                                     simpleTile._rev = doc._rev;
                                                     return this.db.put(simpleTile);
                                                 })
-                                                // .then(function() {
-                                                //     callback('ok');
-                                                //     return this.db.get(simpleTile._id);
-                                                // }).then(function(doc) {
-                                                //     // console.log("successfully update stored object: ", doc);
-                                                // })
-
-                                            .catch(function(err) {
-                                                if (err.status == 404) {
-                                                    this.db.put(simpleTile).then(function(res) {
-                                                        console.log('successfully save new object ', simpleTile._id, res);
-                                                        callback('ok');
-                                                    }).catch(function(err) {
-                                                        console.log('other err2');
+                                                .then(function() {
+                                                    callback('ok');
+                                                    return this.db.get(simpleTile._id);
+                                                }).then(function(doc) {
+                                                    console.log("successfully update stored object: ", doc._id, doc);
+                                                })
+                                                .catch(function(err) {
+                                                    if (err.status == 404) {
+                                                        this.db.put(simpleTile).then(function(res) {
+                                                            console.log('successfully save new object ', simpleTile._id, res);
+                                                            callback('ok');
+                                                        }).catch(function(err) {
+                                                            console.log('other err2');
+                                                            callback(undefined);
+                                                        });
+                                                    } else {
+                                                        console.log('other err1');
                                                         callback(undefined);
-                                                    });
-                                                } else {
-                                                    console.log('other err1');
-                                                    callback(undefined);
-                                                }
-                                            });
+                                                    }
+                                                });
                                         }
                                     }, ['pouchdb-4.0.3.min.js', 'pouchdb.upsert.js']);
                                 }
