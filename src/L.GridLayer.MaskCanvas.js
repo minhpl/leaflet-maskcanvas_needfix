@@ -22,7 +22,9 @@ const HUGETILE_THREADSHOLD = 5000;
 
 L.GridLayer.MaskCanvas = L.GridLayer.extend({
     options: {
-        db: new PouchDB('vmts'),
+        db: new PouchDB('vmts', {
+            auto_compaction: true
+        }),
         radius: 5, // this is the default radius (specific radius values may be passed with the data)
         useAbsoluteRadius: false, // true: radius in meters, false: radius in pixels
         color: '#000',
@@ -70,7 +72,9 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
             var refreshDB = function(self) {
                 db.destroy().then(function(response) {
-                    self.options.db = new PouchDB('vmts');
+                    self.options.db = new PouchDB('vmts', {
+                        auto_compaction: true
+                    });
                     console.log("Refresh database");
                     self.ready = true;
                 }).catch(function(err) {
@@ -802,7 +806,9 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
                                             //Only need to create DB object only once
                                             if (!this.db) {
-                                                this.db = new PouchDB('vmts');
+                                                this.db = new PouchDB('vmts', {
+                                                    auto_compaction: true
+                                                });
                                             }
 
                                             this.db.get(simpleTile._id).then(function(doc) {
@@ -910,7 +916,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         self.tiles.set(id, tile, function(removed) {
             // console.log("here1");
             if (removed) {
-                console.log("removed tile", removed.value.needSave, removed.value);
+                // console.log("removed tile", removed.value.needSave, removed.value);
                 return self.backupToDb(self.options.db, removed.value);
             } else {
                 // console.log("not removed", tile._id, tile);

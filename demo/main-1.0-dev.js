@@ -826,6 +826,8 @@ $(function() {
     var pad = L.point(red_canvas.width >> 1, red_canvas.height >> 1);
     var _pad = L.point(red_canvas.width, red_canvas.height);
 
+    var prevPromise = Promise.resolve();
+
     function removeMarker(item, coords) {
 
         var promise2 = new Promise(function(resolve2, reject2) {
@@ -1171,6 +1173,158 @@ $(function() {
             }
 
         });
+
+
+        return prevPromise.then(function() {
+            return promise2;
+        })
+
+    }
+
+    function removeMarkers(bb, coords, poly) {
+        var items = coverageLayer._rtree.search(bb);
+        var db = coverageLayer.options.db;
+
+        if (items.length == 0) return;
+
+        var inPoly = function(item) {
+            if (!poly) {
+                return true;
+            } else {
+                //...
+            }
+        }
+
+        // console.log("item remove", items);
+        for (var i = 0; i < items.length; i++) {
+            var item = items[i];
+            if (inPoly(item))
+                coverageLayer._rtree.remove(item);
+        }
+
+        var nw = L.latLng(bb[2], bb[1]);
+        var se = L.latLng(bb[0], bb[3]);
+
+        var tl = map.project(nw, coords.z);
+        var br = map.project(se, coords.z);
+
+        var _tlCanvas = tl.subtract(pad);
+        var _brCanvas = br.add(pad);
+        var tlBoundQuery = tl.subtract(_pad);
+        var brBoundQuery = br.add(_pad);
+        var nwBoundQuery = map.unproject(tlBoundQuery, coords.z);
+        var seBoundQuery = map.unproject(brBoundQuery, coords.z);
+
+        var width = ((_brCanvas.x - _tlCanvas.x) >> 0);
+        var height = ((_brCanvas.y - _tlCanvas.y) >> 0);
+
+        var boundQuery = [seBoundQuery.lat, nwBoundQuery.lng, nwBoundQuery.lat, seBoundQuery.lng];
+
+        var llBound = L.latLngBounds(seBoundQuery, nwBoundQuery);
+        var _pos = llBound.getCenter();
+
+        var canvas = document.createElement('canvas');
+        var context = canvas.getContext('2d');
+        canvas.width = width;
+        canvas.height = height;
+
+        var _items = coverageLayer._rtree.search(boundQuery);
+        _items.sort(function(a, b) {
+            return a[5] - b[5];
+        });
+        // console.log(_items.length, _items);
+
+        // return;
+        for (var i = 0; i < _items.length; i++) {
+            var item = _items[i];
+            var pos = map.project(L.latLng(item[0], item[1]), coords.z);
+            var x = pos.x - _tlCanvas.x;
+            var y = pos.y - _tlCanvas.y;
+
+            context.drawImage(red_canvas, x - (red_canvas.width >> 1), y - (red_canvas.height >> 1));
+        }
+
+        // context.strokeStyle = '#000';
+        // context.beginPath();
+        // context.moveTo(0, 0);
+        // context.lineTo(canvas.width, 0);
+        // context.lineTo(canvas.width, canvas.height);
+        // context.lineTo(0, canvas.height);
+        // context.closePath();
+        // context.stroke();
+
+        context.beginPath();
+        context.moveTo(pad.x, pad.y);
+        context.lineTo(canvas.width - pad.x, pad.y);
+        context.lineTo(canvas.width - pad.x, canvas.height - pad.y);
+        context.lineTo(pad.x, canvas.height - pad.y);
+        context.closePath();
+        context.stroke();
+
+        var imageData = context.getImageData(0, 0, width, height);
+        putImageData([_pos.lat, _pos.lng], width, height, coords, imageData);
+
+        if (coverageLayer.rtree_cachedTile) {
+            var result = coverageLayer.rtree_cachedTile.search(bb);
+            result.sort(function(a, b) {
+                var za = coverageLayer.getCoords(a[4]).z;
+                var zb = coverageLayer.getCoords(b[4]).z;
+                // console.log(za, zb);
+                return za - zb;
+            })
+
+
+            var ids = []; //all ids, those can be in db
+            for (var i = 0; i < result.length; i++) {
+                var id = result[i][4];
+                var inCache = false;
+                if (coverageLayer.tiles.get(id)) {
+                    coverageLayer.tiles.remove(id);
+                    inCache = true;
+
+
+                    console.log("here");
+                }
+                if (coverageLayer.hugeTiles.get(id)) {
+                    coverageLayer.hugeTiles.remove(id);
+                    inCache = true;
+                }
+
+
+
+                // if (!inCache && !coverageLayer.emptyTiles.get(id))
+                ids.push(id);
+            }
+
+            console.log("length", ids.length);
+
+            var removeTileInDB = function(id) {
+
+                var promise = new Promise(function(resolve, reject) {
+                    // console.log("removeTileInDB", id, db);
+                    db.get(id).then(function(tile) {
+                        // console.log("get tile", tile);
+                        return db.remove(tile);
+                    }).then(function(response) {
+                        console.log("remove tile", response, id);
+                        resolve();
+                    }).catch(function(err) {
+                        // console.log("Err", id, err);
+                        resolve();
+                    });
+                });
+
+                return promise;
+            }
+
+            var prev = Promise.resolve();
+
+            Promise.all(ids.map(function(id) {
+                removeTileInDB(id);
+            })).then(function(id) {
+                console.log("successfully remove markers");
+            });
+        }
     }
 
 
@@ -1203,33 +1357,48 @@ $(function() {
         if (tile)
             bb = tile.bb;
 
-        var items = coverageLayer._rtree.search(bb);
 
-        if (items.length == 0) {
-            console.log("not found", coverageLayer._rtree);
-            return;
-        }
+        var nw = L.latLng(bb[2], bb[1]);
+        var se = L.latLng(bb[0], bb[3]);
+        var tl = map.project(nw, coords.z);
+        var br = map.project(se, coords.z);
 
-        items.sort(function(a, b) {
-            return a[5] - b[5];
-        });
+        var tl = tl.add(pad);
+        var br = br.subtract(pad);
+        var nw = map.unproject(tl, coords.z);
+        var se = map.unproject(br, coords.z);
+        bb = [se.lat, nw.lng, nw.lat, se.lng];
+
+        // var items = coverageLayer._rtree.search(bb);
+
+        // if (items.length == 0) {
+        //     console.log("not found", coverageLayer._rtree);
+        //     return;
+        // }
+
+        // items.sort(function(a, b) {
+        //     return a[5] - b[5];
+        // });
 
 
-        items.pop();
-        items.pop();
-        items.pop();
-        items.pop();
+        // items.pop();
+        // items.pop();
+        // items.pop();
+        // items.pop();
 
-        // console.log(item);
-        // removeMarker(item, coords);
+        // // console.log(item);
+        // // removeMarker(item, coords);
 
 
-        // var prev = Promise.resolve();
-        items.forEach(function(item) {
-            prev2 = prev2.then(function(response) {
-                return removeMarker(item, coords);
-            });
-        });
+        // // var prev = Promise.resolve();
+        // items.forEach(function(item) {
+        //     prev2 = prev2.then(function(response) {
+        //         return removeMarker(item, coords);
+        //     });
+        // });
+
+
+        removeMarkers(bb, coords);
     }
 
     var markerID = dataset.length;
