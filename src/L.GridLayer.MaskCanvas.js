@@ -952,8 +952,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             }
         });
         // })
-
-
     },
 
     /**
@@ -1008,7 +1006,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
         (function(self, canvas, coords) {
             var id = self.getId(coords);
-
             self.getTile(coords).then(function(tile) {
 
                 // if (self.rtree_loaded)

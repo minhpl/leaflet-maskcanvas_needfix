@@ -821,7 +821,7 @@ $(function() {
             .openOn(map);
     }
 
-    map.on('click', onMouseClick_removeMarker);
+    map.on('click', onMouseClick_addMarkers);
 
     var pad = L.point(red_canvas.width >> 1, red_canvas.height >> 1);
     var _pad = L.point(red_canvas.width, red_canvas.height);
@@ -1275,12 +1275,12 @@ $(function() {
 
         if (coverageLayer.rtree_cachedTile) {
             var result = coverageLayer.rtree_cachedTile.search(bb);
-            result.sort(function(a, b) {
-                var za = coverageLayer.getCoords(a[4]).z;
-                var zb = coverageLayer.getCoords(b[4]).z;
-                // console.log(za, zb);
-                return za - zb;
-            })
+            // result.sort(function(a, b) {
+            //     var za = coverageLayer.getCoords(a[4]).z;
+            //     var zb = coverageLayer.getCoords(b[4]).z;
+            //     // console.log(za, zb);
+            //     return za - zb;
+            // })
 
 
             var ids = []; //all ids, those can be in db
@@ -1299,38 +1299,78 @@ $(function() {
                 // if (!inCache && !coverageLayer.emptyTiles.get(id))
                 coverageLayer.tilesInDBNeedUpdate[id] = true;
             }
-
-            // console.log("length", ids.length, coverageLayer.tilesNeedUpdate);
-
-            // var removeTileInDB = function(id) {
-
-            //     var promise = new Promise(function(resolve, reject) {
-            //         // console.log("removeTileInDB", id, db);
-            //         db.get(id).then(function(tile) {
-            //             // console.log("get tile", tile);
-            //             return db.remove(tile);
-            //         }).then(function(response) {
-            //             console.log("remove tile", response, id);
-            //             resolve();
-            //         }).catch(function(err) {
-            //             // console.log("Err", id, err);
-            //             resolve();
-            //         });
-            //     });
-
-            //     return promise;
-            // }
-
-            // var prev = Promise.resolve();
-
-            // Promise.all(ids.map(function(id) {
-            //     removeTileInDB(id);
-            // })).then(function(id) {
-            //     console.log("successfully remove markers");
-            // });
         }
     }
 
+    var idMarker = 2000000;
+
+    function addMarkers(items) {
+
+
+        if (items.length == 0)
+            return;
+
+        var minx = 999,
+            maxx = -999,
+            miny = 999,
+            maxy = -999;
+
+        var data = [];
+        for (var i = 0; i < items.length; i++) {
+            var item = items[i];
+            var lat = item[0];
+            var lng = item[1];
+            data.push([lat, lng, lat, lng, item, ++idMarker]);
+
+            if (minx > lat)
+                minx = lat;
+            if (miny > lng)
+                miny = lng;
+            if (maxx < lat)
+                maxx = lat;
+            if (maxy < lng)
+                maxy = lng;
+        }
+
+        var boundary = [minx, miny, maxx, maxy];
+        console.log(data.length, boundary, data);
+
+
+        coverageLayer._rtree.load(data);
+
+        if (coverageLayer.rtree_cachedTile) {
+            var result = coverageLayer.rtree_cachedTile.search(boundary);
+
+            for (var i = 0; i < result.length; i++) {
+                var id = result[i][4];
+
+                if (coverageLayer.tiles.get(id))
+                    coverageLayer.tiles.remove(id);
+                if (coverageLayer.hugeTiles.get(id))
+                    coverageLayer.hugeTiles.remove(id);
+                if (coverageLayer.emptyTiles.get(id))
+                    coverageLayer.emptyTiles.remove(id);
+
+                coverageLayer.tilesInDBNeedUpdate[id] = true;
+            }
+        }
+    }
+
+    function onMouseClick_addMarkers(e) {
+
+        if (!coverageLayer.indexI) {
+            coverageLayer.indexI = 0;
+        }
+
+        var markers = [];
+        for (i = 0; coverageLayer.indexI < dataAdd.length && i < 6; coverageLayer.indexI++, i++) {
+            var items = dataAdd[coverageLayer.indexI];
+            markers.push(items);
+        }
+
+        addMarkers(markers);
+        coverageLayer.redraw();
+    }
 
     var prev2 = Promise.resolve();
 
