@@ -533,7 +533,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
                     var currentBounds = self._boundsToQuery(bounds);
                     var bb = [currentBounds.y, currentBounds.x, currentBounds.y + currentBounds.height, currentBounds.x + currentBounds.width];
-                    console.log(id, bb);
+
                     var pointCoordinates = (self.options.useGlobalData) ? null : self._rtree.search(bb);
 
                     // if (err == "needUpdate")
@@ -590,7 +590,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     if (numPoints >= HUGETILE_THREADSHOLD) {
                         // console.log("here1");
                         var nTile = self.hugeTiles.get(id);
-                        console.log(nTile, "nTIle");
+                        
                         if (!nTile || nTile.status != LOADED) {
                             self.hugeTiles.set(id, tile);
                             self.tiles.remove(id);
@@ -599,7 +599,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
                     } else {
                         var nTile = self.tiles.get(id);
-                        console.log(nTile, "nTIle", tile.bb);
+                        
                         if (!nTile || nTile.status != LOADED) {
                             self.store(id, tile);
                             resolve(tile);
