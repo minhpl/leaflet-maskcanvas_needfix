@@ -23,9 +23,7 @@ const TILESIZE = 256;
 
 L.GridLayer.MaskCanvas = L.GridLayer.extend({
     options: {
-        db: new PouchDB('vmts', {
-            auto_compaction: true
-        }),
+        db: new PouchDB('vmts'),
         radius: 5, // this is the default radius (specific radius values may be passed with the data)
         useAbsoluteRadius: false, // true: radius in meters, false: radius in pixels
         color: '#000',
@@ -76,9 +74,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
             var refreshDB = function(self) {
                 db.destroy().then(function(response) {
-                    self.options.db = new PouchDB('vmts', {
-                        auto_compaction: true
-                    });
+                    self.options.db = new PouchDB('vmts');
                     console.log("Refresh database");
                     self.ready = true;
                 }).catch(function(err) {
@@ -391,7 +387,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
          */
 
         if (this.tilesInDBNeedUpdate[id] == true) {
-            // console.log("needUpdate getStoreObj", id);
+            console.log("needUpdate getStoreObj", id);
             return Promise.reject();
         }
 
@@ -836,9 +832,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
                                             //Only need to create DB object only once
                                             if (!this.db) {
-                                                this.db = new PouchDB('vmts', {
-                                                    auto_compaction: true
-                                                });
+                                                this.db = new PouchDB('vmts');
                                             }
 
                                             this.db.get(simpleTile._id).then(function(doc) {
@@ -1568,7 +1562,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         var topPointTile;
         var topCircleID;
         if (topPointlatlng) {
-            topPointTile = coverageLayer._tilePoint(coords, [topPointlatlng[0], topPointlatlng[1]]);
+            topPointTile = this._tilePoint(coords, [topPointlatlng[0], topPointlatlng[1]]);
             topCircleID = topPointlatlng[5];
         }
 
@@ -1612,7 +1606,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             if (canvas) {
                 var ctx = canvas.getContext('2d');
                 // img.onload= function(){
-                drawImage(ctx, img, tilePoint[0] - w, tilePoint[1] - h);
+                this.drawImage(ctx, img, tilePoint[0] - w, tilePoint[1] - h);
             }
         }
     },
@@ -1672,6 +1666,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
     cropImgBoxs: function(centreLatLng, WIDTH, HEIGHT, coords) {
         var topPointTile = this._tilePoint(coords, [centreLatLng[0], centreLatLng[1]]);
+        var self2 = this;
 
         var w = WIDTH >> 1; //  mean  w/=2
         var h = HEIGHT >> 1; //  mean  w/=2        
@@ -1726,13 +1721,13 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
 
                 if (self.img.complete) {
-                    drawImage(self.ctx, self.img, minX, minY);
+                    self2.drawImage(self.ctx, self.img, minX, minY);
                     // self.ctx.drawImage(self.img, 0, 0);
                 } else {
                     self.img.onload = function(e) {
                         // self.img.loaded = true;
                         if (self.img.complete) {
-                            self.ctx.drawImage(self.img, minX, minY);
+                            self2.drawImage(self.ctx, self.img, minX, minY);
                         } else {
                             var maxTimes = 10;
                             var countTimes = 0;
@@ -1744,7 +1739,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                                         return;
                                     } else {
                                         if (e.target.complete == true) {
-                                            drawImage(self.ctx, self.img, minX, minY);
+                                            self2.drawImage(self.ctx, self.img, minX, minY);
                                         } else {
                                             console.log("here");
                                             self.img.src = self.img.src;
@@ -1857,7 +1852,9 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
 
     onMouseMove: function(e) {
+
         if (this.timeoutID) clearTimeout(this.timeoutID);
+
         var self = this;
 
         this.timeoutID = setTimeout(function() {
@@ -1920,7 +1917,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
             } else {
                 if (self.lastRecentInfo && self.lastRecentInfo.imgsPolyCropped) {
-                    self.redrawFn(this.lastRecentInfo.imgsPolyCropped);
+                    self.redrawFn(self.lastRecentInfo.imgsPolyCropped);
                     self.lastRecentInfo.imgsPolyCropped = null;
                 }
             }
@@ -1928,15 +1925,15 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             //--------------------------------------------------------------------------------------------------        
 
             if (isInsideObject) {
-                if (info.topCircleID && lastRecentInfo && lastRecentInfo.img &&
+                if (info.topCircleID && self.lastRecentInfo && self.lastRecentInfo.img &&
                     self.lastRecentInfo.topCircleID && info.topCircleID == self.lastRecentInfo.topCircleID) {
                     return;
                 }
 
                 if (self.lastRecentInfo && self.lastRecentInfo.img) {
-                    var lastTopPointTile = this.lastRecentInfo.topPointTile;
+                    var lastTopPointTile = self.lastRecentInfo.topPointTile;
                     if (lastTopPointTile) {
-                        self.redrawFn(lastRecentInfo.img);
+                        self.redrawFn(self.lastRecentInfo.img);
                     }
                 }
 
@@ -1945,19 +1942,19 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                 if (topPointTile) {
                     var WIDTH, HEIGHT;
                     WIDTH = HEIGHT = radius << 1;
-                    var imgs = this.cropImgBoxs(info.topPointlatlng, WIDTH, HEIGHT, info.coords);
+                    var imgs = self.cropImgBoxs(info.topPointlatlng, WIDTH, HEIGHT, info.coords);
                     info.img = imgs;
                     // console.log("Draw ",++count);                    
-                    self.draw(info.topPointlatlng, WIDTH, HEIGHT, info.coords, img_blueCircle);
+                    self.draw(info.topPointlatlng, WIDTH, HEIGHT, info.coords, self.options.img_off);
                 }
 
                 self.lastRecentInfo = info;
             } else {
                 if (self.lastRecentInfo && self.lastRecentInfo.img) {
-                    var topPointTileRecent = this.lastRecentInfo.topPointTile;
+                    var topPointTileRecent = self.lastRecentInfo.topPointTile;
                     if (topPointTileRecent) {
                         // console.log("Redraw ",count);
-                        self.redrawFn(lastRecentInfo.img);
+                        self.redrawFn(self.lastRecentInfo.img);
                     }
                     self.lastRecentInfo = undefined;
                 }

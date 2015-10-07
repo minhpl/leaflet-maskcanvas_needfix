@@ -82,66 +82,66 @@ $(function() {
 
     coverageLayer.setData(dataset);
     coverageLayer.localData();
-
+    map.addLayer(coverageLayer);
     map.fitBounds(coverageLayer.bounds);
 
 
-    var drawnItems = new L.FeatureGroup();
-    map.addLayer(drawnItems);
+    // var drawnItems = new L.FeatureGroup();
+    // map.addLayer(drawnItems);
 
-    // Set the title to show on the polygon button
-    L.drawLocal.draw.toolbar.buttons.polygon = 'Draw a sexy polygon!';
+    // // Set the title to show on the polygon button
+    // L.drawLocal.draw.toolbar.buttons.polygon = 'Draw a sexy polygon!';
 
-    var drawControl = new L.Control.Draw({
-        position: 'topright',
-        draw: {
-            polyline: {
-                metric: true
-            },
-            polygon: {
-                allowIntersection: false,
-                showArea: true,
-                drawError: {
-                    color: '#b00b00',
-                    timeout: 1000
-                },
-                shapeOptions: {
-                    color: '#b00b00'
-                }
-            },
-            circle: {
-                shapeOptions: {
-                    color: '#662d91'
-                }
-            },
-            marker: false
-        },
-        edit: {
-            featureGroup: drawnItems,
-            remove: false
-        }
-    });
-    map.addControl(drawControl);
+    // var drawControl = new L.Control.Draw({
+    //     position: 'topright',
+    //     draw: {
+    //         polyline: {
+    //             metric: true
+    //         },
+    //         polygon: {
+    //             allowIntersection: false,
+    //             showArea: true,
+    //             drawError: {
+    //                 color: '#b00b00',
+    //                 timeout: 1000
+    //             },
+    //             shapeOptions: {
+    //                 color: '#b00b00'
+    //             }
+    //         },
+    //         circle: {
+    //             shapeOptions: {
+    //                 color: '#662d91'
+    //             }
+    //         },
+    //         marker: false
+    //     },
+    //     edit: {
+    //         featureGroup: drawnItems,
+    //         remove: false
+    //     }
+    // });
+    // map.addControl(drawControl);
 
-    map.on('draw:created', function(e) {
-        var type = e.layerType,
-            layer = e.layer;
+    // map.on('draw:created', function(e) {
+    //     var type = e.layerType,
+    //         layer = e.layer;
 
-        if (type === 'marker') {
-            layer.bindPopup('A popup!');
-        }
+    //     if (type === 'marker') {
+    //         layer.bindPopup('A popup!');
+    //     }
 
-        drawnItems.addLayer(layer);
-    });
+    //     drawnItems.addLayer(layer);
+    // });
 
-    map.on('draw:edited', function(e) {
-        var layers = e.layers;
-        var countOfEditedLayers = 0;
-        layers.eachLayer(function(layer) {
-            countOfEditedLayers++;
-        });
-        console.log("Edited " + countOfEditedLayers + " layers");
-    });
+    // map.on('draw:edited', function(e) {
+    //     var layers = e.layers;
+    //     var countOfEditedLayers = 0;
+    //     layers.eachLayer(function(layer) {
+    //         countOfEditedLayers++;
+    //     });
+    //     console.log("Edited " + countOfEditedLayers + " layers");
+    // });
 
     // L.DomUtil.get('changeColor').onclick = function() {
     //     drawControl.setDrawingOptions({
@@ -156,7 +156,7 @@ $(function() {
 
 
 
-    map.addLayer(coverageLayer);
+
 
     // var MEM;
     /**
@@ -181,11 +181,6 @@ $(function() {
      * @param  {[type]} coords      [description]
      * @return {[type]}             [description]
      */
-
-
-
-    
-
 
     function onMouseClick_getID(e) {
         var currentPositionPoint = map.project(e.latlng);
@@ -224,9 +219,11 @@ $(function() {
         // coverageLayer.backupOne();
     }
 
-    map.on('mousemove', coverageLayer.onMouseMove);
+    map.on('mousemove', onMouseMove);
 
-
+    function onMouseMove(e) {
+        coverageLayer.onMouseMove(e);
+    }
 
     function onMouseClick_showLatLng(e) {
         popup
