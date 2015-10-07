@@ -19,6 +19,7 @@ const NUMBPOLYGON = 10;
 const VPOLY = 1;
 const BPOLY = 2;
 const HUGETILE_THREADSHOLD = 5000;
+const TILESIZE = 256;
 
 L.GridLayer.MaskCanvas = L.GridLayer.extend({
     options: {
@@ -590,7 +591,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                     if (numPoints >= HUGETILE_THREADSHOLD) {
                         // console.log("here1");
                         var nTile = self.hugeTiles.get(id);
-                        
+
                         if (!nTile || nTile.status != LOADED) {
                             self.hugeTiles.set(id, tile);
                             self.tiles.remove(id);
@@ -599,7 +600,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 
                     } else {
                         var nTile = self.tiles.get(id);
-                        
+
                         if (!nTile || nTile.status != LOADED) {
                             self.store(id, tile);
                             resolve(tile);
@@ -1293,7 +1294,678 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
                 this.drawVPoly(poly, ctx, coords);
             }
         }
-    }
+    },
+
+    alpha: function(point, canvas) {
+
+        if (!canvas) {
+            return -1;
+        }
+
+        var context = canvas.getContext('2d');
+
+        var buffer;
+
+        if (!canvas.imgData) {
+            // console.log("Create new ImageData");
+            var pix = context.getImageData(0, 0, TILESIZE, TILESIZE);
+            canvas.imgData = new ImageBuffer(pix);
+            buffer = canvas.imgData
+        } else {
+            buffer = canvas.imgData;
+        }
+
+        var x = (point.x + 0.5) >> 0;
+        var y = (point.y + 0.5) >> 0;
+
+        var i = ~~(x + (y * TILESIZE)); //floor()
+        var location = (i << 2) + 3;
+
+        var alph = buffer.uint8[location];
+
+        return (!alph) ? -1 : alph;
+    },
+
+    cropImage: function(canvas, centrePoint, WIDTH, HEIGHT, alph) {
+        var context = canvas.getContext('2d');
+        // w = w << 1;
+        // h = h << 1;
+        // var WIDTH = (w << 1);
+        // var HEIGHT = (h << 1);
+
+        w = WIDTH >> 1;
+        h = HEIGHT >> 1;
+
+        // var imgSize = (WIDTH * HEIGHT) << 2;
+
+        // if (!MEM || MEM.byteLength < imgSize)
+        //     MEM = new ArrayBuffer(imgSize);
+
+        var minX = (centrePoint[0] - w);
+        var minY = (centrePoint[1] - h);
+        minX = (minX < 0) ? (minX - 0.5) >> 0 : (minX + 0.5) >> 0; //round();
+        minY = (minY < 0) ? (minY - 0.5) >> 0 : (minY + 0.5) >> 0; //round();
+
+
+        var maxX = minX + WIDTH;
+        var maxY = minY + HEIGHT;
+
+        if (minX < 0)
+            minX = 0;
+
+
+        if (minY < 0)
+            minY = 0;
+
+        if (maxX > TILESIZE)
+            maxX = TILESIZE;
+
+        if (maxY > TILESIZE)
+            maxY = TILESIZE;
+
+        // console.log(minX, minY, maxX, maxY);
+
+        var width = maxX - minX;
+        var height = maxY - minY;
+        // console.log(WIDTH,HEIGHT,maxY,minY, width, height);
+
+        if (width == 0 || height == 0) {
+            return new Image();
+        }
+
+        var subCanvas = document.createElement('canvas');
+        subCanvas.width = width;
+        subCanvas.height = height;
+        var subContext = subCanvas.getContext('2d');
+
+        if (!canvas.imgData) {
+            // var start = new Date().getTime();
+            // var img = new Image();
+
+            // console.log("Create new ImageData");
+            var pix = context.getImageData(0, 0, TILESIZE, TILESIZE);
+            canvas.imgData = new ImageBuffer(pix);
+            // var end = new Date().getTime();
+            // var time = end - start;
+            // console.log("Traditional way : ", end - start);
+        }
+
+
+        // var start = new Date().getTime();
+        var img = new Image();
+        // for (var j = 0;j<100;++j){          
+
+        // var sz = ((width*height) << 2) >> 0;
+        // console.log("Array length ",sz);
+        // var buf = new Uint8ClampedArray(MEM, 0, sz );
+        var imgData = subContext.createImageData(width, height);
+
+        var buffer = new ImageBuffer(imgData);
+
+        var color = {};
+        var data = canvas.imgData;
+        // console.log(SUPPORTS_32BIT);
+
+        for (var y = 0; y < height; ++y) {
+            for (var x = 0; x < width; ++x) {
+                data.getPixelAt(x + minX, y + minY, color);
+
+                if (color.a != 255) {
+                    color.r = 0;
+                    color.g = 0;
+                    color.b = 0;
+                    color.a = 0;
+                }
+
+                buffer.setPixelAt(x, y, color.r, color.g, color.b, color.a);
+            }
+        }
+
+        // imgData.data.set(buf);
+
+        subContext.putImageData(imgData, 0, 0);
+        img.src = subCanvas.toDataURL("image/png");
+        // if (img.complete) {
+        //     context.drawImage(img, 0, 0);
+        // }
+        // else {
+        //   img.onload = function(){
+        //     context.drawImage(img, 0, 0);
+        //   }
+        // }
+        // var end = new Date().getTime();
+        // var time = end - start;
+        // console.log("New way : ",end-start);
+        // }
+        return img;
+    },
+
+    getID: function(zoom, x, y) {
+        var _x = x < 0 ? 0 : x;
+        var _y = y < 0 ? 0 : y;
+        var result = {};
+
+        result.id = zoom + "_" + _x + "_" + _y;
+        result.coords = L.point(_x, _y);
+        result.coords.zoom = zoom;
+        var tile = this.tiles.get(result.id);
+        if (tile) {
+            result.canvas = tile.canvas;
+            if (!result.canvas) console.log("No canvas 1");
+        } else {
+            var tile = this.hugeTiles.get(result.id);
+            if (tile) {
+                result.canvas = tile.canvas;
+                if (!result.canvas) console.log("No canvas 2");
+            } else {
+                result.canvas = this.canvases.get(result.id);
+            }
+        }
+        return result;
+    },
+
+    getTileIDs: function(centrePoint, WIDTH, HEIGHT, coords) {
+        // var TopPoint = info.topPointTile;
+        // console.log("--------",info)
+        var radius = this.options.radius >> 1;
+        w = WIDTH >> 1;
+        h = HEIGHT >> 1;
+
+
+        var minX = centrePoint[0] - w;
+        var minY = centrePoint[1] - h;
+        var maxX = centrePoint[0] + w;
+        var maxY = centrePoint[1] + h;
+
+        // console.log(minX,minY,maxX,maxY);
+
+        var tileIDX = coords.x;
+        var tileIDY = coords.y;
+        var zoom = coords.z;
+
+        // var tileIDs = [getID(zoom, tileIDX, tileIDY)];
+        var tileIDs = [];
+        var mina = 0,
+            minb = 0,
+            maxa = 0,
+            maxb = 0;
+
+        // console.log("---------------------------------------")
+
+        if (minX < 0) {
+            mina = -((((-minX) / TILESIZE) >> 0) + 1);
+            // console.log("mina", mina);
+        }
+        if (minY < 0) {
+            minb = -((((-minY) / TILESIZE) >> 0) + 1);
+            // console.log("minb", minb);
+        }
+        if (maxX >= TILESIZE) {
+            maxa = (((maxX - TILESIZE) / TILESIZE) >> 0) + 1;
+        }
+        if (maxY >= TILESIZE) {
+            maxb = (((maxY - TILESIZE) / TILESIZE) >> 0) + 1;
+            // console.log("maxb", maxb);
+        }
+
+        for (var i = mina; i <= maxa; i++)
+            for (var j = minb; j <= maxb; j++) {
+                tileIDs.push(this.getID(zoom, tileIDX + i, tileIDY + j)) //8
+            }
+
+        return tileIDs;
+    },
+
+    // popup: L.popup(),
+
+    // i: 0,
+
+    lastRecent: {},
+    lastRecentInfo: {},
+
+
+    getInfo: function(e) {
+        // calulate ID
+        var map = this.options.map;
+
+        var currentlatlng = e.latlng;
+        var currentPoint = map.project(currentlatlng);
+
+        var x = (currentPoint.x / TILESIZE) >> 0;
+        var y = (currentPoint.y / TILESIZE) >> 0;
+        var zoom = map.getZoom();
+        //
+        var tileID = zoom + "_" + x + "_" + y;
+
+        //get tile
+
+        //calculate Point relative to Tile
+        var tileTop = x * TILESIZE;
+        var tileLeft = y * TILESIZE;
+        var point = L.point(tileTop, tileLeft);
+        var coords = L.point(x, y);
+        coords.z = zoom;
+        var tilePoint = this._tilePoint(coords, [currentlatlng.lat, currentlatlng.lng]);
+        //
+        tilePoint = L.point(tilePoint[0], tilePoint[1]);
+        var result = {};
+
+        var intersectPolys = this.getIntersectPoly(currentlatlng);
+        result.intersectPolys = intersectPolys;
+        // calculate alpha
+
+
+        var tile = this.tiles.get(tileID) || this.hugeTiles.get(tileID);
+        // var alph = (tile) ? alpha(tilePoint, tile.canvas) : -1;
+
+        var alph = this.alpha(tilePoint, this.canvases.get(tileID));
+
+        //calculate points and top point.
+        var pointslatlng = this.circleCentrePointCover(currentPoint);
+        //calculate TopPoints
+        // if(pointslatlng.length!=0){}
+        var topPointlatlng = this.getTopPoint(pointslatlng);
+        var topPointTile;
+        var topCircleID;
+        if (topPointlatlng) {
+            topPointTile = coverageLayer._tilePoint(coords, [topPointlatlng[0], topPointlatlng[1]]);
+            topCircleID = topPointlatlng[5];
+        }
+
+        // var topPoint = getTopPoint(points);                
+        result.tileIDX = x;
+        result.tileIDY = y;
+        result.tileIDZoom = zoom;
+        result.tileID = tileID;
+        result.coords = coords;
+        result.tile = tile;
+        result.tilePoint = tilePoint; //current point relative with tile
+        result.alpha = alph;
+        result.pointslatlng = pointslatlng; //[]
+
+        result.topPointlatlng = topPointlatlng; //[lat,lng,lat,lng,item,id] or undefined
+        result.topCircleID = topCircleID; //id of top points or undefined        
+        result.topPointTile = topPointTile; //top points relative with tile, [x,y,z]
+
+        return result;
+    },
+
+    draw: function(topPointlatlng, WIDTH, HEIGHT, coords, img) {
+        var w = WIDTH >> 1;
+        var h = HEIGHT >> 1;
+        var lat = topPointlatlng[0];
+        var lng = topPointlatlng[1];
+        var topPts = [lat, lng];
+
+        // var WIDTH,HEIGHT;
+        // WIDTH = HEIGHT = coverageLayer.options.radius;
+
+        var topPointTile = this._tilePoint(coords, topPts);
+
+        var tileIDs = this.getTileIDs(topPointTile, WIDTH, HEIGHT, coords);
+
+        for (var i = 0; i < tileIDs.length; i++) {
+            var tile = tileIDs[i];
+            var canvas = tile.canvas;
+            var coords = tile.coords;
+            var tilePoint = this._tilePoint(coords, topPts);
+            if (canvas) {
+                var ctx = canvas.getContext('2d');
+                // img.onload= function(){
+                drawImage(ctx, img, tilePoint[0] - w, tilePoint[1] - h);
+            }
+        }
+    },
+
+    putImageData: function(topPointlatlng, WIDTH, HEIGHT, coords, imgData) {
+        var w = WIDTH >> 1;
+        var h = HEIGHT >> 1;
+        var lat = topPointlatlng[0];
+        var lng = topPointlatlng[1];
+        var topPts = [lat, lng];
+
+        // var WIDTH,HEIGHT;
+        // WIDTH = HEIGHT = coverageLayer.options.radius;                
+
+        var topPointTile = this._tilePoint(coords, topPts);
+
+        var tileIDs = this.getTileIDs(topPointTile, WIDTH, HEIGHT, coords);
+
+        for (var i = 0; i < tileIDs.length; i++) {
+            var tile = tileIDs[i];
+            var canvas = tile.canvas;
+            var coords = tile.coords;
+            var tilePoint = this._tilePoint(coords, topPts);
+            if (canvas) {
+                var ctx = canvas.getContext('2d');
+                // img.onload= function(){
+                // drawImage(ctx, img, tilePoint[0] - w, tilePoint[1] - h);
+                // console.log(w, h);
+                ctx.putImageData(imgData, tilePoint[0] - w, tilePoint[1] - h);
+            }
+        }
+    },
+
+    redrawFn: function(imgs) {
+        for (var i = 0; i < imgs.length; i++) {
+            var image = imgs[i];
+            image.draw();
+        }
+    },
+
+    drawImage: function(ctx, image, x, y) {
+        function f() {
+            drawImage(ctx, image, x, y);
+        }
+        try {
+            ctx.drawImage(image, x, y);
+        } catch (e) {
+            if (e.name == "NS_ERROR_NOT_AVAILABLE") {
+                // Wait a bit before trying again; you may wish to change the
+                // length of this delay.
+                setTimeout(f, 100);
+            } else {
+                throw e;
+            }
+        }
+    },
+
+    cropImgBoxs: function(centreLatLng, WIDTH, HEIGHT, coords) {
+        var topPointTile = this._tilePoint(coords, [centreLatLng[0], centreLatLng[1]]);
+
+        var w = WIDTH >> 1; //  mean  w/=2
+        var h = HEIGHT >> 1; //  mean  w/=2        
+
+        var tileIDs = this.getTileIDs(topPointTile, WIDTH, HEIGHT, coords);
+
+        var result = [];
+        // if (globalResults.length > 0)
+        //     console.log("Heep heep hurayyyyyyyyy ", globalResults.length);
+        var lat = centreLatLng[0];
+        var lng = centreLatLng[1];
+        var topPts = [lat, lng];
+
+        for (var i = 0; i < tileIDs.length; i++) {
+            var tile = tileIDs[i];
+            var canvas = tile.canvas;
+            if (!canvas) {
+                // console.log("No canvas ", tile);
+                continue;
+            }
+            var coords = tile.coords;
+            var tilePoint = this._tilePoint(coords, topPts);
+            var img = this.cropImage(canvas, tilePoint, WIDTH, HEIGHT, 255);
+
+            var o = {};
+            o.canvas = canvas;
+            o.tilePoint = tilePoint;
+            o.img = img;
+            o.ctx = canvas.getContext('2d');
+            // globalResults.push(o);
+
+            o.draw = function() {
+
+                // var WIDTH = (w << 1);
+                // var HEIGHT = (h << 1);
+
+                var minX = (this.tilePoint[0] - w);
+                var minY = (this.tilePoint[1] - h);
+                minX = (minX < 0) ? (minX - 0.5) >> 0 : (minX + 0.5) >> 0;
+                minY = (minY < 0) ? (minY - 0.5) >> 0 : (minY + 0.5) >> 0;
+
+
+                if (minX < 0)
+                    minX = 0;
+
+                if (minY < 0)
+                    minY = 0;
+
+
+                var self = this;
+
+
+
+                if (self.img.complete) {
+                    drawImage(self.ctx, self.img, minX, minY);
+                    // self.ctx.drawImage(self.img, 0, 0);
+                } else {
+                    self.img.onload = function(e) {
+                        // self.img.loaded = true;
+                        if (self.img.complete) {
+                            self.ctx.drawImage(self.img, minX, minY);
+                        } else {
+                            var maxTimes = 10;
+                            var countTimes = 0;
+
+                            function retryLoadImage() {
+                                setTimeout(function() {
+                                    if (countTimes > maxTimes) {
+                                        // -- cannot load image.
+                                        return;
+                                    } else {
+                                        if (e.target.complete == true) {
+                                            drawImage(self.ctx, self.img, minX, minY);
+                                        } else {
+                                            console.log("here");
+                                            self.img.src = self.img.src;
+                                            retryLoadImage();
+                                        }
+                                    }
+                                    countTimes++;
+                                }, 100);
+                            };
+                            retryLoadImage();
+                        }
+                    }
+                }
+
+            }
+
+            result.push(o);
+        }
+
+        return result;
+    },
+
+    squaredistance: function(point1, point2) {
+        return (point1.x - point2.x) * (point1.x - point2.x) + (point1.y - point2.y) * (point1.y - point2.y);
+    },
+
+    circleCentrePointCover: function(currentPositionPoint) {
+        var rtree = this._rtree;
+
+        var radius = this.options.radius;
+        var map = this.options.map;
+
+        var topLeft = currentPositionPoint.subtract(L.point(radius, radius));
+        var nw = map.unproject(topLeft);
+        var bottemRight = currentPositionPoint.add(L.point(radius, radius));
+        var se = map.unproject(bottemRight);
+
+        var box = [se.lat, nw.lng, nw.lat, se.lng];
+
+        var result = rtree.search(box);
+
+        var a = [];
+        var radius = this.options.radius / 2;
+        for (var i = 0; i < result.length; i++) {
+            var r = result[i];
+            var latLng = L.latLng(r[0], r[1]);
+            var point = map.project(latLng);
+
+            if (this.squaredistance(currentPositionPoint, point) <= radius * radius) {
+                a.push(r);
+            }
+        }
+        return a;
+    },
+
+    getTopPoint: function(Points) {
+        var maxId = -1;
+        var TopPoint;
+        for (var i = 0; i < Points.length; i++) {
+            var p = Points[i];
+            if (p[5] > maxId) {
+                maxId = p[5];
+                TopPoint = p;
+            }
+        }
+
+        if (TopPoint)
+            TopPoint.id = maxId;
+
+        return TopPoint;
+    },
+
+    getIntersectPoly: function(currentlatlng, tileID) {
+        var rtree = this._rtreePolygon;
+        if (rtree) {
+            var lat = currentlatlng.lat;
+            var lng = currentlatlng.lng;
+            var result = rtree.search([lat, lng, lat, lng]);
+
+            if (result.length > 0) {
+                var polys = [];
+                var topPoly, id = -1;
+                for (var i = 0; i < result.length; i++) {
+                    var r = result[i];
+                    var poly = r[4];
+
+                    if (poly.in(currentlatlng)) {
+                        polys.push(poly);
+                        if (r[5] > id) {
+                            topPoly = poly;
+                            id = r[5];
+                        }
+                    }
+                }
+                polys.topPoly = topPoly;
+                polys.topPolyID = id;
+
+                return polys;
+            }
+        }
+        return [];
+    },
+
+
+    count: 0,
+
+    insidePoly: false,
+
+    timeoutID: undefined,
+
+
+    onMouseMove: function(e) {
+        if (this.timeoutID) clearTimeout(this.timeoutID);
+        var self = this;
+
+        this.timeoutID = setTimeout(function() {
+            self.timeoutID = 0;
+
+            self.backupOne();
+
+            var info = self.getInfo(e);
+            var radius = self.options.radius;
+
+            insidePoly = false;
+
+            if (info.intersectPolys && info.intersectPolys.length > 0) {
+                insidePoly = true;
+                isInsideObject = false;
+                // console.log("inside poly: ", insidePoly, "isInsideObject: ", isInsideObject);
+            } else {
+                insidePoly = false;
+                if (info.alpha == 255) {
+                    $('.leaflet-container').css('cursor', 'pointer');
+                    isInsideObject = true;
+                    // console.log("inside poly: ", insidePoly, "isInsideObject: ", isInsideObject);
+                } else {
+                    isInsideObject = false;
+                    // console.log("inside poly: ", insidePoly, "isInsideObject: ", isInsideObject);
+                }
+            }
+
+            if (insidePoly) {
+                $('.leaflet-container').css('cursor', 'pointer');
+
+                var poly = info.intersectPolys.topPoly;
+                if (!poly || !poly.size || poly.size.length == 0) return;
+
+                var insideTheSamePoly = function(info, lastRecentInfo) {
+                    // console.log("inside the same poly");
+                    return self.lastRecentInfo && self.lastRecentInfo.imgsPolyCropped && self.lastRecentInfo.intersectPolys && info.intersectPolys && (self.lastRecentInfo.intersectPolys.topPolyID == info.intersectPolys.topPolyID);
+                }
+
+                if (insideTheSamePoly(info, self.lastRecentInfo)) {
+                    return;
+                }
+
+                if (self.lastRecentInfo && self.lastRecentInfo.imgsPolyCropped) {
+                    self.redrawFn(self.lastRecentInfo.imgsPolyCropped);
+                }
+
+
+                var imgsPolyCropped = self.cropImgBoxs(poly.posL, poly.size[0], poly.size[1], info.coords, poly.canvas);
+                info.imgsPolyCropped = imgsPolyCropped;
+
+                // console.log(poly);
+                if (self.lastRecentInfo && self.lastRecentInfo.img) {
+                    self.redrawFn(self.lastRecentInfo.img);
+                }
+
+                self.draw(poly.posL, poly.size[0], poly.size[1], info.coords, poly.canvas2);
+
+                self.lastRecentInfo = info;
+
+            } else {
+                if (self.lastRecentInfo && self.lastRecentInfo.imgsPolyCropped) {
+                    self.redrawFn(this.lastRecentInfo.imgsPolyCropped);
+                    self.lastRecentInfo.imgsPolyCropped = null;
+                }
+            }
+
+            //--------------------------------------------------------------------------------------------------        
+
+            if (isInsideObject) {
+                if (info.topCircleID && lastRecentInfo && lastRecentInfo.img &&
+                    self.lastRecentInfo.topCircleID && info.topCircleID == self.lastRecentInfo.topCircleID) {
+                    return;
+                }
+
+                if (self.lastRecentInfo && self.lastRecentInfo.img) {
+                    var lastTopPointTile = this.lastRecentInfo.topPointTile;
+                    if (lastTopPointTile) {
+                        self.redrawFn(lastRecentInfo.img);
+                    }
+                }
+
+                var topPointTile = info.topPointTile;
+
+                if (topPointTile) {
+                    var WIDTH, HEIGHT;
+                    WIDTH = HEIGHT = radius << 1;
+                    var imgs = this.cropImgBoxs(info.topPointlatlng, WIDTH, HEIGHT, info.coords);
+                    info.img = imgs;
+                    // console.log("Draw ",++count);                    
+                    self.draw(info.topPointlatlng, WIDTH, HEIGHT, info.coords, img_blueCircle);
+                }
+
+                self.lastRecentInfo = info;
+            } else {
+                if (self.lastRecentInfo && self.lastRecentInfo.img) {
+                    var topPointTileRecent = this.lastRecentInfo.topPointTile;
+                    if (topPointTileRecent) {
+                        // console.log("Redraw ",count);
+                        self.redrawFn(lastRecentInfo.img);
+                    }
+                    self.lastRecentInfo = undefined;
+                }
+                $('.leaflet-container').css('cursor', 'auto');
+            }
+        }, 10);
+
+    },
 });
 
 L.TileLayer.maskCanvas = function(options) {
