@@ -253,6 +253,9 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             }
 
             function getIntersectCell(bound) {
+                if(!self._rtreeCell)
+                    return [];
+
                 var cells = self._rtreeCell.search(bound);
 
                 var result = [];
@@ -1707,6 +1710,9 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         }
 
         var queryPolys = function(coords, self) {
+            if(!self._rtreePolygon)
+                return [];
+
             var tileSize = self.options.tileSize;
 
             var nwPoint = coords.multiplyBy(tileSize);
@@ -1736,6 +1742,8 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             self.getRadiusFn(coords.z);
 
         var queryCells = function(coords) {
+            if(!self._rtreeCell)
+                return [];
             var bb = getBB(coords, self.cellRadius);
 
             var cellCoordinates = self._rtreeCell.search(bb);
