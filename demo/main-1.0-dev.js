@@ -70,7 +70,7 @@ $(function() {
     var img_blueCircle = new Image();
     img_blueCircle.src = blue_canvas.toDataURL("image/png");
 
-    var coverageLayer = new L.GridLayer.MaskCanvas({
+    var coverageLayer = new L.TileLayer.MaskCanvas({
         opacity: 0.5,
         radius: RADIUS,
         useAbsoluteRadius: false,

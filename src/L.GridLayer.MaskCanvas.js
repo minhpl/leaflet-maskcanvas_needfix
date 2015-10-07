@@ -21,7 +21,7 @@ const BPOLY = 2;
 const HUGETILE_THREADSHOLD = 5000;
 const TILESIZE = 256;
 
-L.GridLayer.MaskCanvas = L.GridLayer.extend({
+L.TileLayer.MaskCanvas = L.TileLayer.extend({
     options: {
         db: new PouchDB('vmts'),
         radius: 5, // this is the default radius (specific radius values may be passed with the data)
@@ -1966,5 +1966,5 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 });
 
 L.TileLayer.maskCanvas = function(options) {
-    return new L.GridLayer.MaskCanvas(options);
+    return new L.TileLayer.MaskCanvas(options);
 };
