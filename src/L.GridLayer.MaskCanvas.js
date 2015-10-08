@@ -725,6 +725,9 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         return result;
     },
 
+
+    // -------------------------------------------------------------------
+
     getId: function(coords) {
         return coords.z + "_" + coords.x + "_" + coords.y;
     },

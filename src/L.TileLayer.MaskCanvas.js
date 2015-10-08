@@ -1,19 +1,73 @@
+// const LOADED = 1;
+// const LOADING = -1;
+// const UNLOAD = 0;
+// const EMPTY = {
+//     empty: true,
+//     needSave: false,
+//     numPoints: 0,
+//     status: LOADED
+// };
+
+
+const NUMPOLYGON = 100;
+const NUMCELL = 100;
+const HCELLARCSIZE = ((65 / 2) / 180) * Math.PI;
+const NORTH = 3 * (Math.PI / 2);
+const RED = "#FF0066";
+const BLUE = "#6666FF";
+const TILESIZE = 256;
+
 L.TileLayer.MaskCanvas = L.TileLayer.Canvas.extend({
+
     options: {
-        radius: 5,
-        useAbsoluteRadius: true,  // true: radius in meters, false: radius in pixels
+        // db: new PouchDB('vmts'),
+        radius: 5, // this is the default radius (specific radius values may be passed with the data)
+        useAbsoluteRadius: false, // true: radius in meters, false: radius in pixels
         color: '#000',
         opacity: 0.5,
-        noMask: false,  // true results in normal (filled) circled, instead masked circles
-        lineColor: undefined,  // color of the circle outline if noMask is true
-        debug: false
+        noMask: false, // true results in normal (filled) circled, instead masked circles
+        lineColor: undefined, // color of the circle outline if noMask is true
+        debug: false,
+        zIndex: 18, // if it is lower, then the layer is not in front
+        img_on: undefined,
+        img_off: undefined,
+        map: undefined,
+        useGlobalData: false,
+        boundary: true,
     },
 
-    initialize: function (options, data) {
+    ready: false,
+    rtree_loaded: false,
+
+    needPersistents: 0,
+
+    prev: undefined,
+
+    tiles: new lru(40),
+    hugeTiles: new lru(40),
+
+    rtree_cachedTile: rbush(32),
+
+    emptyTiles: new lru(4000),
+    canvases: new lru(100),
+
+    // rtreeLCTilePoly: new lru(40),    
+    BBAllPointLatlng: [-9999, -9999, -9999, -9999],
+
+
+    cellRadius: 30,
+    inputRadius: false,
+    drawCell2D: true,
+    drawCell3D: true,
+    showCellName: true,
+    cellNameRadius: 30,
+
+
+    initialize: function(options, data) {
         var self = this;
         L.Util.setOptions(this, options);
 
-        this.drawTile = function (tile, tilePoint, zoom) {
+        this.drawTile = function(tile, tilePoint, zoom) {
             var ctx = {
                 canvas: tile,
                 tilePoint: tilePoint,
@@ -27,7 +81,7 @@ L.TileLayer.MaskCanvas = L.TileLayer.Canvas.extend({
         };
     },
 
-    _drawDebugInfo: function (ctx) {
+    _drawDebugInfo: function(ctx) {
         var max = this.tileSize;
         var g = ctx.canvas.getContext('2d');
         g.globalCompositeOperation = 'destination-over';
@@ -52,7 +106,8 @@ L.TileLayer.MaskCanvas = L.TileLayer.Canvas.extend({
         this._quad = new QuadTree(this._boundsToQuery(this.bounds), false, 6, 6);
 
         var first = dataset[0];
-        var xc = 1, yc = 0;
+        var xc = 1,
+            yc = 0;
         if (first instanceof L.LatLng) {
             xc = "lng";
             yc = "lat";
@@ -75,7 +130,7 @@ L.TileLayer.MaskCanvas = L.TileLayer.Canvas.extend({
         this.redraw();
     },
 
-    _tilePoint: function (ctx, coords) {
+    _tilePoint: function(ctx, coords) {
         // start coords to tile 'space'
         var s = ctx.tilePoint.multiplyBy(this.options.tileSize);
 
@@ -88,7 +143,7 @@ L.TileLayer.MaskCanvas = L.TileLayer.Canvas.extend({
         return [x, y];
     },
 
-    _drawPoints: function (ctx, coordinates) {
+    _drawPoints: function(ctx, coordinates) {
         var c = ctx.canvas,
             g = c.getContext('2d'),
             self = this,
@@ -97,8 +152,8 @@ L.TileLayer.MaskCanvas = L.TileLayer.Canvas.extend({
         g.fillStyle = this.options.color;
 
         if (this.options.lineColor) {
-          g.strokeStyle = this.options.lineColor;
-          g.lineWidth = this.options.lineWidth || 1;
+            g.strokeStyle = this.options.lineColor;
+            g.lineWidth = this.options.lineWidth || 1;
         }
         g.globalCompositeOperation = 'source-over';
         if (!this.options.noMask) {
@@ -117,25 +172,32 @@ L.TileLayer.MaskCanvas = L.TileLayer.Canvas.extend({
     },
 
     _boundsToQuery: function(bounds) {
-        if (bounds.getSouthWest() == undefined) { return {x: 0, y: 0, width: 0.1, height: 0.1}; }  // for empty data sets
+        if (bounds.getSouthWest() == undefined) {
+            return {
+                x: 0,
+                y: 0,
+                width: 0.1,
+                height: 0.1
+            };
+        } // for empty data sets
         return {
             x: bounds.getSouthWest().lng,
             y: bounds.getSouthWest().lat,
-            width: bounds.getNorthEast().lng-bounds.getSouthWest().lng,
-            height: bounds.getNorthEast().lat-bounds.getSouthWest().lat
+            width: bounds.getNorthEast().lng - bounds.getSouthWest().lng,
+            height: bounds.getNorthEast().lat - bounds.getSouthWest().lat
         };
     },
 
-    _getLatRadius: function () {
+    _getLatRadius: function() {
         return (this.options.radius / 40075017) * 360;
     },
 
-    _getLngRadius: function () {
+    _getLngRadius: function() {
         return this._getLatRadius() / Math.cos(L.LatLng.DEG_TO_RAD * this._latlng.lat);
     },
 
     // call to update the radius
-    projectLatlngs: function () {
+    projectLatlngs: function() {
         var lngRadius = this._getLngRadius(),
             latlng2 = new L.LatLng(this._latlng.lat, this._latlng.lng - lngRadius, true),
             point2 = this._map.latLngToLayerPoint(latlng2),
@@ -147,12 +209,12 @@ L.TileLayer.MaskCanvas = L.TileLayer.Canvas.extend({
     _getRadius: function() {
         if (this.options.useAbsoluteRadius) {
             return this._radius;
-        } else{
+        } else {
             return this.options.radius;
         }
     },
 
-    _draw: function (ctx) {
+    _draw: function(ctx) {
         if (!this._quad || !this._map) {
             return;
         }
@@ -163,7 +225,7 @@ L.TileLayer.MaskCanvas = L.TileLayer.Canvas.extend({
         var sePoint = nwPoint.add(new L.Point(tileSize, tileSize));
 
         if (this.options.useAbsoluteRadius) {
-            var centerPoint = nwPoint.add(new L.Point(tileSize/2, tileSize/2));
+            var centerPoint = nwPoint.add(new L.Point(tileSize / 2, tileSize / 2));
             this._latlng = this._map.unproject(centerPoint);
             this.projectLatlngs();
         }
