@@ -42,7 +42,7 @@ $(function() {
     var img_blueCircle = new Image();
     img_blueCircle.src = blue_canvas.toDataURL("image/png");
 
-    var coverageLayerCell = new L.GridLayer.MaskCanvas({
+    var coverageLayer = new L.GridLayer.MaskCanvas({
         opacity: 0.5,
         radius: RADIUS,
         useAbsoluteRadius: false,
@@ -235,22 +235,22 @@ $(function() {
             });
         });
     } else {
-        // coverageLayerCell.setDataPoly();
-        coverageLayerCell.setDataCell(celldata);
+        coverageLayer.setDataPoly();
+        coverageLayer.setDataCell(celldata);
     }
 
-    // map.addLayer(coverageLayerPoly);
-    map.addLayer(coverageLayerCell);
+    map.addLayer(coverageLayer);
+    map.addLayer(coverageLayer);
 
     //crop images at Position
     map.on('mousemove', onMouseMove);
 
     function onMouseMove(e) {
-        coverageLayerPoly.onMouseMove(e);
-        // coverageLayerCell.onMouseMove(e);
+        coverageLayer.onMouseMove(e);
+        coverageLayer.onMouseMove(e);
     }
 
-    // map.on('contextmenu', onContextMenu_changeCellRadius);
+    map.on('contextmenu', onContextMenu_ShowCellName);
 
     // map.on('click', onClick);
 
@@ -291,6 +291,7 @@ $(function() {
         var show = prompt("show cell name ", 'ok');
         if (show && show == 'ok') {
             coverageLayer.showCellName = true;
+            console.log("here");
             coverageLayer.redraw();
         } else {
             coverageLayer.showCellName = false;
