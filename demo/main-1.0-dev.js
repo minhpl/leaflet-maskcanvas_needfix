@@ -42,7 +42,18 @@ $(function() {
     var img_blueCircle = new Image();
     img_blueCircle.src = blue_canvas.toDataURL("image/png");
 
-    var coverageLayer = new L.GridLayer.MaskCanvas({
+    var coverageLayerCell = new L.GridLayer.MaskCanvas({
+        opacity: 0.5,
+        radius: RADIUS,
+        useAbsoluteRadius: false,
+        debug: true,
+        map: map,
+        boundary: true,
+        img_on: img_blueCircle,
+    });
+
+
+    var coverageLayerPoly = new L.GridLayer.MaskCanvas({
         opacity: 0.5,
         radius: RADIUS,
         useAbsoluteRadius: false,
@@ -224,22 +235,24 @@ $(function() {
             });
         });
     } else {
-        coverageLayer.setDataPoly();
-        coverageLayer.setDataCell(celldata);
+        // coverageLayerCell.setDataPoly();
+        coverageLayerCell.setDataCell(celldata);
     }
 
-    map.addLayer(coverageLayer);
+    // map.addLayer(coverageLayerPoly);
+    map.addLayer(coverageLayerCell);
 
     //crop images at Position
     map.on('mousemove', onMouseMove);
 
     function onMouseMove(e) {
-        coverageLayer.onMouseMove(e);
+        coverageLayerPoly.onMouseMove(e);
+        // coverageLayerCell.onMouseMove(e);
     }
 
-    map.on('contextmenu', onContextMenu_changeCellRadius);
+    // map.on('contextmenu', onContextMenu_changeCellRadius);
 
-    map.on('click', onClick);
+    // map.on('click', onClick);
 
     function onClick(e) {
         var info = coverageLayer.lastRecentInfo;

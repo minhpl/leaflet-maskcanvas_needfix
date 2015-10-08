@@ -1670,7 +1670,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     _draw: function(canvas, coords) {
         // var valid = this.iscollides(coords);
         // if (!valid) return;          
-        if (!this._rtreePolygon || !this._map) {
+        if ((!this._rtreePolygon && !this._rtreeCell)|| !this._map) {
             return;
         }
 
