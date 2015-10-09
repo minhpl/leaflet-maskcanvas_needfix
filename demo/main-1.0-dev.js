@@ -235,8 +235,7 @@ $(function() {
     map.on('mousemove', onMouseMove);
 
     function onMouseMove(e) {
-        coverageLayer.onMouseMove(e);
-        coverageLayer.onMouseMove(e);
+        coverageLayer.onMouseMove(e);        
     }
 
     map.on('contextmenu', onContextMenu_changeCellRadius);

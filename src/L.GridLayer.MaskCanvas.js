@@ -50,6 +50,9 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         map: undefined,
         useGlobalData: false,
         boundary: true,
+        cellRadius: 30,
+        hover_poly_color: 'rgba(250, 0, 0,1)',
+        hover_cell_color: 'rgba(200,220,220,1)',
     },
 
     ready: false,
@@ -71,12 +74,12 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
     BBAllPointLatlng: [-9999, -9999, -9999, -9999],
 
 
-    cellRadius: 5,
+    cellRadius: 30,
     inputRadius: false,
     drawCell2D: true,
     drawCell3D: true,
     showCellName: false,
-    cellNameRadius: 30,
+    cellNameRadius: false,
 
     /**
      * [updateCachedTile description]
@@ -130,10 +133,11 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
     },
 
     initialize: function(options) {
-
         L.Util.setOptions(this, options);
 
+        var cellRadius = this.options.cellRadius;
         var db = this.options.db;
+
         var self = this;
         if (db) {
 
@@ -326,17 +330,33 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                     if (self.lastRecentInfo.cellID == cells.topCellID) {
 
                     } else {
+                        if (self.lastRecentInfo.imgCellCropped) {
+                            self.redrawImgCropped(self.lastRecentInfo.imgCellCropped);
+                        }
+
                         self.lastRecentInfo.cellID = cells.topCellID;
                         self.lastRecentInfo.cell = cell;
                         self.lastRecentInfo.cells = cells;
+
+                        var radius = (self.cellRadius) << 1;
+                        self.lastRecentInfo.imgCellCropped = self.cropImgBoxs([cell.lat, cell.lng], radius, radius, coords);
+
+                        if (!self.lastRecentInfo.poly) {
+                            var cellCanvas = self.getCanvasCell(cell, self.options.hover_cell_color);
+                            self.draw([cell.lat, cell.lng], radius, radius, coords, cellCanvas);
+                        }
+                        // console.log("here");
                     }
                 } else {
+                    // console.log("here");
                     if (self.lastRecentInfo.cellID == undefined) {
 
                     } else {
                         self.lastRecentInfo.cellID = undefined;
                         self.lastRecentInfo.cell = undefined;
                         self.lastRecentInfo.cells = undefined;
+
+                        self.redrawImgCropped(self.lastRecentInfo.imgCellCropped);
                     }
                 }
 
@@ -365,6 +385,12 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                         self.lastRecentInfo.polyID = undefined;
                         self.lastRecentInfo.poly = undefined;
                         self.redrawImgCropped(self.lastRecentInfo.imgPolyCropped);
+
+                        if (self.lastRecentInfo.cell) {
+                            var cellCanvas = self.getCanvasCell(cell, self.options.hover_cell_color);
+                            self.draw([cell.lat, cell.lng], radius, radius, coords, cellCanvas);
+                        }
+
                     }
                 }
 
@@ -381,6 +407,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                     self.lastRecentInfo.cells = undefined;
 
                     self.redrawImgCropped(self.lastRecentInfo.imgPolyCropped);
+                    self.redrawImgCropped(self.lastRecentInfo.imgCellCropped);
                 }
             }
         }, 0);
@@ -450,6 +477,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                 var ctx = canvas.getContext('2d');
                 // img.onload= function(){
                 this.drawImage(ctx, img, tilePoint[0] - w, tilePoint[1] - h);
+                // this.drawImage(ctx, img, 0, 0);
             }
         }
     },
@@ -701,7 +729,6 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
             // globalResults.push(o);
 
             o.draw = function() {
-                0
                 // var WIDTH = (w << 1);
                 // var HEIGHT = (h << 1);
                 var minX = (this.tilePoint[0] - w);
@@ -719,6 +746,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
                 if (self.img.complete) {
                     self2.drawImage(self.ctx, self.img, minX, minY);
+                    // self2.drawImage(self.ctx, self.img, 100, 100);
                     // self.ctx.drawImage(self.img, 0, 0);
                 } else {
                     self.img.onload = function(e) {
@@ -1002,7 +1030,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         } else {
 
             var sectors = [];
-            console.log(dataCell.length);
+
             for (var i = 0; i < dataCell.length; i++) {
                 var cell = dataCell[i];
 
@@ -1859,7 +1887,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
     //     ctx.drawImage(this.options.img_on, 0, 0);
     // },
 
-    getCanvas: function(vpoly, coords, fillColor) {
+    getCanvasPoly: function(vpoly, coords, fillColor) {
         var boundsL = vpoly.lBounds;
         var nw = boundsL.getNorthWest();
         topLeft = this._tilePoint(coords, [nw.lat, nw.lng]);
@@ -1915,10 +1943,10 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         if (poly.zoom != coords.z) {
             poly.zoom = coords.z;
 
-            var canvas = this.getCanvas(poly, coords, poly[0].c);
+            var canvas = this.getCanvasPoly(poly, coords, poly[0].c);
 
             poly.canvas = canvas;
-            poly.canvas2 = this.getCanvas(poly, coords, "rgba(250, 0, 0,1)");
+            poly.canvas2 = this.getCanvasPoly(poly, coords, "rgba(250, 0, 0,1)");
             // poly.size = [width, height];
         }
 
@@ -2067,6 +2095,25 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
     //     ctx.stroke();
     //     // ctx.fill();
     // },
+
+
+    getCanvasCell: function(cell, color) {
+        var canvas = document.createElement('canvas');
+        var radius = this.cellRadius;
+        canvas.width = canvas.height = (radius << 1);
+
+        var ctx = canvas.getContext('2d');
+        ctx.beginPath();
+        ctx.moveTo(radius, radius);
+        ctx.arc(radius, radius, radius, cell.startRadian, cell.endRadian, false);
+        ctx.closePath();
+        if (color)
+            ctx.fillStyle = color;
+        ctx.fill();
+        ctx.stroke();
+
+        return canvas;
+    },
 
     drawCell: function(ctx, pts, cell) {
         var x = pts[0];
