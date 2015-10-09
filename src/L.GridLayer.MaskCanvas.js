@@ -22,7 +22,19 @@ const RED = "#FF0066";
 const BLUE = "#6666FF";
 const TILESIZE = 256;
 
-L.GridLayer.MaskCanvas = L.GridLayer.extend({
+
+console.log("leaflet version: ", L.version);
+
+var version = L.version;
+var tempLayer;
+if (version[0] == 0) {
+    tempLayer = L.TileLayer.Canvas;
+} else {
+    tempLayer = L.GridLayer;
+}
+
+
+L.TileLayer.MaskCanvas = tempLayer.extend({
     options: {
         // db: new PouchDB('vmts'),
         radius: 5, // this is the default radius (specific radius values may be passed with the data)
@@ -118,7 +130,9 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     },
 
     initialize: function(options) {
-        L.setOptions(this, options);
+
+        L.Util.setOptions(this, options);
+
         var db = this.options.db;
         var self = this;
         if (db) {
@@ -134,7 +148,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             }
 
             refreshDB(this);
-
             // db.allDocs({
             //     include_docs: true,
             //     attachments: true
@@ -151,6 +164,24 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             //     console.log(err);
             // });
         }
+
+        this.drawTile = function(tile, tilePoint, zoom) {
+            var ctx = {
+                canvas: tile,
+                tilePoint: tilePoint,
+                zoom: zoom
+            };
+
+            var canvas = ctx.canvas;
+            var coords = ctx.tilePoint;
+            coords.z = zoom;
+
+            if (self.options.debug) {
+                self._drawDebugInfo(canvas, coords);
+            }
+
+            this._draw(canvas, coords);
+        };
     },
 
     // globalData: function() {
@@ -253,7 +284,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             }
 
             function getIntersectCell(bound) {
-                if(!self._rtreeCell)
+                if (!self._rtreeCell)
                     return [];
 
                 var cells = self._rtreeCell.search(bound);
@@ -724,7 +755,6 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         }
         return result;
     },
-
 
     // -------------------------------------------------------------------
 
@@ -1673,7 +1703,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
     _draw: function(canvas, coords) {
         // var valid = this.iscollides(coords);
         // if (!valid) return;          
-        if ((!this._rtreePolygon && !this._rtreeCell)|| !this._map) {
+        if ((!this._rtreePolygon && !this._rtreeCell) || !this._map) {
             return;
         }
 
@@ -1713,7 +1743,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
         }
 
         var queryPolys = function(coords, self) {
-            if(!self._rtreePolygon)
+            if (!self._rtreePolygon)
                 return [];
 
             var tileSize = self.options.tileSize;
@@ -1745,7 +1775,7 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
             self.getRadiusFn(coords.z);
 
         var queryCells = function(coords) {
-            if(!self._rtreeCell)
+            if (!self._rtreeCell)
                 return [];
             var bb = getBB(coords, self.cellRadius);
 
@@ -2080,5 +2110,5 @@ L.GridLayer.MaskCanvas = L.GridLayer.extend({
 });
 
 L.TileLayer.maskCanvas = function(options) {
-    return new L.GridLayer.MaskCanvas(options);
+    return new L.TileLayer.MaskCanvas(options);
 };

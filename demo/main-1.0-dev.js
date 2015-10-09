@@ -42,7 +42,7 @@ $(function() {
     var img_blueCircle = new Image();
     img_blueCircle.src = blue_canvas.toDataURL("image/png");
 
-    var coverageLayer = new L.GridLayer.MaskCanvas({
+    var coverageLayer = new L.TileLayer.MaskCanvas({
         opacity: 0.5,
         radius: RADIUS,
         useAbsoluteRadius: false,
@@ -52,16 +52,6 @@ $(function() {
         img_on: img_blueCircle,
     });
 
-
-    var coverageLayerPoly = new L.GridLayer.MaskCanvas({
-        opacity: 0.5,
-        radius: RADIUS,
-        useAbsoluteRadius: false,
-        debug: true,
-        map: map,
-        boundary: true,
-        img_on: img_blueCircle,
-    });
 
     var swBound = L.latLng(20.69814614, 105.72596769);
     var neBound = L.latLng(21.09130007, 105.89789663);
@@ -236,7 +226,7 @@ $(function() {
         });
     } else {
         coverageLayer.setDataPoly();
-        coverageLayer.setDataCell(celldata);
+        // coverageLayer.setDataCell(celldata);
     }
 
     map.addLayer(coverageLayer);

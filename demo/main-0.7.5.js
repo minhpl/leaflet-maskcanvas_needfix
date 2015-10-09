@@ -41,9 +41,7 @@ $(function() {
     blue_context.stroke();
     var img_blueCircle = new Image();
     img_blueCircle.src = blue_canvas.toDataURL("image/png");
-
-
-    console.log(L.TileLayer);
+    
 
     var coverageLayer = new L.TileLayer.MaskCanvas({
         opacity: 0.5,
@@ -232,15 +230,13 @@ $(function() {
         coverageLayer.setDataCell(celldata);
     }
 
-    map.addLayer(coverageLayer);
-    map.addLayer(coverageLayer);
+    map.addLayer(coverageLayer);    
 
     //crop images at Position
-    map.on('mousemove', onMouseMove);
+    // map.on('mousemove', onMouseMove);
 
     function onMouseMove(e) {
-        coverageLayer.onMouseMove(e);
-        coverageLayer.onMouseMove(e);
+        coverageLayer.onMouseMove(e);        
     }
 
     map.on('contextmenu', onContextMenu_ShowCellName);
