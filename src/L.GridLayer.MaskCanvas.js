@@ -51,7 +51,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         useGlobalData: false,
         boundary: true,
         cellRadius: 30,
-        hover_poly_color: 'rgba(250, 0, 0,1)',
+        hover_poly_color: 'rgba(200,0,0,1)',
         hover_cell_color: 'rgba(200,220,220,1)',
     },
 
@@ -322,7 +322,6 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
             var cells = getIntersectCell(bound);
 
-
             if (cells.topCell || polys.topPoly) {
                 $('.leaflet-container').css('cursor', 'pointer');
                 var cell = cells.topCell;
@@ -375,7 +374,8 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                         var sizeHeigth = poly.size[1];
                         if (sizeWidth != 0 && sizeHeigth != 0) {
                             self.lastRecentInfo.imgPolyCropped = self.cropImgBoxs(poly.posL, poly.size[0], poly.size[1], coords);
-                            self.draw(poly.posL, poly.size[0], poly.size[1], coords, poly.canvas2);
+                            self.draw2(poly.TL, poly.size[0], poly.size[1], coords, poly.canvas2);
+                            // self.draw(poly.posL, poly.size[0], poly.size[1], coords, poly.canvas2);
                         }
                     }
                 } else {
@@ -451,9 +451,48 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         }
     },
 
+
+    draw2: function(topLeftlatlng, WIDTH, HEIGHT, coords, img) {
+        var lat = topLeftlatlng[0];
+        var lng = topLeftlatlng[1];
+        var topLeft = [lat, lng];
+
+        var tlPointTile = this._tilePoint(coords, topLeft);
+
+        var tileIDs = this.getTileIDs2(tlPointTile, WIDTH, HEIGHT, coords);
+
+
+        for (var i = 0; i < tileIDs.length; i++) {
+            var tile = tileIDs[i];
+            // console.log(tile);
+
+            var canvas = tile.canvas;
+            var coords = tile.coords;
+            var tilePoint = this._tilePoint(coords, topLeft);
+            if (canvas) {
+                var ctx = canvas.getContext('2d');
+                // img.onload= function(){
+                this.drawImage(ctx, img, tilePoint[0], tilePoint[1]);
+                // this.drawImage(ctx, img, 0, 0);
+            }
+        }
+    },
+
     draw: function(topPointlatlng, WIDTH, HEIGHT, coords, img) {
         var w = WIDTH >> 1;
-        var h = HEIGHT >> 1;
+
+        if (WIDTH & 1 == 1)
+            w = (WIDTH >> 1) + 1;
+        else w = WIDTH >> 1;
+
+        var h;
+        if (HEIGHT & 1 == 1)
+            h = (HEIGHT >> 1) + 1;
+        else h = HEIGHT >> 1;
+
+        // console.log("draw: ", WIDTH, HEIGHT, w, h);
+
+
         var lat = topPointlatlng[0];
         var lng = topPointlatlng[1];
         var topPts = [lat, lng];
@@ -482,10 +521,50 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         }
     },
 
+    getTileIDs2: function(tlPoint, WIDTH, HEIGHT, coords) {
+        var minX = tlPoint[0];
+        var minY = tlPoint[1];
+        var maxX = minX + WIDTH;
+        var maxY = minY + HEIGHT;
+
+        var tileIDX = coords.x;
+        var tileIDY = coords.y;
+        var zoom = coords.z;
+
+        var tileIDs = [];
+        var mina = 0,
+            minb = 0,
+            maxa = 0,
+            maxb = 0;
+
+        if (minX < 0) {
+            mina = -((((-minX) / TILESIZE) >> 0) + 1);
+            // console.log("mina", mina);
+        }
+        if (minY < 0) {
+            minb = -((((-minY) / TILESIZE) >> 0) + 1);
+            // console.log("minb", minb);
+        }
+        if (maxX >= TILESIZE) {
+            maxa = (((maxX - TILESIZE) / TILESIZE) >> 0) + 1;
+        }
+        if (maxY >= TILESIZE) {
+            maxb = (((maxY - TILESIZE) / TILESIZE) >> 0) + 1;
+            // console.log("maxb", maxb);
+        }
+
+        for (var i = mina; i <= maxa; i++)
+            for (var j = minb; j <= maxb; j++) {
+                tileIDs.push(this.getID(zoom, tileIDX + i, tileIDY + j)) //8
+            }
+
+        return tileIDs;
+    },
+
+
     getTileIDs: function(centrePoint, WIDTH, HEIGHT, coords) {
         // var TopPoint = info.topPointTile;
-        // console.log("--------",info)
-        var radius = this.options.radius >> 1;
+        // console.log("--------",info)        
         w = WIDTH >> 1;
         h = HEIGHT >> 1;
 
@@ -929,6 +1008,8 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
                 var center = poly.lBounds.getCenter();
                 poly.posL = [center.lat, center.lng];
+                var nw = poly.lBounds.getNorthWest();
+                poly.TL = [nw.lat,nw.lng];
 
                 poly.in = function(currentlatLng) {
                     var x = currentlatLng.lat,
@@ -1946,7 +2027,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
             var canvas = this.getCanvasPoly(poly, coords, poly[0].c);
 
             poly.canvas = canvas;
-            poly.canvas2 = this.getCanvasPoly(poly, coords, "rgba(250, 0, 0,1)");
+            poly.canvas2 = this.getCanvasPoly(poly, coords, this.options.hover_poly_color);
             // poly.size = [width, height];
         }
 
