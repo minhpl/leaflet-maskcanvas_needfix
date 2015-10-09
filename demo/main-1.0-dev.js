@@ -226,11 +226,10 @@ $(function() {
         });
     } else {
         coverageLayer.setDataPoly();
-        // coverageLayer.setDataCell(celldata);
+        coverageLayer.setDataCell(celldata);
     }
 
-    map.addLayer(coverageLayer);
-    map.addLayer(coverageLayer);
+    map.addLayer(coverageLayer);    
 
     //crop images at Position
     map.on('mousemove', onMouseMove);
@@ -240,14 +239,14 @@ $(function() {
         coverageLayer.onMouseMove(e);
     }
 
-    map.on('contextmenu', onContextMenu_ShowCellName);
+    map.on('contextmenu', onContextMenu_changeCellRadius);
 
-    // map.on('click', onClick);
+    map.on('click', onClick);
 
     function onClick(e) {
         var info = coverageLayer.lastRecentInfo;
-        console.log("onClick poly info", info.poly, info.polyID);
-        console.log("onClick cell info", info.cell, info.cellID, info.cells);
+        console.log("onClick poly info: ", info.poly, info.polyID);
+        console.log("onClick, cell info: ", info.cell, info.cellID,", all cell: ", info.cells);
     }
 
 

@@ -71,11 +71,11 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
     BBAllPointLatlng: [-9999, -9999, -9999, -9999],
 
 
-    cellRadius: 30,
+    cellRadius: 5,
     inputRadius: false,
     drawCell2D: true,
     drawCell3D: true,
-    showCellName: true,
+    showCellName: false,
     cellNameRadius: 30,
 
     /**
@@ -1771,8 +1771,8 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         var vpolyCoordinates = queryPolys(coords, this);
         this._drawVPolys(canvas, coords, vpolyCoordinates);
 
-        if (!self.inputRadius)
-            self.getRadiusFn(coords.z);
+        // if (!self.inputRadius)
+        //     self.getRadiusFn(coords.z);
 
         var queryCells = function(coords) {
             if (!self._rtreeCell)
@@ -1791,6 +1791,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         }
 
         var cells = queryCells(coords);
+
         this.drawCells(canvas, coords, cells);
 
         // this.drawCellName(canvas, coords, cells);
