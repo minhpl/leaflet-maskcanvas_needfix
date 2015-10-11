@@ -24,19 +24,19 @@
     var blue_context = blue_canvas.getContext('2d');
     blue_context.beginPath();
     blue_context.arc(RADIUS, RADIUS, RADIUS, 0, 2 * Math.PI, true);
-    blue_context.fillStyle = 'blue';
+    blue_context.fillStyle = 'rgba(250, 0, 0, 0.5)';
     blue_context.fill();
     blue_context.lineWidth = 1;
     blue_context.strokeStyle = '#003300';
     blue_context.stroke();
 
-    blue_context.beginPath();
-    blue_context.moveTo(0, 0);
-    blue_context.lineTo(0, blue_canvas.height);
-    blue_context.lineTo(blue_canvas.width, blue_canvas.height);
-    blue_context.lineTo(blue_canvas.width, 0);
-    blue_context.closePath();
-    blue_context.stroke();
+    // blue_context.beginPath();
+    // blue_context.moveTo(0, 0);
+    // blue_context.lineTo(0, blue_canvas.height);
+    // blue_context.lineTo(blue_canvas.width, blue_canvas.height);
+    // blue_context.lineTo(blue_canvas.width, 0);
+    // blue_context.closePath();
+    // blue_context.stroke();
 
     var img_blueCircle = new Image();
     img_blueCircle.src = blue_canvas.toDataURL("image/png");
