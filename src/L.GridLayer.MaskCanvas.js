@@ -53,6 +53,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         cellRadius: 30,
         hover_poly_color: 'rgba(200,0,0,1)',
         hover_cell_color: 'rgba(200,220,220,1)',
+        bright_cell_color: 'rgba(255, 102, 204,1)',
     },
 
     ready: false,
@@ -208,7 +209,110 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
     timeoutID: undefined,
 
+    determineCell: function(latlng) {
+
+        latlng = [20.98359,105.88806]
+        var currentLatLng = L.latLng([latlng[0], latlng[1]]);
+
+        var self = this;
+        var map = this.options.map;
+        var zoom = map.getZoom();
+
+        var currentPoint = map.project(currentLatLng, zoom);
+        var x = (currentPoint.x / TILESIZE) >> 0;
+        var y = (currentPoint.y / TILESIZE) >> 0;
+        var coords = L.point(x, y);
+        coords.z = zoom;
+
+
+        var pad = L.point(self.cellRadius, self.cellRadius);
+        var tlPts = currentPoint.subtract(pad);
+        var brPts = currentPoint.add(pad);
+        var nw = map.unproject(tlPts, zoom);
+        var se = map.unproject(brPts, zoom);
+        var bound = [se.lat, nw.lng, nw.lat, se.lng];
+
+        function getIntersectCell(bound) {
+            if (!self._rtreeCell)
+                return [];
+
+            var cells = self._rtreeCell.search(bound);
+
+            var result = [];
+            var id = -1,
+                topCell = undefined;
+
+            function isInsideSector(point, center, radius, angle1, angle2) {
+                function areClockwise(center, radius, angle, point2) {
+                    var point1 = {
+                        x: (center.x + radius) * Math.cos(angle),
+                        y: (center.y + radius) * Math.sin(angle)
+                    };
+                    return -point1.x * point2.y + point1.y * point2.x > 0;
+                }
+
+                var relPoint = {
+                    x: point.x - center.x,
+                    y: point.y - center.y
+                };
+
+                return !areClockwise(center, radius, angle1, relPoint) &&
+                    areClockwise(center, radius, angle2, relPoint) &&
+                    (relPoint.x * relPoint.x + relPoint.y * relPoint.y <= radius * radius);
+            }
+
+            if (cells.length > 0) {
+                for (var i = 0; i < cells.length; i++) {
+                    var r = cells[i];
+                    var cell = r[4];
+                    var center = map.project(L.latLng(cell.lat, cell.lng));
+                    if (isInsideSector(currentPoint, center, self.cellRadius, cell.startRadian, cell.endRadian)) {
+                        result.push(cell);
+                        var a = r[5];
+                        if (id < a) {
+                            topCell = cell;
+                            id = a;
+                        }
+                    }
+                }
+
+                result.topCell = topCell;
+                result.topCellID = id;
+                return result;
+            }
+
+            return [];
+        }
+
+        var cells = getIntersectCell(bound);
+        var cell = cells.topCell;
+
+        if (cell) {
+
+            if (!this.lastRecentInfo.cell || (this.lastRecentInfo.cell && (cell.cell_code != this.lastRecentInfo.cell.cell_code))) {
+
+                var radius = self.cellRadius << 1;
+
+                var imgCellCropped = self.cropImgBoxs([cell.lat, cell.lng], radius, radius, coords);
+                cell.imgCellCropped = imgCellCropped;
+
+                var cellCanvas = self.getCanvasCell(cell, self.options.bright_cell_color);
+                self.draw([cell.lat, cell.lng], radius, radius, coords, cellCanvas);
+            }
+        }
+
+        return cell;
+    },
+
+    redrawCell: function(cell) {
+        if (cell && cell.imgCellCropped) {
+            this.redrawImgCropped(cell.imgCellCropped);
+        }
+    },
+
     onMouseMove: function(e) {
+        this.determineCell([e.latlng.lat, e.latlng.lng]);
+
         var self = this;
         var map = this.options.map;
         if (self.timeoutID) clearTimeout(self.timeoutID);
@@ -261,31 +365,13 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
             }
 
             var polys = getIntersectPoly(currentLatLng);
+
             var pad = L.point(self.cellRadius, self.cellRadius);
             var tlPts = currentPoint.subtract(pad);
             var brPts = currentPoint.add(pad);
             var nw = map.unproject(tlPts, zoom);
             var se = map.unproject(brPts, zoom);
             var bound = [se.lat, nw.lng, nw.lat, se.lng];
-
-            function isInsideSector(point, center, radius, angle1, angle2) {
-                function areClockwise(center, radius, angle, point2) {
-                    var point1 = {
-                        x: (center.x + radius) * Math.cos(angle),
-                        y: (center.y + radius) * Math.sin(angle)
-                    };
-                    return -point1.x * point2.y + point1.y * point2.x > 0;
-                }
-
-                var relPoint = {
-                    x: point.x - center.x,
-                    y: point.y - center.y
-                };
-
-                return !areClockwise(center, radius, angle1, relPoint) &&
-                    areClockwise(center, radius, angle2, relPoint) &&
-                    (relPoint.x * relPoint.x + relPoint.y * relPoint.y <= radius * radius);
-            }
 
             function getIntersectCell(bound) {
                 if (!self._rtreeCell)
@@ -296,6 +382,25 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                 var result = [];
                 var id = -1,
                     topCell = undefined;
+
+                function isInsideSector(point, center, radius, angle1, angle2) {
+                    function areClockwise(center, radius, angle, point2) {
+                        var point1 = {
+                            x: (center.x + radius) * Math.cos(angle),
+                            y: (center.y + radius) * Math.sin(angle)
+                        };
+                        return -point1.x * point2.y + point1.y * point2.x > 0;
+                    }
+
+                    var relPoint = {
+                        x: point.x - center.x,
+                        y: point.y - center.y
+                    };
+
+                    return !areClockwise(center, radius, angle1, relPoint) &&
+                        areClockwise(center, radius, angle2, relPoint) &&
+                        (relPoint.x * relPoint.x + relPoint.y * relPoint.y <= radius * radius);
+                }
 
                 if (cells.length > 0) {
                     for (var i = 0; i < cells.length; i++) {
@@ -1009,7 +1114,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                 var center = poly.lBounds.getCenter();
                 poly.posL = [center.lat, center.lng];
                 var nw = poly.lBounds.getNorthWest();
-                poly.TL = [nw.lat,nw.lng];
+                poly.TL = [nw.lat, nw.lng];
 
                 poly.in = function(currentlatLng) {
                     var x = currentlatLng.lat,
