@@ -211,7 +211,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
     determineCell: function(latlng) {
 
-        latlng = [20.98359,105.88806]
+        // latlng = [20.98359,105.88806]
         var currentLatLng = L.latLng([latlng[0], latlng[1]]);
 
         var self = this;
@@ -311,7 +311,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
     },
 
     onMouseMove: function(e) {
-        this.determineCell([e.latlng.lat, e.latlng.lng]);
+        // this.determineCell([e.latlng.lat, e.latlng.lng]);
 
         var self = this;
         var map = this.options.map;
@@ -1154,6 +1154,11 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                 poly.lBounds = L.latLngBounds(vertexsL);
                 // console.log(poly);
                 var center = poly.lBounds.getCenter();
+                poly.posL = [center.lat, center.lng];
+                var nw = poly.lBounds.getNorthWest();
+                poly.TL = [nw.lat, nw.lng];
+
+
                 poly.posL = [center.lat, center.lng];
                 poly.in = function(currentlatLng) {
                     var x = currentlatLng.lat,
