@@ -21,6 +21,8 @@ const NORTH = 3 * (Math.PI / 2);
 const RED = "#FF0066";
 const BLUE = "#6666FF";
 const TILESIZE = 256;
+const CELLTYPE2G = 2;
+const CELLTYPE3G = 3;
 
 
 console.log("leaflet version: ", L.version);
@@ -77,8 +79,8 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
     cellRadius: 30,
     inputRadius: false,
-    drawCell2D: true,
-    drawCell3D: true,
+    drawCell2G: false,
+    drawCell3G: true,
     showCellName: false,
     cellNameRadius: false,
 
@@ -427,9 +429,15 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
             var cells = getIntersectCell(bound);
 
-            if (cells.topCell || polys.topPoly) {
+            var cell = cells.topCell;
+            var poly = polys.topPoly;
+            if (cells.length == 1 && cell && ((cell.cell_type == CELLTYPE2G && !self.drawCell2G) || (cell.cell_type == CELLTYPE3G && !self.drawCell3G))) {
+                cell = undefined;
+            }
+
+            if (cell || poly) {
                 $('.leaflet-container').css('cursor', 'pointer');
-                var cell = cells.topCell;
+                // var cell = cells.topCell;
                 if (cell) {
                     if (self.lastRecentInfo.cellID == cells.topCellID) {
 
@@ -445,7 +453,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                         var radius = (self.cellRadius) << 1;
                         self.lastRecentInfo.imgCellCropped = self.cropImgBoxs([cell.lat, cell.lng], radius, radius, coords);
 
-                        if (!self.lastRecentInfo.poly) {
+                        if (!self.lastRecentInfo.poly) { //case: mouse move from blank area to cell
                             var cellCanvas = self.getCanvasCell(cell, self.options.hover_cell_color);
                             self.draw([cell.lat, cell.lng], radius, radius, coords, cellCanvas);
                         }
@@ -464,11 +472,12 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                     }
                 }
 
-                var poly = polys.topPoly;
+                // var poly = polys.topPoly;
                 if (poly && !cell) {
                     if (self.lastRecentInfo.polyID && (polys.topPolyID == self.lastRecentInfo.polyID)) {
 
                     } else {
+
                         if (self.lastRecentInfo.imgPolyCropped)
                             self.redrawImgCropped(self.lastRecentInfo.imgPolyCropped);
 
@@ -491,11 +500,10 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                         self.lastRecentInfo.poly = undefined;
                         self.redrawImgCropped(self.lastRecentInfo.imgPolyCropped);
 
-                        if (self.lastRecentInfo.cell) {
+                        if (self.lastRecentInfo.cell) { //case: mouse move from poly to cell
                             var cellCanvas = self.getCanvasCell(cell, self.options.hover_cell_color);
                             self.draw([cell.lat, cell.lng], radius, radius, coords, cellCanvas);
                         }
-
                     }
                 }
 
@@ -2309,11 +2317,11 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         var x = pts[0];
         var y = pts[1];
 
-        var color = cell.cell_type == 2 ? RED : BLUE;
+        var color = cell.cell_type == 2 ? BLUE : RED;
 
-        if (this.drawCell2D == false && cell.cell_type == 2)
+        if (this.drawCell2G == false && cell.cell_type == 2)
             return;
-        if (this.drawCell3D == false && cell.cell_type == 3)
+        if (this.drawCell3G == false && cell.cell_type == 3)
             return;
 
         ctx.beginPath();
