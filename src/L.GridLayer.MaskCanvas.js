@@ -693,7 +693,6 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
             maxb = 0;
 
         // console.log("---------------------------------------")
-
         if (minX < 0) {
             mina = -((((-minX) / TILESIZE) >> 0) + 1);
             // console.log("mina", mina);
