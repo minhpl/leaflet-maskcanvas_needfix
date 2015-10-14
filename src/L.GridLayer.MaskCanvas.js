@@ -40,7 +40,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
     options: {
         // db: new PouchDB('vmts'),
         radius: 5, // this is the default radius (specific radius values may be passed with the data)
-        useAbsoluteRadius: false, // true: radius in meters, false: radius in pixels
+        useAbsoluteRadius: true, // true: radius in meters, false: radius in pixels
         color: '#000',
         opacity: 0.5,
         noMask: false, // true results in normal (filled) circled, instead masked circles
@@ -52,7 +52,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         map: undefined,
         useGlobalData: false,
         boundary: true,
-        cellRadius: 30,
+        _cellRadius: 30,
         hover_poly_color: 'rgba(200,0,0,1)',
         hover_cell_color: 'rgba(200,220,220,1)',
         bright_cell_color: 'rgba(255, 102, 204,1)',
@@ -77,10 +77,11 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
     BBAllPointLatlng: [-9999, -9999, -9999, -9999],
 
 
-    cellRadius: 30,
-    inputRadius: false,
-    drawCell2G: false,
-    drawCell3G: true,
+    _cellRadius: undefined, //pixel    
+    cellRadius: 50, //pixel   
+    // inputRadius: false,
+    drawCell2G: true,
+    drawCell3G: false,
     showCellName: false,
     cellNameRadius: false,
 
@@ -91,54 +92,54 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
      * @return {[type]}          [description]
      */
 
-    getRadiusFn: function(zoom) {
-        switch (zoom) {
-            case 1:
-            case 2:
-            case 3:
-            case 4:
-            case 5:
-                this.cellRadius = 4;
-                return 4;
-            case 6:
-            case 7:
-            case 8:
-            case 9:
-                this.cellRadius = 6;
-                return 6;
-            case 10:
-            case 11:
-            case 12:
-                this.cellRadius = 8;
-                return 8;
-            case 13:
-                this.cellRadius = 12;
-                return 12;
-            case 14:
-                this.cellRadius = 16;
-                return 16;
-            case 15:
-                this.cellRadius = 20;
-                return 20;
-            case 16:
-                this.cellRadius = 24;
-                return 24;
-            case 17:
-                this.cellRadius = 30;
-                return 30;
-            case 18:
-                this.cellRadius = 36;
-                return 36;
-            default:
-                this.cellRadius = 38;
-                return 38;
-        }
-    },
+    // getRadiusFn: function(zoom) {
+    //     switch (zoom) {
+    //         case 1:
+    //         case 2:
+    //         case 3:
+    //         case 4:
+    //         case 5:
+    //             this._cellRadius = 4;
+    //             return 4;
+    //         case 6:
+    //         case 7:
+    //         case 8:
+    //         case 9:
+    //             this._cellRadius = 6;
+    //             return 6;
+    //         case 10:
+    //         case 11:
+    //         case 12:
+    //             this._cellRadius = 8;
+    //             return 8;
+    //         case 13:
+    //             this._cellRadius = 12;
+    //             return 12;
+    //         case 14:
+    //             this._cellRadius = 16;
+    //             return 16;
+    //         case 15:
+    //             this._cellRadius = 20;
+    //             return 20;
+    //         case 16:
+    //             this._cellRadius = 24;
+    //             return 24;
+    //         case 17:
+    //             this._cellRadius = 30;
+    //             return 30;
+    //         case 18:
+    //             this._cellRadius = 36;
+    //             return 36;
+    //         default:
+    //             this._cellRadius = 38;
+    //             return 38;
+    //     }
+    // },
 
     initialize: function(options) {
         L.Util.setOptions(this, options);
 
-        var cellRadius = this.options.cellRadius;
+        var _cellRadius = this.options._cellRadius;
         var db = this.options.db;
 
         var self = this;
@@ -227,7 +228,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         coords.z = zoom;
 
 
-        var pad = L.point(self.cellRadius, self.cellRadius);
+        var pad = L.point(self._cellRadius, self._cellRadius);
         var tlPts = currentPoint.subtract(pad);
         var brPts = currentPoint.add(pad);
         var nw = map.unproject(tlPts, zoom);
@@ -268,7 +269,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                     var r = cells[i];
                     var cell = r[4];
                     var center = map.project(L.latLng(cell.lat, cell.lng));
-                    if (isInsideSector(currentPoint, center, self.cellRadius, cell.startRadian, cell.endRadian)) {
+                    if (isInsideSector(currentPoint, center, self._cellRadius, cell.startRadian, cell.endRadian)) {
                         result.push(cell);
                         var a = r[5];
                         if (id < a) {
@@ -293,7 +294,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
             if (!this.lastRecentInfo.cell || (this.lastRecentInfo.cell && (cell.cell_code != this.lastRecentInfo.cell.cell_code))) {
 
-                var radius = self.cellRadius << 1;
+                var radius = self._cellRadius << 1;
 
                 var imgCellCropped = self.cropImgBoxs([cell.lat, cell.lng], radius, radius, coords);
                 cell.imgCellCropped = imgCellCropped;
@@ -368,7 +369,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
             var polys = getIntersectPoly(currentLatLng);
 
-            var pad = L.point(self.cellRadius, self.cellRadius);
+            var pad = L.point(self._cellRadius, self._cellRadius);
             var tlPts = currentPoint.subtract(pad);
             var brPts = currentPoint.add(pad);
             var nw = map.unproject(tlPts, zoom);
@@ -409,9 +410,14 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                         var r = cells[i];
                         var cell = r[4];
                         var center = map.project(L.latLng(cell.lat, cell.lng));
-                        if (isInsideSector(currentPoint, center, self.cellRadius, cell.startRadian, cell.endRadian)) {
+                        if (isInsideSector(currentPoint, center, self._cellRadius, cell.startRadian, cell.endRadian)) {
                             result.push(cell);
                             var a = r[5];
+                            if (cell.cell_type == CELLTYPE2G && !self.drawCell2G)
+                                continue;
+                            if (cell.cell_type == CELLTYPE3G && !self.drawCell3G)
+                                continue;
+
                             if (id < a) {
                                 topCell = cell;
                                 id = a;
@@ -431,9 +437,9 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
             var cell = cells.topCell;
             var poly = polys.topPoly;
-            if (cells.length == 1 && cell && ((cell.cell_type == CELLTYPE2G && !self.drawCell2G) || (cell.cell_type == CELLTYPE3G && !self.drawCell3G))) {
-                cell = undefined;
-            }
+            // if (cell && ((cell.cell_type == CELLTYPE2G && !self.drawCell2G) || (cell.cell_type == CELLTYPE3G && !self.drawCell3G))) {
+            //     cell = undefined;
+            // }
 
             if (cell || poly) {
                 $('.leaflet-container').css('cursor', 'pointer');
@@ -450,7 +456,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                         self.lastRecentInfo.cell = cell;
                         self.lastRecentInfo.cells = cells;
 
-                        var radius = (self.cellRadius) << 1;
+                        var radius = (self._cellRadius) << 1;
                         self.lastRecentInfo.imgCellCropped = self.cropImgBoxs([cell.lat, cell.lng], radius, radius, coords);
 
                         if (!self.lastRecentInfo.poly) { //case: mouse move from blank area to cell
@@ -1938,36 +1944,6 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
         var self = this;
 
-        var getBB = function(coords, padSize) {
-            var tileSize = self.options.tileSize;
-            var nwPoint = coords.multiplyBy(tileSize);
-            var sePoint = nwPoint.add(new L.Point(tileSize, tileSize));
-
-            if (self.options.useAbsoluteRadius) {
-                var centerPoint = nwPoint.add(new L.Point(tileSize / 2, tileSize / 2));
-                self._latLng = self._map.unproject(centerPoint, coords.z);
-            }
-
-            // padding
-            var pad;
-            if (!padSize)
-                pad = new L.Point(self._getMaxRadius(coords.z), self._getMaxRadius(coords.z));
-            else
-                pad = new L.Point(padSize, padSize);
-
-            // console.log(pad);
-            nwPoint = nwPoint.subtract(pad);
-            sePoint = sePoint.add(pad);
-
-            var bounds = new L.LatLngBounds(self._map.unproject(sePoint, coords.z),
-                self._map.unproject(nwPoint, coords.z));
-
-            var currentBounds = self._boundsToQuery(bounds);
-            var bb = [currentBounds.y, currentBounds.x, currentBounds.y + currentBounds.height, currentBounds.x + currentBounds.width];
-
-            return bb;
-        }
-
         var queryPolys = function(coords, self) {
             if (!self._rtreePolygon)
                 return [];
@@ -1979,7 +1955,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
             if (self.options.useAbsoluteRadius) {
                 var centerPoint = nwPoint.add(new L.Point(tileSize >> 1, tileSize >> 1));
-                this._latLng = this._map.unproject(centerPoint, coords.z);
+                self._latLng = self._map.unproject(centerPoint, coords.z);
             }
 
             var bounds = new L.LatLngBounds(self._map.unproject(sePoint, coords.z), self._map.unproject(nwPoint, coords.z));
@@ -2003,7 +1979,48 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         var queryCells = function(coords) {
             if (!self._rtreeCell)
                 return [];
-            var bb = getBB(coords, self.cellRadius);
+
+
+            var getBB = function(coords) {
+                var tileSize = self.options.tileSize;
+                var nwPoint = coords.multiplyBy(tileSize);
+                var sePoint = nwPoint.add(new L.Point(tileSize, tileSize));
+
+                if (self.options.useAbsoluteRadius) {
+                    var centerPoint = nwPoint.add(new L.Point(tileSize / 2, tileSize / 2));
+                    self._latLng = self._map.unproject(centerPoint, coords.z);
+                }
+
+                if (self.options.useAbsoluteRadius) {
+                    // console.log("?????????????????????????????????");
+                    self._cellRadius = self._calcRadius(self.cellRadius, coords.z);
+                    // console.log(self._cellRadius);
+                } else {
+                    self._cellRadius = self.cellRadius;
+                }
+
+                // padding
+                var pad;
+                // if (!padSize)
+                // pad = new L.Point(self._getMaxRadius(coords.z), self._getMaxRadius(coords.z));
+                    pad = new L.Point(self._cellRadius, self._cellRadius);
+                // else
+                    // pad = new L.Point(padSize, padSize);
+
+                // console.log(pad);
+                nwPoint = nwPoint.subtract(pad);
+                sePoint = sePoint.add(pad);
+
+                var bounds = new L.LatLngBounds(self._map.unproject(sePoint, coords.z),
+                    self._map.unproject(nwPoint, coords.z));
+
+                var currentBounds = self._boundsToQuery(bounds);
+                var bb = [currentBounds.y, currentBounds.x, currentBounds.y + currentBounds.height, currentBounds.x + currentBounds.width];
+
+                return bb;
+            }
+
+            var bb = getBB(coords);
 
             var cellCoordinates = self._rtreeCell.search(bb);
 
@@ -2018,8 +2035,22 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
         var cells = queryCells(coords);
 
-        this.drawCells(canvas, coords, cells);
 
+
+        // var metersPerPixel = function(latitude, zoomLevel) {
+        //     var earthCircumference = 40075017;
+        //     var latitudeRadians = latitude * (Math.PI / 180);
+        //     return earthCircumference * Math.cos(latitudeRadians) / Math.pow(2, zoomLevel + 8);
+        // };
+
+        // var pixelValue = function(latitude, meters, zoomLevel) {
+        //     return meters / metersPerPixel(latitude, zoomLevel);
+        // };
+
+        // var map = this.options.map;
+        // this._cellRadius = pixelValue(this._latLng.lat, this.cellRadiusMeter, coords.z);        
+
+        this.drawCells(canvas, coords, cells);
         // this.drawCellName(canvas, coords, cells);
     },
 
@@ -2297,7 +2328,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
     getCanvasCell: function(cell, color) {
         var canvas = document.createElement('canvas');
-        var radius = this.cellRadius;
+        var radius = this._cellRadius;
         canvas.width = canvas.height = (radius << 1);
 
         var ctx = canvas.getContext('2d');
@@ -2326,7 +2357,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
         ctx.beginPath();
         ctx.moveTo(x, y);
-        ctx.arc(x, y, this.cellRadius, cell.startRadian, cell.endRadian, false);
+        ctx.arc(x, y, this._cellRadius, cell.startRadian, cell.endRadian, false);
         ctx.closePath();
         ctx.fillStyle = color;
         ctx.fill();
@@ -2334,8 +2365,8 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
         if (this.showCellName) {
             // console.log(cell);
-            var xt = this.cellRadius * Math.cos(cell.biRadian);
-            var yt = this.cellRadius * Math.sin(cell.biRadian);
+            var xt = this._cellRadius * Math.cos(cell.biRadian);
+            var yt = this._cellRadius * Math.sin(cell.biRadian);
 
             ctx.fillStyle = 'black';
             ctx.fillText(cell.cell_code, xt + x, yt + y);

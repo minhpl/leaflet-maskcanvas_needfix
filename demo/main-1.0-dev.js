@@ -45,7 +45,7 @@ $(function() {
     var coverageLayer = new L.TileLayer.MaskCanvas({
         opacity: 0.5,
         radius: RADIUS,
-        useAbsoluteRadius: false,
+        useAbsoluteRadius: true,
         debug: true,
         map: map,
         boundary: true,
