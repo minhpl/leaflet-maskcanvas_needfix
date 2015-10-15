@@ -1377,6 +1377,20 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         this._maxRadius = this.options.radius;
     },
 
+
+    clearCell: function(boundaryBox) {
+        if (boundaryBox) {
+            var items = this._rtreeCell.search(boundaryBox);
+            for (var i = 0; i < items; i++) {
+                var item = items[i];
+                this._rtreeCell.remove(item);
+            }
+        } else {
+            this._rtreeCell.clear();
+        }
+        this._maxRadius = this.options.radius;
+    },
+
     addPolygonMarker: function(dataPoly) {
         if (this._rtreePolygon)
             this._rtreePolygon.load(this.makeDataPoly(dataPoly));
@@ -2003,9 +2017,9 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                 var pad;
                 // if (!padSize)
                 // pad = new L.Point(self._getMaxRadius(coords.z), self._getMaxRadius(coords.z));
-                    pad = new L.Point(self._cellRadius, self._cellRadius);
+                pad = new L.Point(self._cellRadius, self._cellRadius);
                 // else
-                    // pad = new L.Point(padSize, padSize);
+                // pad = new L.Point(padSize, padSize);
 
                 // console.log(pad);
                 nwPoint = nwPoint.subtract(pad);
