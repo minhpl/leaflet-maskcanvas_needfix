@@ -369,6 +369,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
             var polys = getIntersectPoly(currentLatLng);
 
+            if(!self._cellRadius) self._cellRadius = 0;
             var pad = L.point(self._cellRadius, self._cellRadius);
             var tlPts = currentPoint.subtract(pad);
             var brPts = currentPoint.add(pad);
