@@ -24,6 +24,10 @@ const TILESIZE = 256;
 const CELLTYPE2G = 2;
 const CELLTYPE3G = 3;
 
+const EMPTY = {
+    empty: true,
+};
+
 
 console.log("leaflet version: ", L.version);
 
@@ -78,7 +82,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
 
     _cellRadius: undefined, //pixel    
-    cellRadius: 50, //pixel   
+    cellRadius: 200, //pixel   
     // inputRadius: false,
     drawCell2G: true,
     drawCell3G: true,
@@ -343,6 +347,25 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                     var lng = currentlatlng.lng;
                     var result = rtree.search([lat, lng, lat, lng]);
 
+                    isInsidePoly = function(currentlatLng, vertexsL) {
+                        var x = currentlatLng.lat,
+                            y = currentlatLng.lng;
+
+                        // var vertexsL = this.vertexsL;
+                        var inside = false;
+                        for (var i = 0, j = vertexsL.length - 1; i < vertexsL.length; j = i++) {
+                            var xi = vertexsL[i].lat,
+                                yi = vertexsL[i].lng;
+                            var xj = vertexsL[j].lat,
+                                yj = vertexsL[j].lng;
+
+                            var intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                            if (intersect) inside = !inside;
+                        }
+
+                        return inside;
+                    }
+
                     if (result.length > 0) {
                         var polys = [];
                         var topPoly, id = -1;
@@ -350,7 +373,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                             var r = result[i];
                             var poly = r[4];
 
-                            if (poly.in(currentlatlng)) {
+                            if (isInsidePoly(currentLatLng, poly.vertexsL)) {
                                 polys.push(poly);
                                 if (r[5] > id) {
                                     topPoly = poly;
@@ -1136,24 +1159,24 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                 var nw = poly.lBounds.getNorthWest();
                 poly.TL = [nw.lat, nw.lng];
 
-                poly.in = function(currentlatLng) {
-                    var x = currentlatLng.lat,
-                        y = currentlatLng.lng;
+                // poly.in = function(currentlatLng) {
+                //     var x = currentlatLng.lat,
+                //         y = currentlatLng.lng;
 
-                    var vertexsL = this.vertexsL;
-                    var inside = false;
-                    for (var i = 0, j = vertexsL.length - 1; i < vertexsL.length; j = i++) {
-                        var xi = vertexsL[i].lat,
-                            yi = vertexsL[i].lng;
-                        var xj = vertexsL[j].lat,
-                            yj = vertexsL[j].lng;
+                //     var vertexsL = this.vertexsL;
+                //     var inside = false;
+                //     for (var i = 0, j = vertexsL.length - 1; i < vertexsL.length; j = i++) {
+                //         var xi = vertexsL[i].lat,
+                //             yi = vertexsL[i].lng;
+                //         var xj = vertexsL[j].lat,
+                //             yj = vertexsL[j].lng;
 
-                        var intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-                        if (intersect) inside = !inside;
-                    }
+                //         var intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                //         if (intersect) inside = !inside;
+                //     }
 
-                    return inside;
-                }
+                //     return inside;
+                // }
 
                 lBounds = poly.lBounds;
                 var a = [lBounds.getSouth(), lBounds.getWest(), lBounds.getNorth(), lBounds.getEast(), poly, id++];
@@ -1180,22 +1203,22 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
 
                 poly.posL = [center.lat, center.lng];
-                poly.in = function(currentlatLng) {
-                    var x = currentlatLng.lat,
-                        y = currentlatLng.lng;
-                    var vertexsL = this.vertexsL;
-                    var inside = false;
-                    for (var i = 0, j = vertexsL.length - 1; i < vertexsL.length; j = i++) {
-                        var xi = vertexsL[i].lat,
-                            yi = vertexsL[i].lng;
-                        var xj = vertexsL[j].lat,
-                            yj = vertexsL[j].lng;
+                // poly.in = function(currentlatLng) {
+                //     var x = currentlatLng.lat,
+                //         y = currentlatLng.lng;
+                //     var vertexsL = this.vertexsL;
+                //     var inside = false;
+                //     for (var i = 0, j = vertexsL.length - 1; i < vertexsL.length; j = i++) {
+                //         var xi = vertexsL[i].lat,
+                //             yi = vertexsL[i].lng;
+                //         var xj = vertexsL[j].lat,
+                //             yj = vertexsL[j].lng;
 
-                        var intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-                        if (intersect) inside = !inside;
-                    }
-                    return inside;
-                }
+                //         var intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                //         if (intersect) inside = !inside;
+                //     }
+                //     return inside;
+                // }
                 lBounds = poly.lBounds;
                 var a = [lBounds.getSouth(), lBounds.getWest(), lBounds.getNorth(), lBounds.getEast(), poly, id++];
                 dPoly.push(a);
@@ -1964,9 +1987,15 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         var id = this.getId(coords);
 
         var tile = this.tiles.get(id);
+
+        // tile = undefined;
         if (tile) {
-            // return tile;
-        } {
+            return tile;
+        } else {
+
+            if (this.emptyTiles.get(id)) {
+                return EMPTY;
+            }
 
             var queryPolys = function(coords) {
                 if (!self._rtreePolygon)
@@ -2056,27 +2085,40 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                 cellCoordinates.sort(function(a, b) {
                     return a[5] - b[5];
                 })
-                return cellCoordinates;
+                return {
+                    cellCoordinates: cellCoordinates,
+                    bb: bb,
+                }
             }
 
-            var cells = queryCells(coords);
+            var rqcells = queryCells(coords);
+            var cellCoordinates = rqcells.cellCoordinates;
+            var bbCell = rqcells.bb;
 
             var numPolys = vpolyCoordinates.length;
-            var numCells = cells.length;
+            var numCells = cellCoordinates.length;
 
             tile = {
                 _id: id,
                 numCells: numCells,
                 numPolys: numPolys,
                 dataPolys: vpolyCoordinates,
-                dataCells: cells,
-                bb: bbpoly,
-                // bbCell:
+                dataCells: cellCoordinates,
+                bbPoly: bbpoly,
+                bbCell: bbCell,
+                cellRadius: this._cellRadius,
+            }
+
+            if (tile.numCells == 0 && tile.numPolys == 0) {
+                this.emptyTiles.set(id, EMPTY);
             }
 
             return tile;
         }
     },
+
+
+
 
 
     //important function
@@ -2094,7 +2136,8 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
 
         var tile = this.getTile(coords);
-
+        if (tile.empty)
+            return;
 
         // var metersPerPixel = function(latitude, zoomLevel) {
         //     var earthCircumference = 40075017;
@@ -2108,11 +2151,17 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
         // var map = this.options.map;
         // this._cellRadius = pixelValue(this._latLng.lat, this.cellRadiusMeter, coords.z);        
+
+        // console.log("here", tile);
+
+        this._cellRadius = tile.cellRadius;
         this._drawVPolys(canvas, coords, tile.dataPolys);
         this.drawCells(canvas, coords, tile.dataCells);
         // this.drawCellName(canvas, coords, cells);
 
-        this.store.set(id, tile);
+        if (tile.numCells > 0 || tile.numPolys > 0) {
+            this.store(id, tile);
+        }
     },
 
 
@@ -2140,7 +2189,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
             // console.log("here1");
             if (removed) {
                 // console.log("removed tile", removed.value.needSave, removed.value._id, removed.value);
-                // return self.backupToDb(self.options.db, removed.value);
+                return self.backupToDb(self.options.db, removed.value);
             } else {
                 // console.log("not removed", tile._id, tile);
                 // return Promise.resolve();
@@ -2148,6 +2197,108 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         });
         // })
     },
+
+    backupToDb: function(db, tile) {
+
+        console.log(tile.dataCells);
+
+        // return;
+        var simpleTile = {
+            _id: tile._id,
+            numCells: tile.numCells,
+            numPolys: tile.numPolys,
+            dataCells: tile.dataCells,
+            dataPolys: tile.dataPolys,
+
+            bbPoly: tile.bbPoly,
+            bbCell: tile.bbCell,
+            cellRadius: tile.cellRadius,
+        }
+
+
+        var promise = new Promise(function(resolved, reject) {
+            if (!self.worker) {
+
+                //********Web worker******
+                //**************************
+
+                /**
+                 * I hope that operative will fallback to setTimeout in case of no web-worker support.
+                 */
+
+                /**
+                 * @description  web worker only see variable and function in worker scope (
+                 * because web worker be written on individual blob or file), -> cannot see
+                 * any variable or function in outer scope
+                 *
+                 *  but why if replace this by self, this code still work correct ? 
+                 */
+
+                self.worker = operative({
+                    db: undefined,
+
+                    backup: function(simpleTile, callback) {
+
+                        console.log(simpleTile);
+
+                        //Only need to create DB object only once
+                        if (!this.db) {
+                            this.db = new PouchDB('vmts');
+                        }
+
+                        this.db.get(simpleTile._id).then(function(doc) {
+                                //doc._rev co khi len toi 3, tuc la da duoc update lai 3 lan
+                                // console.log(doc._rev, doc.needSave);
+                                simpleTile._rev = doc._rev;
+                                return this.db.put(simpleTile);
+                            })
+                            .then(function() {
+                                callback('ok');
+                                return this.db.get(simpleTile._id);
+                            }).then(function(doc) {
+                                console.log("successfully update stored object: ", doc._id, doc);
+                            })
+                            .catch(function(err) {
+                                if (err.status == 404) {
+                                    this.db.put(simpleTile).then(function(res) {
+                                        console.log('successfully save new object ', simpleTile._id, res);
+                                        callback('ok');
+                                    }).catch(function(err) {
+                                        console.log('other err2');
+                                        callback(undefined);
+                                    });
+                                } else {
+                                    console.log('other err1');
+                                    callback(undefined);
+                                }
+                            });
+                    }
+                }, ['pouchdb-4.0.3.min.js', 'pouchdb.upsert.js']);
+            }
+
+            //********invoke web worker******
+            //*********************************
+            if (self.worker) {
+                self.worker.backup(simpleTile, function(results) {
+                    if (results) {
+                        // if (self.options.debug) console.log("Successfully update stored object: ", tile._id);
+                        resolved();
+                    } else {
+                        console.log('err');
+                        reject();
+                    }
+                })
+            }
+        });
+
+
+        if (!self.prev) self.prev = Promise.resolve();
+        self.prev = self.prev.then(function() {
+            // console.log("before promise");
+            return promise;
+        })
+    },
+
 
     // drawCellNames: function(canvas, coords, cells) {
 
