@@ -369,7 +369,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
             var polys = getIntersectPoly(currentLatLng);
 
-            if(!self._cellRadius) self._cellRadius = 0;
+            if (!self._cellRadius) self._cellRadius = 0;
             var pad = L.point(self._cellRadius, self._cellRadius);
             var tlPts = currentPoint.subtract(pad);
             var brPts = currentPoint.add(pad);
@@ -623,7 +623,8 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         var topPointTile = this._tilePoint(coords, topPts);
 
         var tileIDs = this.getTileIDs(topPointTile, WIDTH, HEIGHT, coords);
-
+        // if (tileIDs.length > 1)
+        // console.log("tileIDs", tileIDs);
 
         for (var i = 0; i < tileIDs.length; i++) {
             var tile = tileIDs[i];
@@ -635,6 +636,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
             if (canvas) {
                 var ctx = canvas.getContext('2d');
                 // img.onload= function(){
+                // console.log(canvas);
                 this.drawImage(ctx, img, tilePoint[0] - w, tilePoint[1] - h);
                 // this.drawImage(ctx, img, 0, 0);
             }
@@ -876,10 +878,13 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         }
 
         try {
-            if (image.width == 0 || image.height == 0)
+            if (image.width == 0 || image.height == 0) {
+                // console.log("here");
                 return;
-            else
+            } else {
                 ctx.drawImage(image, x, y);
+                // console.log("here", ctx.canvas, ctx);
+            }
         } catch (e) {
             if (e.name == "NS_ERROR_NOT_AVAILABLE") {
                 // Wait a bit before trying again; you may wish to change the
@@ -1112,7 +1117,8 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                 var lng = 105.72898864746095 + Math.random() * (105.8020305633545 - 105.72898864746095);
 
                 var poly = makeVPolygon2(lat, lng, maxWith, maxHeight); //tao hinh dang cua polygon                        
-                poly[0].c = 'rgba(0, 255, 0,1)';
+                poly[0].c_fill = 'rgba(0, 255, 0,1)';
+                poly[0].c_border = 'rgba(0, 255, 0,1)';
 
                 // this.getVertexAndBoundinLatLng(poly);
                 var vertexsL = [];
@@ -1946,20 +1952,18 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
      * @private
      */
 
-    //important function
-    _draw: function(canvas, coords) {
-        // var valid = this.iscollides(coords);
-        // if (!valid) return;          
-        if ((!this._rtreePolygon && !this._rtreeCell) || !this._map) {
-            return;
-        }
 
-        var id = this.getId(coords);
-        this.canvases.set(id, canvas);
+    getTile: function(coords) {
+        /**
+
+         * @general description: this function check if tile in cache (lru or db)
+         * if tile is not founded, then we create tile data by RTREE, and then we cache this tile to lru immediately    
+         */
 
         var self = this;
+        var id = this.getId(coords);
 
-        var queryPolys = function(coords, self) {
+        var queryPolys = function(coords) {
             if (!self._rtreePolygon)
                 return [];
 
@@ -1982,19 +1986,21 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
             vpolyCoordinates.sort(function(a, b) {
                 return a[5] - b[5];
             })
-            return vpolyCoordinates;
+
+            return {
+                vpolyCoordinates: vpolyCoordinates,
+                bb: bb,
+            };
         }
 
-        var vpolyCoordinates = queryPolys(coords, this);
-        this._drawVPolys(canvas, coords, vpolyCoordinates);
+        var rqpoly = queryPolys(coords);
+        var vpolyCoordinates = rqpoly.vpolyCoordinates;
+        var bbpoly = rqpoly.bb;
 
-        // if (!self.inputRadius)
-        //     self.getRadiusFn(coords.z);
 
         var queryCells = function(coords) {
             if (!self._rtreeCell)
                 return [];
-
 
             var getBB = function(coords) {
                 var tileSize = self.options.tileSize;
@@ -2050,6 +2056,40 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
         var cells = queryCells(coords);
 
+        var numPolys = vpolyCoordinates.length;
+        var numCells = cells.length;
+
+        tile = {
+            _id: id,
+            numCells: numCells,
+            numPolys: numPolys,
+            dataPolys: vpolyCoordinates,
+            dataCells: cells,
+            bb: bbpoly,
+            // bbCell:
+        }
+
+        return tile;
+    },
+
+
+    //important function
+    _draw: function(canvas, coords) {
+        // var valid = this.iscollides(coords);
+        // if (!valid) return;          
+        if ((!this._rtreePolygon && !this._rtreeCell) || !this._map) {
+            return;
+        }
+
+        var id = this.getId(coords);
+        this.canvases.set(id, canvas, function(removed, keyadd) {
+            // console.log("add:", "removed: ",removed.key);
+        });
+
+        var self = this;
+
+
+        var tile = this.getTile(coords);
 
 
         // var metersPerPixel = function(latitude, zoomLevel) {
@@ -2064,8 +2104,8 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
         // var map = this.options.map;
         // this._cellRadius = pixelValue(this._latLng.lat, this.cellRadiusMeter, coords.z);        
-
-        this.drawCells(canvas, coords, cells);
+        this._drawVPolys(canvas, coords, tile.dataPolys);
+        this.drawCells(canvas, coords, tile.dataCells);
         // this.drawCellName(canvas, coords, cells);
     },
 
@@ -2131,7 +2171,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
     //     ctx.drawImage(this.options.img_on, 0, 0);
     // },
 
-    getCanvasPoly: function(vpoly, coords, fillColor) {
+    getCanvasPoly: function(vpoly, coords, c_fill, c_border) {
         var boundsL = vpoly.lBounds;
         var nw = boundsL.getNorthWest();
         topLeft = this._tilePoint(coords, [nw.lat, nw.lng]);
@@ -2147,7 +2187,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         canvas.height = height;
 
         var subctx = canvas.getContext('2d');
-        subctx.fillStyle = fillColor;
+        subctx.fillStyle = c_fill;
 
         subctx.translate(-topLeft[0], -topLeft[1]);
 
@@ -2167,7 +2207,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         subctx.closePath();
         subctx.fill();
         if (this.options.boundary) {
-            subctx.strokeStyle = "black";
+            subctx.strokeStyle = c_border;
             subctx.stroke();
         }
         vpoly.size = [width, height];
@@ -2186,8 +2226,8 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
         if (poly.zoom != coords.z) {
             poly.zoom = coords.z;
-
-            var canvas = this.getCanvasPoly(poly, coords, poly[0].c);
+            var c = poly[0];
+            var canvas = this.getCanvasPoly(poly, coords, c.c_fill);
 
             poly.canvas = canvas;
             poly.canvas2 = this.getCanvasPoly(poly, coords, this.options.hover_poly_color);
@@ -2354,7 +2394,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         if (color)
             ctx.fillStyle = color;
         ctx.fill();
-        ctx.stroke();
+        // ctx.stroke();
 
         return canvas;
     },
@@ -2396,6 +2436,10 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
             var pos = this._tilePoint(coords, [cell.lat, cell.lng]);
             // console.log(coords.z, "-----------");
             this.drawCell(ctx, pos, cell);
+
+            // draw: function(topPointlatlng, WIDTH, HEIGHT, coords, img)
+            // this.draw([cell.lat, cell.lng], this._cellRadius, this._cellRadius, coords, this.getCanvasCell(cell, RED));
+
         }
     },
 
