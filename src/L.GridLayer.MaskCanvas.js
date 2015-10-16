@@ -81,7 +81,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
     cellRadius: 50, //pixel   
     // inputRadius: false,
     drawCell2G: true,
-    drawCell3G: false,
+    drawCell3G: true,
     showCellName: false,
     cellNameRadius: false,
 
@@ -1248,7 +1248,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                 var azimuth = cell.azimuth;
                 var azimuthR = this.degreeToRadian(azimuth);
 
-                cell.biRadian = NORTH + azimuth;
+                cell.biRadian = NORTH + azimuthR;
                 cell.startRadian = cell.biRadian - HCELLARCSIZE;
                 cell.endRadian = cell.biRadian + HCELLARCSIZE;
 
@@ -2112,9 +2112,42 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         this.drawCells(canvas, coords, tile.dataCells);
         // this.drawCellName(canvas, coords, cells);
 
-        this.tiles.set(id, tile);
+        this.store.set(id, tile);
     },
 
+
+    store: function(id, tile) {
+        var self = this;
+
+        /**
+         *No need to wait for rtree_loaded 
+         *rtree_loaded is actually global map data
+         *tile can be loaded from server individually, there is no need to wait for the whole map to be downloaded and store in rtree.
+         */
+
+        /**        
+         *  when rtree have not been fully loaded data, if we save tile to db,
+         *  then when rtree is fully load data, data of some tile will change, so we need to update all tile in db.
+         *
+         *  additionally, when rtree contain no data, all tile is empty, so this function never been called
+         */
+
+        // if (self.rtree_loaded) {
+        // console.log("No tiles stored ",self.tiles.size);  
+
+        // return new Promise(function(resolve, reject) {
+        self.tiles.set(id, tile, function(removed) {
+            // console.log("here1");
+            if (removed) {
+                // console.log("removed tile", removed.value.needSave, removed.value._id, removed.value);
+                // return self.backupToDb(self.options.db, removed.value);
+            } else {
+                // console.log("not removed", tile._id, tile);
+                // return Promise.resolve();
+            }
+        });
+        // })
+    },
 
     // drawCellNames: function(canvas, coords, cells) {
 
