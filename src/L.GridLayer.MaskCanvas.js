@@ -623,8 +623,6 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         var topPointTile = this._tilePoint(coords, topPts);
 
         var tileIDs = this.getTileIDs(topPointTile, WIDTH, HEIGHT, coords);
-        // if (tileIDs.length > 1)
-        // console.log("tileIDs", tileIDs);
 
         for (var i = 0; i < tileIDs.length; i++) {
             var tile = tileIDs[i];
@@ -636,7 +634,6 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
             if (canvas) {
                 var ctx = canvas.getContext('2d');
                 // img.onload= function(){
-                // console.log(canvas);
                 this.drawImage(ctx, img, tilePoint[0] - w, tilePoint[1] - h);
                 // this.drawImage(ctx, img, 0, 0);
             }
@@ -739,10 +736,17 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         var _y = y < 0 ? 0 : y;
         var result = {};
 
-        result.id = zoom + "_" + _x + "_" + _y;
+        var id = zoom + "_" + _x + "_" + _y;
+        result.id = id;
         result.coords = L.point(_x, _y);
         result.coords.zoom = zoom;
+
+        var canvas = this.canvases.get(id);
+        if (canvas) result.canvas = canvas;
+        return result;
+
         var tile = this.tiles.get(result.id);
+
         if (tile) {
             result.canvas = tile.canvas;
             if (!result.canvas) console.log("No canvas 1");
@@ -878,13 +882,10 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         }
 
         try {
-            if (image.width == 0 || image.height == 0) {
-                // console.log("here");
+            if (image.width == 0 || image.height == 0)
                 return;
-            } else {
+            else
                 ctx.drawImage(image, x, y);
-                // console.log("here", ctx.canvas, ctx);
-            }
         } catch (e) {
             if (e.name == "NS_ERROR_NOT_AVAILABLE") {
                 // Wait a bit before trying again; you may wish to change the
@@ -1118,7 +1119,6 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
                 var poly = makeVPolygon2(lat, lng, maxWith, maxHeight); //tao hinh dang cua polygon                        
                 poly[0].c = 'rgba(0, 255, 0,1)';
-                // poly[0].c_border = 'rgba(0, 255, 0,1)';
 
                 // this.getVertexAndBoundinLatLng(poly);
                 var vertexsL = [];
@@ -1963,113 +1963,119 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         var self = this;
         var id = this.getId(coords);
 
-        var queryPolys = function(coords) {
-            if (!self._rtreePolygon)
-                return [];
+        var tile = this.tiles.get(id);
+        if (tile) {
+            // return tile;
+        } {
 
-            var tileSize = self.options.tileSize;
+            var queryPolys = function(coords) {
+                if (!self._rtreePolygon)
+                    return [];
 
-            var nwPoint = coords.multiplyBy(tileSize);
-            var sePoint = nwPoint.add(new L.Point(tileSize, tileSize));
-
-            if (self.options.useAbsoluteRadius) {
-                var centerPoint = nwPoint.add(new L.Point(tileSize >> 1, tileSize >> 1));
-                self._latLng = self._map.unproject(centerPoint, coords.z);
-            }
-
-            var bounds = new L.LatLngBounds(self._map.unproject(sePoint, coords.z), self._map.unproject(nwPoint, coords.z));
-
-            var currentBounds = self._boundsToQuery(bounds);
-            var bb = [currentBounds.y, currentBounds.x, currentBounds.y + currentBounds.height, currentBounds.x + currentBounds.width];
-            var vpolyCoordinates = self._rtreePolygon.search(bb);
-
-            vpolyCoordinates.sort(function(a, b) {
-                return a[5] - b[5];
-            })
-
-            return {
-                vpolyCoordinates: vpolyCoordinates,
-                bb: bb,
-            };
-        }
-
-        var rqpoly = queryPolys(coords);
-        var vpolyCoordinates = rqpoly.vpolyCoordinates;
-        var bbpoly = rqpoly.bb;
-
-
-        var queryCells = function(coords) {
-            if (!self._rtreeCell)
-                return [];
-
-            var getBB = function(coords) {
                 var tileSize = self.options.tileSize;
+
                 var nwPoint = coords.multiplyBy(tileSize);
                 var sePoint = nwPoint.add(new L.Point(tileSize, tileSize));
 
                 if (self.options.useAbsoluteRadius) {
-                    var centerPoint = nwPoint.add(new L.Point(tileSize / 2, tileSize / 2));
+                    var centerPoint = nwPoint.add(new L.Point(tileSize >> 1, tileSize >> 1));
                     self._latLng = self._map.unproject(centerPoint, coords.z);
                 }
 
-                if (self.options.useAbsoluteRadius) {
-                    // console.log("?????????????????????????????????");
-                    self._cellRadius = self._calcRadius(self.cellRadius, coords.z);
-                    // console.log(self._cellRadius);
-                } else {
-                    self._cellRadius = self.cellRadius;
-                }
-
-                // padding
-                var pad;
-                // if (!padSize)
-                // pad = new L.Point(self._getMaxRadius(coords.z), self._getMaxRadius(coords.z));
-                pad = new L.Point(self._cellRadius, self._cellRadius);
-                // else
-                // pad = new L.Point(padSize, padSize);
-
-                // console.log(pad);
-                nwPoint = nwPoint.subtract(pad);
-                sePoint = sePoint.add(pad);
-
-                var bounds = new L.LatLngBounds(self._map.unproject(sePoint, coords.z),
-                    self._map.unproject(nwPoint, coords.z));
+                var bounds = new L.LatLngBounds(self._map.unproject(sePoint, coords.z), self._map.unproject(nwPoint, coords.z));
 
                 var currentBounds = self._boundsToQuery(bounds);
                 var bb = [currentBounds.y, currentBounds.x, currentBounds.y + currentBounds.height, currentBounds.x + currentBounds.width];
+                var vpolyCoordinates = self._rtreePolygon.search(bb);
 
-                return bb;
+                vpolyCoordinates.sort(function(a, b) {
+                    return a[5] - b[5];
+                })
+
+                return {
+                    vpolyCoordinates: vpolyCoordinates,
+                    bb: bb,
+                };
             }
 
-            var bb = getBB(coords);
+            var rqpoly = queryPolys(coords);
+            var vpolyCoordinates = rqpoly.vpolyCoordinates;
+            var bbpoly = rqpoly.bb;
 
-            var cellCoordinates = self._rtreeCell.search(bb);
 
-            // if (cellCoordinates.length > 0)
-            // console.log("---------------------??", cellCoordinates);
+            var queryCells = function(coords) {
+                if (!self._rtreeCell)
+                    return [];
 
-            cellCoordinates.sort(function(a, b) {
-                return a[5] - b[5];
-            })
-            return cellCoordinates;
+                var getBB = function(coords) {
+                    var tileSize = self.options.tileSize;
+                    var nwPoint = coords.multiplyBy(tileSize);
+                    var sePoint = nwPoint.add(new L.Point(tileSize, tileSize));
+
+                    if (self.options.useAbsoluteRadius) {
+                        var centerPoint = nwPoint.add(new L.Point(tileSize / 2, tileSize / 2));
+                        self._latLng = self._map.unproject(centerPoint, coords.z);
+                    }
+
+                    if (self.options.useAbsoluteRadius) {
+                        // console.log("?????????????????????????????????");
+                        self._cellRadius = self._calcRadius(self.cellRadius, coords.z);
+                        // console.log(self._cellRadius);
+                    } else {
+                        self._cellRadius = self.cellRadius;
+                    }
+
+                    // padding
+                    var pad;
+                    // if (!padSize)
+                    // pad = new L.Point(self._getMaxRadius(coords.z), self._getMaxRadius(coords.z));
+                    pad = new L.Point(self._cellRadius, self._cellRadius);
+                    // else
+                    // pad = new L.Point(padSize, padSize);
+
+                    // console.log(pad);
+                    nwPoint = nwPoint.subtract(pad);
+                    sePoint = sePoint.add(pad);
+
+                    var bounds = new L.LatLngBounds(self._map.unproject(sePoint, coords.z),
+                        self._map.unproject(nwPoint, coords.z));
+
+                    var currentBounds = self._boundsToQuery(bounds);
+                    var bb = [currentBounds.y, currentBounds.x, currentBounds.y + currentBounds.height, currentBounds.x + currentBounds.width];
+
+                    return bb;
+                }
+
+                var bb = getBB(coords);
+
+                var cellCoordinates = self._rtreeCell.search(bb);
+
+                // if (cellCoordinates.length > 0)
+                // console.log("---------------------??", cellCoordinates);
+
+                cellCoordinates.sort(function(a, b) {
+                    return a[5] - b[5];
+                })
+                return cellCoordinates;
+            }
+
+            var cells = queryCells(coords);
+
+            var numPolys = vpolyCoordinates.length;
+            var numCells = cells.length;
+
+            tile = {
+                _id: id,
+                numCells: numCells,
+                numPolys: numPolys,
+                dataPolys: vpolyCoordinates,
+                dataCells: cells,
+                bb: bbpoly,
+                // bbCell:
+            }
+
+            return tile;
         }
-
-        var cells = queryCells(coords);
-
-        var numPolys = vpolyCoordinates.length;
-        var numCells = cells.length;
-
-        tile = {
-            _id: id,
-            numCells: numCells,
-            numPolys: numPolys,
-            dataPolys: vpolyCoordinates,
-            dataCells: cells,
-            bb: bbpoly,
-            // bbCell:
-        }
-
-        return tile;
     },
 
 
@@ -2082,9 +2088,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         }
 
         var id = this.getId(coords);
-        this.canvases.set(id, canvas, function(removed, keyadd) {
-            // console.log("add:", "removed: ",removed.key);
-        });
+        this.canvases.set(id, canvas);
 
         var self = this;
 
@@ -2107,6 +2111,8 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         this._drawVPolys(canvas, coords, tile.dataPolys);
         this.drawCells(canvas, coords, tile.dataCells);
         // this.drawCellName(canvas, coords, cells);
+
+        this.tiles.set(id, tile);
     },
 
 
@@ -2171,7 +2177,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
     //     ctx.drawImage(this.options.img_on, 0, 0);
     // },
 
-    getCanvasPoly: function(vpoly, coords, c_fill, c_border) {
+    getCanvasPoly: function(vpoly, coords, fillColor) {
         var boundsL = vpoly.lBounds;
         var nw = boundsL.getNorthWest();
         topLeft = this._tilePoint(coords, [nw.lat, nw.lng]);
@@ -2187,7 +2193,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         canvas.height = height;
 
         var subctx = canvas.getContext('2d');
-        subctx.fillStyle = c_fill;
+        subctx.fillStyle = fillColor;
 
         subctx.translate(-topLeft[0], -topLeft[1]);
 
@@ -2207,8 +2213,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         subctx.closePath();
         subctx.fill();
         if (this.options.boundary) {
-            console.log(c_border)
-            subctx.strokeStyle = c_border;
+            subctx.strokeStyle = "black";
             subctx.stroke();
         }
         vpoly.size = [width, height];
@@ -2227,11 +2232,10 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
         if (poly.zoom != coords.z) {
             poly.zoom = coords.z;
-            var c = poly[0].c;
-            var canvas = this.getCanvasPoly(poly, coords, c);
 
-            poly.canvas = canvas;
+            poly.canvas = this.getCanvasPoly(poly, coords, poly[0].c);
             poly.canvas2 = this.getCanvasPoly(poly, coords, this.options.hover_poly_color);
+            // poly.size = [width, height];
         }
 
         if (poly.canvas.width != 0 && poly.canvas.height != 0) {
@@ -2394,7 +2398,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         if (color)
             ctx.fillStyle = color;
         ctx.fill();
-        // ctx.stroke();
+        ctx.stroke();
 
         return canvas;
     },
