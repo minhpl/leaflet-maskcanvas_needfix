@@ -1117,8 +1117,8 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                 var lng = 105.72898864746095 + Math.random() * (105.8020305633545 - 105.72898864746095);
 
                 var poly = makeVPolygon2(lat, lng, maxWith, maxHeight); //tao hinh dang cua polygon                        
-                poly[0].c_fill = 'rgba(0, 255, 0,1)';
-                poly[0].c_border = 'rgba(0, 255, 0,1)';
+                poly[0].c = 'rgba(0, 255, 0,1)';
+                // poly[0].c_border = 'rgba(0, 255, 0,1)';
 
                 // this.getVertexAndBoundinLatLng(poly);
                 var vertexsL = [];
@@ -2207,6 +2207,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         subctx.closePath();
         subctx.fill();
         if (this.options.boundary) {
+            console.log(c_border)
             subctx.strokeStyle = c_border;
             subctx.stroke();
         }
@@ -2226,12 +2227,11 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
         if (poly.zoom != coords.z) {
             poly.zoom = coords.z;
-            var c = poly[0];
-            var canvas = this.getCanvasPoly(poly, coords, c.c_fill);
+            var c = poly[0].c;
+            var canvas = this.getCanvasPoly(poly, coords, c);
 
             poly.canvas = canvas;
             poly.canvas2 = this.getCanvasPoly(poly, coords, this.options.hover_poly_color);
-            // poly.size = [width, height];
         }
 
         if (poly.canvas.width != 0 && poly.canvas.height != 0) {
