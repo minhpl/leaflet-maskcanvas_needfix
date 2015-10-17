@@ -3,9 +3,10 @@
  * For Leaflet 0.7.x, please use L.TileLayer.MaskCanvas
  */
 
-// const LOADED = 1;
-// const LOADING = -1;
+const LOADED = 1;
+const LOADING = -1;
 // const UNLOAD = 0;
+
 // const EMPTY = {
 //     empty: true,
 //     needSave: false,
@@ -42,7 +43,7 @@ if (version[0] == 0) {
 
 L.TileLayer.MaskCanvas = tempLayer.extend({
     options: {
-        // db: new PouchDB('vmts'),
+        db: new PouchDB('vmts'),
         radius: 5, // this is the default radius (specific radius values may be passed with the data)
         useAbsoluteRadius: true, // true: radius in meters, false: radius in pixels
         color: '#000',
@@ -518,7 +519,8 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                         var sizeHeigth = poly.size[1];
                         if (sizeWidth != 0 && sizeHeigth != 0) {
                             self.lastRecentInfo.imgPolyCropped = self.cropImgBoxs(poly.posL, poly.size[0], poly.size[1], coords);
-                            self.draw2(poly.TL, poly.size[0], poly.size[1], coords, poly.canvas2);
+                            var canvas2 = self.getCanvasPoly(poly, coords, self.options.hover_poly_color);
+                            self.draw2(poly.TL, poly.size[0], poly.size[1], coords, canvas2);
                             // self.draw(poly.posL, poly.size[0], poly.size[1], coords, poly.canvas2);
                         }
                     }
@@ -1275,6 +1277,8 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                 cell.startRadian = cell.biRadian - HCELLARCSIZE;
                 cell.endRadian = cell.biRadian + HCELLARCSIZE;
 
+                // cell.a = L.latLngBounds(L.latLng(20, 20), L.latLng(21, 21));
+                // cell.a.getSouth();
                 var sector = [cell.lat, cell.lng, cell.lat, cell.lng, cell, i];
 
                 sectors.push(sector);
@@ -1974,7 +1978,37 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
      * @param {L.Point} coords
      * @private
      */
+    getStoreObj: function(id) {
 
+        /**
+         * @ general description This function try to get tile from db,
+         * if tile is founded, then it immediately set it up to lru head
+         */
+
+        var db = this.options.db;
+
+        var promise = new Promise(function(res, rej) {
+            if (!self.ready) { //need to wait for all old data be deleted
+                rej("Not ready");
+                return;
+            }
+
+            if (db) {
+                db.get(id, {
+                    attachments: false
+                }).then(function(doc) {
+                    if (self.options.debug) console.log("Found ------------------- ", doc._id, doc);
+
+                    res(doc);
+                }).catch(function(err) {
+                    // console.log(err);
+                    rej(err);
+                });
+            } else rej(new Error("No DB found"));
+        });
+
+        return promise;
+    },
 
     getTile: function(coords) {
         /**
@@ -1989,132 +2023,159 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         var tile = this.tiles.get(id);
 
         // tile = undefined;
-        if (tile) {
-            return tile;
-        } else {
-
-            if (this.emptyTiles.get(id)) {
-                return EMPTY;
-            }
-
-            var queryPolys = function(coords) {
-                if (!self._rtreePolygon)
-                    return [];
-
-                var tileSize = self.options.tileSize;
-
-                var nwPoint = coords.multiplyBy(tileSize);
-                var sePoint = nwPoint.add(new L.Point(tileSize, tileSize));
-
-                if (self.options.useAbsoluteRadius) {
-                    var centerPoint = nwPoint.add(new L.Point(tileSize >> 1, tileSize >> 1));
-                    self._latLng = self._map.unproject(centerPoint, coords.z);
-                }
-
-                var bounds = new L.LatLngBounds(self._map.unproject(sePoint, coords.z), self._map.unproject(nwPoint, coords.z));
-
-                var currentBounds = self._boundsToQuery(bounds);
-                var bb = [currentBounds.y, currentBounds.x, currentBounds.y + currentBounds.height, currentBounds.x + currentBounds.width];
-                var vpolyCoordinates = self._rtreePolygon.search(bb);
-
-                vpolyCoordinates.sort(function(a, b) {
-                    return a[5] - b[5];
-                })
-
-                return {
-                    vpolyCoordinates: vpolyCoordinates,
-                    bb: bb,
-                };
-            }
-
-            var rqpoly = queryPolys(coords);
-            var vpolyCoordinates = rqpoly.vpolyCoordinates;
-            var bbpoly = rqpoly.bb;
-
-
-            var queryCells = function(coords) {
-                if (!self._rtreeCell)
-                    return [];
-
-                var getBB = function(coords) {
-                    var tileSize = self.options.tileSize;
-                    var nwPoint = coords.multiplyBy(tileSize);
-                    var sePoint = nwPoint.add(new L.Point(tileSize, tileSize));
-
-                    if (self.options.useAbsoluteRadius) {
-                        var centerPoint = nwPoint.add(new L.Point(tileSize / 2, tileSize / 2));
-                        self._latLng = self._map.unproject(centerPoint, coords.z);
-                    }
-
-                    if (self.options.useAbsoluteRadius) {
-                        // console.log("?????????????????????????????????");
-                        self._cellRadius = self._calcRadius(self.cellRadius, coords.z);
-                        // console.log(self._cellRadius);
-                    } else {
-                        self._cellRadius = self.cellRadius;
-                    }
-
-                    // padding
-                    var pad;
-                    // if (!padSize)
-                    // pad = new L.Point(self._getMaxRadius(coords.z), self._getMaxRadius(coords.z));
-                    pad = new L.Point(self._cellRadius, self._cellRadius);
-                    // else
-                    // pad = new L.Point(padSize, padSize);
-
-                    // console.log(pad);
-                    nwPoint = nwPoint.subtract(pad);
-                    sePoint = sePoint.add(pad);
-
-                    var bounds = new L.LatLngBounds(self._map.unproject(sePoint, coords.z),
-                        self._map.unproject(nwPoint, coords.z));
-
-                    var currentBounds = self._boundsToQuery(bounds);
-                    var bb = [currentBounds.y, currentBounds.x, currentBounds.y + currentBounds.height, currentBounds.x + currentBounds.width];
-
-                    return bb;
-                }
-
-                var bb = getBB(coords);
-
-                var cellCoordinates = self._rtreeCell.search(bb);
-
-                // if (cellCoordinates.length > 0)
-                // console.log("---------------------??", cellCoordinates);
-
-                cellCoordinates.sort(function(a, b) {
-                    return a[5] - b[5];
-                })
-                return {
-                    cellCoordinates: cellCoordinates,
-                    bb: bb,
-                }
-            }
-
-            var rqcells = queryCells(coords);
-            var cellCoordinates = rqcells.cellCoordinates;
-            var bbCell = rqcells.bb;
-
-            var numPolys = vpolyCoordinates.length;
-            var numCells = cellCoordinates.length;
-
-            tile = {
-                _id: id,
-                numCells: numCells,
-                numPolys: numPolys,
-                dataPolys: vpolyCoordinates,
-                dataCells: cellCoordinates,
-                bbPoly: bbpoly,
-                bbCell: bbCell,
-                cellRadius: this._cellRadius,
-            }
-
-            if (tile.numCells == 0 && tile.numPolys == 0) {
-                this.emptyTiles.set(id, EMPTY);
-            }
-
-            return tile;
+        if (tile && tile.status != LOADING) {
+            return Promise.resolve(tile);
         }
+
+        if (this.emptyTiles.get(id)) {
+            return Promise.resolve(EMPTY);
+        }
+
+        if (!tile || tile.status != LOADING) {
+
+            tile = {};
+            tile.status = LOADING;
+            self.store(id, tile);
+
+            var promise = new Promise(function(resolve, reject) {
+                //sau do kiem tra trong o cung                
+                var out = self.getStoreObj(id).then(function(res) {
+
+                    self.store(id, res);
+                    res.status = LOADED;
+
+                    resolve(res);
+
+                }, function(err) {
+                    //neu trong o cung khong co thi lay trong RTREE         
+                    //                             
+                    var queryPolys = function(coords) {
+                        if (!self._rtreePolygon)
+                            return [];
+
+                        var tileSize = self.options.tileSize;
+
+                        var nwPoint = coords.multiplyBy(tileSize);
+                        var sePoint = nwPoint.add(new L.Point(tileSize, tileSize));
+
+                        if (self.options.useAbsoluteRadius) {
+                            var centerPoint = nwPoint.add(new L.Point(tileSize >> 1, tileSize >> 1));
+                            self._latLng = self._map.unproject(centerPoint, coords.z);
+                        }
+
+                        var bounds = new L.LatLngBounds(self._map.unproject(sePoint, coords.z), self._map.unproject(nwPoint, coords.z));
+
+                        var currentBounds = self._boundsToQuery(bounds);
+                        var bb = [currentBounds.y, currentBounds.x, currentBounds.y + currentBounds.height, currentBounds.x + currentBounds.width];
+                        var vpolyCoordinates = self._rtreePolygon.search(bb);
+
+                        vpolyCoordinates.sort(function(a, b) {
+                            return a[5] - b[5];
+                        })
+
+                        return {
+                            vpolyCoordinates: vpolyCoordinates,
+                            bb: bb,
+                        };
+                    }
+
+                    var rqpoly = queryPolys(coords);
+                    var vpolyCoordinates = rqpoly.vpolyCoordinates;
+                    var bbpoly = rqpoly.bb;
+
+
+                    var queryCells = function(coords) {
+                        if (!self._rtreeCell)
+                            return [];
+
+                        var getBB = function(coords) {
+                            var tileSize = self.options.tileSize;
+                            var nwPoint = coords.multiplyBy(tileSize);
+                            var sePoint = nwPoint.add(new L.Point(tileSize, tileSize));
+
+                            if (self.options.useAbsoluteRadius) {
+                                var centerPoint = nwPoint.add(new L.Point(tileSize / 2, tileSize / 2));
+                                self._latLng = self._map.unproject(centerPoint, coords.z);
+                            }
+
+                            if (self.options.useAbsoluteRadius) {
+                                // console.log("?????????????????????????????????");
+                                self._cellRadius = self._calcRadius(self.cellRadius, coords.z);
+                                // console.log(self._cellRadius);
+                            } else {
+                                self._cellRadius = self.cellRadius;
+                            }
+
+                            // padding
+                            var pad;
+                            // if (!padSize)
+                            // pad = new L.Point(self._getMaxRadius(coords.z), self._getMaxRadius(coords.z));
+                            pad = new L.Point(self._cellRadius, self._cellRadius);
+                            // else
+                            // pad = new L.Point(padSize, padSize);
+
+                            // console.log(pad);
+                            nwPoint = nwPoint.subtract(pad);
+                            sePoint = sePoint.add(pad);
+
+                            var bounds = new L.LatLngBounds(self._map.unproject(sePoint, coords.z),
+                                self._map.unproject(nwPoint, coords.z));
+
+                            var currentBounds = self._boundsToQuery(bounds);
+                            var bb = [currentBounds.y, currentBounds.x, currentBounds.y + currentBounds.height, currentBounds.x + currentBounds.width];
+
+                            return bb;
+                        }
+
+                        var bb = getBB(coords);
+
+                        var cellCoordinates = self._rtreeCell.search(bb);
+
+                        // if (cellCoordinates.length > 0)
+                        // console.log("---------------------??", cellCoordinates);
+
+                        cellCoordinates.sort(function(a, b) {
+                            return a[5] - b[5];
+                        })
+                        return {
+                            cellCoordinates: cellCoordinates,
+                            bb: bb,
+                        }
+                    }
+
+                    var rqcells = queryCells(coords);
+                    var cellCoordinates = rqcells.cellCoordinates;
+                    var bbCell = rqcells.bb;
+
+                    var numPolys = vpolyCoordinates.length;
+                    var numCells = cellCoordinates.length;
+
+                    tile = {
+                        _id: id,
+                        numCells: numCells,
+                        numPolys: numPolys,
+                        dataPolys: vpolyCoordinates,
+                        dataCells: cellCoordinates,
+                        bbPoly: bbpoly,
+                        bbCell: bbCell,
+                        cellRadius: self._cellRadius,
+                    }
+
+                    if (tile.numCells == 0 && tile.numPolys == 0) {
+                        self.emptyTiles.set(id, EMPTY);
+                        self.tiles.remove(id);
+                    }
+
+                    console.log("here2", tile);
+
+
+                    resolve(tile);
+                })
+            });
+
+            return promise;
+        }
+
     },
 
 
@@ -2134,34 +2195,33 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
         var self = this;
 
+        (function(self, canvas, coords) {
+            var id = self.getId(coords);
+            self.getTile(coords).then(function(tile) {
 
-        var tile = this.getTile(coords);
-        if (tile.empty)
-            return;
 
-        // var metersPerPixel = function(latitude, zoomLevel) {
-        //     var earthCircumference = 40075017;
-        //     var latitudeRadians = latitude * (Math.PI / 180);
-        //     return earthCircumference * Math.cos(latitudeRadians) / Math.pow(2, zoomLevel + 8);
-        // };
+                console.log("here3", tile);
 
-        // var pixelValue = function(latitude, meters, zoomLevel) {
-        //     return meters / metersPerPixel(latitude, zoomLevel);
-        // };
+                if (tile.empty)
+                    return;
 
-        // var map = this.options.map;
-        // this._cellRadius = pixelValue(this._latLng.lat, this.cellRadiusMeter, coords.z);        
+                self._cellRadius = tile.cellRadius;
+                self._drawVPolys(canvas, coords, tile.dataPolys);
+                self.drawCells(canvas, coords, tile.dataCells);
+                // this.drawCellName(canvas, coords, cells);
 
-        // console.log("here", tile);
+                if (tile.numCells > 0 || tile.numPolys > 0) {
+                    self.store(id, tile);
+                }
 
-        this._cellRadius = tile.cellRadius;
-        this._drawVPolys(canvas, coords, tile.dataPolys);
-        this.drawCells(canvas, coords, tile.dataCells);
-        // this.drawCellName(canvas, coords, cells);
 
-        if (tile.numCells > 0 || tile.numPolys > 0) {
-            this.store(id, tile);
-        }
+            }).then(function() {
+                // self._drawVPolys(canvas, coords, vpolyCoordinates);
+            }).catch(function(err) {
+                // console.log("here", err);
+                // self.drawLinhTinh(canvas, coords, vpolyCoordinates);
+            })
+        })(self, canvas, coords);
     },
 
 
@@ -2200,9 +2260,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
     backupToDb: function(db, tile) {
 
-        console.log(tile.dataCells);
-
-        // return;
+        // console.log(tile.dataCells);
         var simpleTile = {
             _id: tile._id,
             numCells: tile.numCells,
@@ -2215,6 +2273,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
             cellRadius: tile.cellRadius,
         }
 
+        console.log("here4", simpleTile, tile, simpleTile._id);
 
         var promise = new Promise(function(resolved, reject) {
             if (!self.worker) {
@@ -2279,6 +2338,9 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
             //********invoke web worker******
             //*********************************
             if (self.worker) {
+
+                console.log("here", simpleTile);
+
                 self.worker.backup(simpleTile, function(results) {
                     if (results) {
                         // if (self.options.debug) console.log("Successfully update stored object: ", tile._id);
@@ -2414,16 +2476,18 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         var nw = boundsL.getNorthWest();
         topLeft = this._tilePoint(coords, [nw.lat, nw.lng]);
 
-        if (poly.zoom != coords.z) {
-            poly.zoom = coords.z;
+        // if (poly.zoom != coords.z) {
+        //     poly.zoom = coords.z;
 
-            poly.canvas = this.getCanvasPoly(poly, coords, poly[0].c);
-            poly.canvas2 = this.getCanvasPoly(poly, coords, this.options.hover_poly_color);
-            // poly.size = [width, height];
-        }
+        //     poly.canvas = this.getCanvasPoly(poly, coords, poly[0].c);
+        //     poly.canvas2 = this.getCanvasPoly(poly, coords, this.options.hover_poly_color);
+        //     // poly.size = [width, height];
+        // }
 
-        if (poly.canvas.width != 0 && poly.canvas.height != 0) {
-            ctx.drawImage(poly.canvas, topLeft[0], topLeft[1]);
+        canvas = this.getCanvasPoly(poly, coords, poly[0].c);
+
+        if (canvas.width != 0 && canvas.height != 0) {
+            ctx.drawImage(canvas, topLeft[0], topLeft[1]);
         }
     },
 
