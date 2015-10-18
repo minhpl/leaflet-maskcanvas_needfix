@@ -24,6 +24,7 @@ const BLUE = "#6666FF";
 const TILESIZE = 256;
 const CELLTYPE2G = 2;
 const CELLTYPE3G = 3;
+const HUGETILE_THREADSHOLD = 5000;
 
 const EMPTY = {
     empty: true,
@@ -1588,8 +1589,26 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
                     // var nTile = self.tiles.get(id);
                     // if (!nTile || !nTile.img) {
-                    self.store(id, doc);
-                    // }
+                    if (tile.numCells == 0 && tile.numPolys == 0) {
+
+                        // console.log("hrere", tile);
+                        self.emptyTiles.set(id, EMPTY);
+                        self.tiles.remove(id);
+                        self.hugeTiles.remove(id);
+                        resolve(EMPTY);
+                        return;
+                    }
+
+                    if (tile.numCells > 0 || tile.numPolys > 0) {
+
+                        if (tile.numCells + tile.numPolys >= HUGETILE_THREADSHOLD) {
+                            self.hugeTiles.set(id, tile);
+                            self.tiles.remove(id);
+                        } else {
+                            self.store(id, tile);
+                            self.hugeTiles.remove(id);
+                        }
+                    }
 
 
                     res(doc);
@@ -1613,10 +1632,12 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         var self = this;
         var id = this.getId(coords);
 
-        var tile = this.tiles.get(id);
+        var tile = this.tiles.get(id) || this.hugeTiles.get(id);
 
         // tile = undefined;
-        if (tile && tile.status == LOADING) {
+
+        if (tile && tile.status != LOADING) {
+            // console.log("tile in mem", tile);
             return Promise.resolve(tile);
         }
 
@@ -1653,6 +1674,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                     var numPolys = vpolyCoordinates.length;
                     var numCells = cellCoordinates.length;
 
+                    // console.log(rqpoly, rqcells, coords, numPolys, numCells);
                     tile = {
                         _id: id,
                         numCells: numCells,
@@ -1663,21 +1685,29 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                         bbCell: bbCell,
                         cellRadius: self._cellRadius,
                         needSave: true,
+                        status: LOADED,
                     }
 
                     if (tile.numCells == 0 && tile.numPolys == 0) {
+
+                        // console.log("hrere", tile);
+
                         self.emptyTiles.set(id, EMPTY);
                         self.tiles.remove(id);
+                        self.hugeTiles.remove(id);
                         resolve(EMPTY);
                         return;
                     }
 
-                    // console.log("here2", tile);
+                    if (tile.numCells > 0 || tile.numPolys > 0) {
 
-                    var nTile = self.tiles.get(id);
-                    if (!nTile || nTile.status == LOADING) {
-                        tile.status == LOADED;
-                        self.store(id, tile);
+                        if (tile.numCells + tile.numPolys >= HUGETILE_THREADSHOLD) {
+                            self.hugeTiles.set(id, tile);
+                            self.tiles.remove(id, tile);
+                        } else {
+                            self.store(id, tile);
+                            self.hugeTiles.remove(tile);
+                        }
                     }
 
                     resolve(tile);
@@ -1705,7 +1735,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         (function(self, canvas, coords) {
             var id = self.getId(coords);
             self.getTile(coords).then(function(tile) {
-
+                // console.log("here", tile);
                 if (tile.empty) {
                     return;
                 }
@@ -1713,8 +1743,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                 self._cellRadius = tile.cellRadius;
 
                 if (tile.img) {
-                    console.log("here");
-
+                    // console.log("here");
                     var ctx = canvas.getContext('2d');
                     if (tile.img.complete) {
                         // if (tile.imgFromDB) {
@@ -1759,7 +1788,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                             }
                         }
                     }
-                    console.log("here");
+                    // console.log("here");
 
                     return;
                 }
@@ -1769,7 +1798,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                 // this.drawCellName(canvas, coords, cells);
 
                 if (tile.numCells > 0 || tile.numPolys > 0) {
-                    self.store(id, tile);
+                    // self.store(id, tile);
 
                     /**
                      * why don't use canvas directly instead of img ???                         
@@ -1781,24 +1810,21 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                     // console.log("Store Img to tile");
 
                     //sau khi ve xong phai luu lai vao lru  hoac cache.
-                    var nTile = self.tiles.get(id);
-                    if (!nTile || !nTile.img) { // neu khong co tile hoac tile khong chua img
-                        // console.log("here");
-                        tile.img = img;
-                        self.store(id, tile);
+                    tile.img = img;
+                    if (tile.numCells + tile.numPolys >= HUGETILE_THREADSHOLD) {
+                        // console.log(tile.img);
+                        self.hugeTiles.set(id, tile);
+                        self.tiles.remove(id);
                     } else {
-                        //never called                    
-                        console.log("OMG_________________________________________________________OMG");
-                        nTile.canvas = canvas;
-                        /**
-                         * why needSave = false ?                             
-                         */
-                        ntile.needSave = false;
-                        self.store(id, nTile);
+                        self.store(id, tile);
                     }
-                    // };
-                }
 
+                } else {
+                    console.log("detect empty tile here ________________________OMG");
+                    self.emptyTiles.set(id, empty);
+                    self.hugeTiles.removed(id);
+                    self.tiles.removed(id);
+                }
 
             }).then(function() {
                 // self._drawVPolys(canvas, coords, vpolyCoordinates);
@@ -1833,6 +1859,14 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         self.tiles.set(id, tile, function(removed) {
             // console.log("here1");
             if (removed) {
+                {
+                    var tile = removed;
+                    if (tile.empty) {
+                        console.log("detect empty tiles removed ________________________OMG");
+                    } else if (tile.numCells + tile.numCells) {
+                        console.log("detect hugeTiles removed ________________________OMG");
+                    }
+                }
                 console.log("removed tile", removed.value.needSave, removed.value._id, removed.value);
                 return self.backupToDb(self.options.db, removed.value);
             } else {
@@ -1879,6 +1913,8 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         // var promise = new Promise(function(resolved, reject) {
 
         if (simpleTile.numCells > 0 || simpleTile.numPolys > 0) {
+
+            // console.log(tile.img);
             getBlob(tile).then(function(blob) {
                 simpleTile.image = blob;
 
