@@ -227,6 +227,7 @@ $(function() {
     } else {
         coverageLayer.setDataPoly();
         coverageLayer.setDataCell(celldata);
+        // coverageLayer.globalData();
     }
 
     map.addLayer(coverageLayer);
