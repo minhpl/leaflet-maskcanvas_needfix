@@ -229,13 +229,13 @@ $(function() {
         coverageLayer.setDataCell(celldata);
     }
 
-    map.addLayer(coverageLayer);    
+    map.addLayer(coverageLayer);
 
     //crop images at Position
     map.on('mousemove', onMouseMove);
 
     function onMouseMove(e) {
-        coverageLayer.onMouseMove(e);        
+        coverageLayer.onMouseMove(e);
     }
 
     map.on('contextmenu', onContextMenu_changeCellRadius);
@@ -245,7 +245,7 @@ $(function() {
     function onClick(e) {
         var info = coverageLayer.lastRecentInfo;
         console.log("onClick poly info: ", info.poly, info.polyID);
-        console.log("onClick, cell info: ", info.cell, info.cellID,", all cell: ", info.cells);
+        console.log("onClick, cell info: ", info.cell, info.cellID, ", all cell: ", info.cells);
     }
 
 

@@ -70,7 +70,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
     prev: undefined,
 
-    tiles: new lru(40),
+    tiles: new lru(20),
     hugeTiles: new lru(40),
 
     rtree_cachedTile: rbush(32),
@@ -355,10 +355,10 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                         // var vertexsL = this.vertexsL;
                         var inside = false;
                         for (var i = 0, j = vertexsL.length - 1; i < vertexsL.length; j = i++) {
-                            var xi = vertexsL[i].lat,
-                                yi = vertexsL[i].lng;
-                            var xj = vertexsL[j].lat,
-                                yj = vertexsL[j].lng;
+                            var xi = vertexsL[i].x,
+                                yi = vertexsL[i].y;
+                            var xj = vertexsL[j].x,
+                                yj = vertexsL[j].y;
 
                             var intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
                             if (intersect) inside = !inside;
@@ -374,7 +374,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                             var r = result[i];
                             var poly = r[4];
 
-                            if (isInsidePoly(currentLatLng, poly.vertexsL)) {
+                            if (isInsidePoly(currentLatLng, poly.poly)) {
                                 polys.push(poly);
                                 if (r[5] > id) {
                                     topPoly = poly;
@@ -515,11 +515,11 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                         self.lastRecentInfo.polyID = polys.topPolyID;
                         self.lastRecentInfo.poly = poly;
 
+                        var canvas2 = self.getCanvasPoly(poly, coords, self.options.hover_poly_color);
                         var sizeWidth = poly.size[0];
                         var sizeHeigth = poly.size[1];
                         if (sizeWidth != 0 && sizeHeigth != 0) {
                             self.lastRecentInfo.imgPolyCropped = self.cropImgBoxs(poly.posL, poly.size[0], poly.size[1], coords);
-                            var canvas2 = self.getCanvasPoly(poly, coords, self.options.hover_poly_color);
                             self.draw2(poly.TL, poly.size[0], poly.size[1], coords, canvas2);
                             // self.draw(poly.posL, poly.size[0], poly.size[1], coords, poly.canvas2);
                         }
@@ -995,7 +995,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                                         if (e.target.complete == true) {
                                             self2.drawImage(self.ctx, self.img, minX, minY);
                                         } else {
-                                            console.log("here");
+                                            // console.log("here");
                                             self.img.src = self.img.src;
                                             retryLoadImage();
                                         }
@@ -1142,46 +1142,42 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                 var lat = 21.00952219788383 + Math.random() * (21.056267652104697 - 21.00952219788383);
                 var lng = 105.72898864746095 + Math.random() * (105.8020305633545 - 105.72898864746095);
 
-                var poly = makeVPolygon2(lat, lng, maxWith, maxHeight); //tao hinh dang cua polygon                        
-                poly[0].c = 'rgba(0, 255, 0,1)';
+                var polyVertex = makeVPolygon2(lat, lng, maxWith, maxHeight); //tao hinh dang cua polygon                        
+                polyVertex[0].c = 'rgba(0, 255, 0,1)';
 
                 // this.getVertexAndBoundinLatLng(poly);
-                var vertexsL = [];
-                for (var i = 0; i < poly.length; i++) {
-                    var vertex = poly[i];
-                    var vertexL = L.latLng(vertex.x, vertex.y);
-                    vertexsL.push(vertexL);
+                var poly = {};
+                poly.poly = polyVertex;
+
+                var minlat = 999,
+                    minlng = 999,
+                    maxlat = -999,
+                    maxlng = -999;
+                for (var i = 0; i < polyVertex.length; i++) {
+                    var vertex = polyVertex[i];
+                    if (minlat > vertex.x) {
+                        minlat = vertex.x;
+                    }
+
+                    if (minlng > vertex.y) {
+                        minlng = vertex.y;
+                    }
+
+                    if (maxlat < vertex.x) {
+                        maxlat = vertex.x;
+                    }
+
+                    if (maxlng < vertex.y) {
+                        maxlng = vertex.y;
+                    }
                 }
 
-                poly.vertexsL = vertexsL;
-                poly.lBounds = L.latLngBounds(vertexsL);
+                poly.lBounds = [minlat, minlng, maxlat, maxlng];
+                poly.posL = [(minlat + maxlat) / 2, (minlng + maxlng) / 2];
 
-                var center = poly.lBounds.getCenter();
-                poly.posL = [center.lat, center.lng];
-                var nw = poly.lBounds.getNorthWest();
-                poly.TL = [nw.lat, nw.lng];
+                poly.TL = [maxlat, minlng];
 
-                // poly.in = function(currentlatLng) {
-                //     var x = currentlatLng.lat,
-                //         y = currentlatLng.lng;
-
-                //     var vertexsL = this.vertexsL;
-                //     var inside = false;
-                //     for (var i = 0, j = vertexsL.length - 1; i < vertexsL.length; j = i++) {
-                //         var xi = vertexsL[i].lat,
-                //             yi = vertexsL[i].lng;
-                //         var xj = vertexsL[j].lat,
-                //             yj = vertexsL[j].lng;
-
-                //         var intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-                //         if (intersect) inside = !inside;
-                //     }
-
-                //     return inside;
-                // }
-
-                lBounds = poly.lBounds;
-                var a = [lBounds.getSouth(), lBounds.getWest(), lBounds.getNorth(), lBounds.getEast(), poly, id++];
+                var a = [minlat, minlng, maxlat, maxlng, poly, id++];
                 dPoly.push(a);
             }
             return dPoly;
@@ -1984,6 +1980,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
          * @ general description This function try to get tile from db,
          * if tile is founded, then it immediately set it up to lru head
          */
+        self = this;
 
         var db = this.options.db;
 
@@ -1994,11 +1991,13 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
             }
 
             if (db) {
+                // console.log("getStoreObj")
+
                 db.get(id, {
                     attachments: false
                 }).then(function(doc) {
                     if (self.options.debug) console.log("Found ------------------- ", doc._id, doc);
-
+                    doc.needSave = false;
                     res(doc);
                 }).catch(function(err) {
                     // console.log(err);
@@ -2040,10 +2039,9 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
             var promise = new Promise(function(resolve, reject) {
                 //sau do kiem tra trong o cung                
                 var out = self.getStoreObj(id).then(function(res) {
-
                     self.store(id, res);
                     res.status = LOADED;
-
+                    // console.log("here, found", res._id, res);
                     resolve(res);
 
                 }, function(err) {
@@ -2159,6 +2157,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                         bbPoly: bbpoly,
                         bbCell: bbCell,
                         cellRadius: self._cellRadius,
+                        needSave: true,
                     }
 
                     if (tile.numCells == 0 && tile.numPolys == 0) {
@@ -2166,7 +2165,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                         self.tiles.remove(id);
                     }
 
-                    console.log("here2", tile);
+                    // console.log("here2", tile);
 
 
                     resolve(tile);
@@ -2200,10 +2199,15 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
             self.getTile(coords).then(function(tile) {
 
 
-                console.log("here3", tile);
+                // console.log("here3", tile);
 
-                if (tile.empty)
+                if (tile.empty) {
+                    // console.log("tile is empty", tile._id, tile);
                     return;
+                }
+
+
+                // console.log("tile is not empty", tile._id, tile);
 
                 self._cellRadius = tile.cellRadius;
                 self._drawVPolys(canvas, coords, tile.dataPolys);
@@ -2218,7 +2222,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
             }).then(function() {
                 // self._drawVPolys(canvas, coords, vpolyCoordinates);
             }).catch(function(err) {
-                // console.log("here", err);
+                console.log("Err", err);
                 // self.drawLinhTinh(canvas, coords, vpolyCoordinates);
             })
         })(self, canvas, coords);
@@ -2261,6 +2265,10 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
     backupToDb: function(db, tile) {
 
         // console.log(tile.dataCells);
+        if (tile.needSave == false) {
+            return;
+        }
+
         var simpleTile = {
             _id: tile._id,
             numCells: tile.numCells,
@@ -2273,7 +2281,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
             cellRadius: tile.cellRadius,
         }
 
-        console.log("here4", simpleTile, tile, simpleTile._id);
+        // console.log("here4", simpleTile, tile, simpleTile._id);
 
         var promise = new Promise(function(resolved, reject) {
             if (!self.worker) {
@@ -2298,7 +2306,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
                     backup: function(simpleTile, callback) {
 
-                        console.log(simpleTile);
+                        // console.log(simpleTile);
 
                         //Only need to create DB object only once
                         if (!this.db) {
@@ -2320,9 +2328,13 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                             .catch(function(err) {
                                 if (err.status == 404) {
                                     this.db.put(simpleTile).then(function(res) {
-                                        console.log('successfully save new object ', simpleTile._id, res);
+                                        console.log('successfully save new object ', simpleTile._id, res, simpleTile);
                                         callback('ok');
-                                    }).catch(function(err) {
+                                        return this.db.get(simpleTile._id);
+                                    }).then(function(doc) {
+                                        console.log('successfully save new object 2', doc._id, doc);
+                                    }).
+                                    catch(function(err) {
                                         console.log('other err2');
                                         callback(undefined);
                                     });
@@ -2339,7 +2351,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
             //*********************************
             if (self.worker) {
 
-                console.log("here", simpleTile);
+                // console.log("here", simpleTile);
 
                 self.worker.backup(simpleTile, function(results) {
                     if (results) {
@@ -2424,12 +2436,13 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
     // },
 
     getCanvasPoly: function(vpoly, coords, fillColor) {
-        var boundsL = vpoly.lBounds;
-        var nw = boundsL.getNorthWest();
-        topLeft = this._tilePoint(coords, [nw.lat, nw.lng]);
 
-        var se = boundsL.getSouthEast();
-        var bottomRight = this._tilePoint(coords, [se.lat, se.lng]);
+        // console.log("hehehehe 10_812_450");
+        topLeft = this._tilePoint(coords, vpoly.TL);
+        var minlat = vpoly.lBounds[0]
+        var maxlng = vpoly.lBounds[3];
+        var bottomRight = this._tilePoint(coords, [minlat, maxlng]);
+
         var width = bottomRight[0] - topLeft[0];
         var height = bottomRight[1] - topLeft[1];
 
@@ -2443,15 +2456,15 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
         subctx.translate(-topLeft[0], -topLeft[1]);
 
-        var vertexsL = vpoly.vertexsL;
-        var v0 = vertexsL[0];
-        var p0 = this._tilePoint(coords, [v0.lat, v0.lng]);
+        var vertexs = vpoly.poly;
+        var v0 = vertexs[0];
+        var p0 = this._tilePoint(coords, [v0.x, v0.y]);
 
         subctx.moveTo(p0[0], p0[1]);
 
-        for (var i = 1; i < vertexsL.length; i++) {
-            var vi = vertexsL[i];
-            var pi = this._tilePoint(coords, [vi.lat, vi.lng]);
+        for (var i = 1; i < vertexs.length; i++) {
+            var vi = vertexs[i];
+            var pi = this._tilePoint(coords, [vi.x, vi.y]);
             subctx.lineTo(pi[0], pi[1]);
         }
 
@@ -2464,17 +2477,24 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         }
         vpoly.size = [width, height];
 
+
+
         return canvas;
     },
 
     drawVPoly: function(poly, ctx, coords) {
-
+        // console.log("hehehehe 9_406_225");
         var id = this.getId(coords);
         // console.log(id);
 
-        var boundsL = poly.lBounds;
-        var nw = boundsL.getNorthWest();
-        topLeft = this._tilePoint(coords, [nw.lat, nw.lng]);
+        // var boundsL = poly.lBounds;
+        // var nw = boundsL.getNorthWest();
+        topLeft = this._tilePoint(coords, poly.TL);
+
+
+        // if (id === '9_406_225') {
+        //     console.log("9_406_255 2", poly);
+        // }
 
         // if (poly.zoom != coords.z) {
         //     poly.zoom = coords.z;
@@ -2483,8 +2503,17 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         //     poly.canvas2 = this.getCanvasPoly(poly, coords, this.options.hover_poly_color);
         //     // poly.size = [width, height];
         // }
+        // if (id === '9_406_225') {
+        //     console.log("hehehehe 9_406_225 22");
+        // }
 
-        canvas = this.getCanvasPoly(poly, coords, poly[0].c);
+        canvas = this.getCanvasPoly(poly, coords, poly.poly[0].c);
+
+        // if (id === '9_406_225') {
+        //     console.log("dadadadasdsadas drawVPoly 9_406_225");
+        // }
+
+
 
         if (canvas.width != 0 && canvas.height != 0) {
             ctx.drawImage(canvas, topLeft[0], topLeft[1]);
@@ -2501,11 +2530,32 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
         var self = this;
 
+        // console.log(self.getId(coords));
+        // var id = self.getId(coords);
+        // if (id === '9_406_225') {
+        //     console.log("drawVPoly 9_406_225", pointCoordinates.length);
+        // }
+
+
+        // console.log("dadadadasdsadas");
+
         if (pointCoordinates) {
+
             for (var index = 0; index < pointCoordinates.length; ++index) {
                 var polyInfo = pointCoordinates[index];
+
                 var poly = polyInfo[4];
+                // console.log("here drawVPoly2", poly);
+
+
+                // if (id === '9_406_225') {
+                //     console.log("9_406_225", poly);
+                // }
+
+
+
                 this.drawVPoly(poly, ctx, coords);
+                ctx.drawImage(this.options.img_on, 0, 0);
             }
         }
     },
