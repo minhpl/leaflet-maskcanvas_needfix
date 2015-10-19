@@ -62,6 +62,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         hover_poly_color: 'rgba(200,0,0,1)',
         hover_cell_color: 'rgba(200,220,220,1)',
         bright_cell_color: 'rgba(255, 102, 204,1)',
+        useStoreDB: true,
     },
 
     ready: false,
@@ -1193,42 +1194,39 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         } else {
             var dPoly = [];
             for (var i = 0; i < dataPoly.length; i++) {
-                var poly = dataPoly[i];
-                var vertexsL = [];
-                for (var index = 0; index < poly.length; index++) {
-                    var vertex = poly[index];
-                    var vertexL = L.latLng(vertex.x, vertex.y);
-                    vertexsL.push(vertexL);
+                var polyVertex = dataPoly[i];
+                poly.vertexs = polyVertex;
+
+                var minlat = 999,
+                    minlng = 999,
+                    maxlat = -999,
+                    maxlng = -999;
+                for (var i = 0; i < polyVertex.length; i++) {
+                    var vertex = polyVertex[i];
+                    if (minlat > vertex.x) {
+                        minlat = vertex.x;
+                    }
+
+                    if (minlng > vertex.y) {
+                        minlng = vertex.y;
+                    }
+
+                    if (maxlat < vertex.x) {
+                        maxlat = vertex.x;
+                    }
+
+                    if (maxlng < vertex.y) {
+                        maxlng = vertex.y;
+                    }
                 }
-                poly.vertexsL = vertexsL;
-                poly.lBounds = L.latLngBounds(vertexsL);
-                // console.log(poly);
-                var center = poly.lBounds.getCenter();
-                poly.posL = [center.lat, center.lng];
-                var nw = poly.lBounds.getNorthWest();
-                poly.TL = [nw.lat, nw.lng];
 
+                poly.lBounds = [minlat, minlng, maxlat, maxlng];
+                poly.posL = [(minlat + maxlat) / 2, (minlng + maxlng) / 2];
 
-                poly.posL = [center.lat, center.lng];
-                // poly.in = function(currentlatLng) {
-                //     var x = currentlatLng.lat,
-                //         y = currentlatLng.lng;
-                //     var vertexsL = this.vertexsL;
-                //     var inside = false;
-                //     for (var i = 0, j = vertexsL.length - 1; i < vertexsL.length; j = i++) {
-                //         var xi = vertexsL[i].lat,
-                //             yi = vertexsL[i].lng;
-                //         var xj = vertexsL[j].lat,
-                //             yj = vertexsL[j].lng;
+                poly.TL = [maxlat, minlng];
 
-                //         var intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-                //         if (intersect) inside = !inside;
-                //     }
-                //     return inside;
-                // }
-                lBounds = poly.lBounds;
-                var a = [lBounds.getSouth(), lBounds.getWest(), lBounds.getNorth(), lBounds.getEast(), poly, id++];
-                dPoly.push(a);
+                var a = [minlat, minlng, maxlat, maxlng, poly, id++];
+                dPoly.push(a);                
             }
             return dPoly;
         }
@@ -1564,6 +1562,9 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
     },
 
     getStoreObj: function(id) {
+
+        if(!this.options.useStoreDB)
+            return Promise.reject();
         /**
          * @ general description This function try to get tile from db,
          * if tile is founded, then it immediately set it up to lru head
@@ -1975,7 +1976,12 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         self.tiles.set(id, tile, function(removed) {
             // console.log("here1");
             if (removed) {
+                if(!this.options.useStoreDB)
                 {
+                    return;
+                }
+
+                {   
                     var tile = removed;
                     if (tile.empty) {
                         console.log("detect empty tiles removed ________________________OMG");
