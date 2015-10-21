@@ -19,8 +19,8 @@ const NUMPOLYGON = 100;
 const NUMCELL = 100;
 const HCELLARCSIZE = ((65 / 2) / 180) * Math.PI;
 const NORTH = 3 * (Math.PI / 2);
-const RED = "#FF0066";
-const BLUE = "#6666FF";
+const RED = "rgba(255,0,0,0.2)"; //2G
+const BLUE = "rgba(0,0,255,0.3)"; //3G
 const TILESIZE = 256;
 const CELLTYPE2G = 2;
 const CELLTYPE3G = 3;
@@ -59,10 +59,10 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         useGlobalData: false,
         boundary: true,
         _cellRadius: 30,
-        hover_poly_color: 'rgba(200,0,0,1)',
+        hover_poly_color: 'rgba(200,0,0,0.8)',
         hover_cell_color: 'rgba(200,220,220,1)',
         bright_cell_color: 'rgba(255, 102, 204,1)',
-        useStoreDB: true,
+        useStoreDB: false,
     },
 
     ready: false,
@@ -92,57 +92,6 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
     showCellName: false,
     cellNameRadius: false,
 
-    /**
-     * [updateCachedTile description]
-     * @param  {[type]} coords   [description]
-     * @param  {[type]} numPoint [description]
-     * @return {[type]}          [description]
-     */
-
-    // getRadiusFn: function(zoom) {
-    //     switch (zoom) {
-    //         case 1:
-    //         case 2:
-    //         case 3:
-    //         case 4:
-    //         case 5:
-    //             this._cellRadius = 4;
-    //             return 4;
-    //         case 6:
-    //         case 7:
-    //         case 8:
-    //         case 9:
-    //             this._cellRadius = 6;
-    //             return 6;
-    //         case 10:
-    //         case 11:
-    //         case 12:
-    //             this._cellRadius = 8;
-    //             return 8;
-    //         case 13:
-    //             this._cellRadius = 12;
-    //             return 12;
-    //         case 14:
-    //             this._cellRadius = 16;
-    //             return 16;
-    //         case 15:
-    //             this._cellRadius = 20;
-    //             return 20;
-    //         case 16:
-    //             this._cellRadius = 24;
-    //             return 24;
-    //         case 17:
-    //             this._cellRadius = 30;
-    //             return 30;
-    //         case 18:
-    //             this._cellRadius = 36;
-    //             return 36;
-    //         default:
-    //             this._cellRadius = 38;
-    //             return 38;
-    //     }
-    // },
-
     globalData: function() {
         this.options.useGlobalData = true;
     },
@@ -171,21 +120,6 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
             }
 
             refreshDB(this);
-            // db.allDocs({
-            //     include_docs: true,
-            //     attachments: true
-            // }).then(function(result) {
-            //     // handle result
-            //     return Promise.all(result.rows.map(function(row) {
-            //         return db.remove(row.id, row.value.rev);
-            //     })).then(function() {
-            //         self.ready = true;
-            //         console.log("Remove all temporary tiles");
-            //     });
-
-            // }).catch(function(err) {
-            //     console.log(err);
-            // });
         }
 
         this.drawTile = function(tile, tilePoint, zoom) {
@@ -207,14 +141,6 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         };
     },
 
-    // globalData: function() {
-    //     this.options.useGlobalData = true;
-    // },
-
-    // localData: function() {
-    //     this.options.useGlobalData = false;
-    // },
-
     lastRecentInfo: {
         imgCropped: undefined,
         polyID: undefined,
@@ -228,8 +154,6 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
     timeoutID: undefined,
 
     determineCell: function(latlng) {
-
-        // latlng = [20.98359,105.88806]
         var currentLatLng = L.latLng([latlng[0], latlng[1]]);
 
         var self = this;
@@ -329,8 +253,6 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
     },
 
     onMouseMove: function(e) {
-        // this.determineCell([e.latlng.lat, e.latlng.lng]);
-
         var self = this;
         var map = this.options.map;
         if (self.timeoutID) clearTimeout(self.timeoutID);
@@ -349,8 +271,6 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
             var coords = L.point(x, y);
             coords.z = zoom;
 
-            // var tilePoint = coverageLayer._tilePoint(coords, [currentLatLng.lat, currentLatLng.lng]);
-            // tilePoint = L.point(tilePoint[0], tilePoint[1]);
             function getIntersectPoly(currentlatlng) {
                 var rtree = self._rtreePolygon;
                 if (rtree) {
@@ -472,18 +392,16 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
             var cell = cells.topCell;
             var poly = polys.topPoly;
-            // if (cell && ((cell.cell_type == CELLTYPE2G && !self.drawCell2G) || (cell.cell_type == CELLTYPE3G && !self.drawCell3G))) {
-            //     cell = undefined;
-            // }
 
             if (cell || poly) {
                 $('.leaflet-container').css('cursor', 'pointer');
-                // var cell = cells.topCell;
+
                 if (cell) {
                     if (self.lastRecentInfo.cellID == cells.topCellID) {
 
                     } else {
                         if (self.lastRecentInfo.imgCellCropped) {
+                            console.log("here --");
                             self.redrawImgCropped(self.lastRecentInfo.imgCellCropped);
                         }
 
@@ -509,18 +427,22 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                         self.lastRecentInfo.cell = undefined;
                         self.lastRecentInfo.cells = undefined;
 
+                        console.log("here");
                         self.redrawImgCropped(self.lastRecentInfo.imgCellCropped);
                     }
                 }
 
-                // var poly = polys.topPoly;
+
+
                 if (poly && !cell) {
                     if (self.lastRecentInfo.polyID && (polys.topPolyID == self.lastRecentInfo.polyID)) {
 
                     } else {
 
-                        if (self.lastRecentInfo.imgPolyCropped)
+                        if (self.lastRecentInfo.imgPolyCropped) {
+
                             self.redrawImgCropped(self.lastRecentInfo.imgPolyCropped);
+                        }
 
                         self.lastRecentInfo.polyID = polys.topPolyID;
                         self.lastRecentInfo.poly = poly;
@@ -529,9 +451,8 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                         var sizeWidth = poly.size[0];
                         var sizeHeigth = poly.size[1];
                         if (sizeWidth != 0 && sizeHeigth != 0) {
-                            self.lastRecentInfo.imgPolyCropped = self.cropImgBoxs(poly.posL, poly.size[0], poly.size[1], coords);
-                            self.draw2(poly.TL, poly.size[0], poly.size[1], coords, canvas2);
-                            // self.draw(poly.posL, poly.size[0], poly.size[1], coords, poly.canvas2);
+                            self.lastRecentInfo.imgPolyCropped = self.cropImgBoxsFromTL(poly.TL, poly.size[0], poly.size[1], coords);
+                            self.drawFromTL(poly.TL, poly.size[0], poly.size[1], coords, canvas2);
                         }
                     }
                 } else {
@@ -572,7 +493,8 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         if (imgs && imgs.length) {
             for (var i = 0; i < imgs.length; i++) {
                 var image = imgs[i];
-                image.draw();
+                // image.draw();
+                image.put();
             }
         }
     },
@@ -600,21 +522,21 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                 var ctx = canvas.getContext('2d');
                 // img.onload= function(){
                 // drawImage(ctx, img, tilePoint[0] - w, tilePoint[1] - h);
-                // console.log(w, h);
+                // console.log(imgData);
                 ctx.putImageData(imgData, tilePoint[0] - w, tilePoint[1] - h);
             }
         }
     },
 
 
-    draw2: function(topLeftlatlng, WIDTH, HEIGHT, coords, img) {
+    drawFromTL: function(topLeftlatlng, WIDTH, HEIGHT, coords, img) {
         var lat = topLeftlatlng[0];
         var lng = topLeftlatlng[1];
         var topLeft = [lat, lng];
 
         var tlPointTile = this._tilePoint(coords, topLeft);
 
-        var tileIDs = this.getTileIDs2(tlPointTile, WIDTH, HEIGHT, coords);
+        var tileIDs = this.getTileIDsFromTL(tlPointTile, WIDTH, HEIGHT, coords);
 
 
         for (var i = 0; i < tileIDs.length; i++) {
@@ -675,7 +597,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         }
     },
 
-    getTileIDs2: function(tlPoint, WIDTH, HEIGHT, coords) {
+    getTileIDsFromTL: function(tlPoint, WIDTH, HEIGHT, coords) {
         var minX = tlPoint[0];
         var minY = tlPoint[1];
         var maxX = minX + WIDTH;
@@ -797,20 +719,10 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         return result;
     },
 
-    cropImage: function(canvas, centrePoint, WIDTH, HEIGHT, alph) {
+    cropImage: function(canvas, centrePoint, WIDTH, HEIGHT) {
         var context = canvas.getContext('2d');
-        // w = w << 1;
-        // h = h << 1;
-        // var WIDTH = (w << 1);
-        // var HEIGHT = (h << 1);
-
         w = WIDTH >> 1;
         h = HEIGHT >> 1;
-
-        // var imgSize = (WIDTH * HEIGHT) << 2;
-
-        // if (!MEM || MEM.byteLength < imgSize)
-        //     MEM = new ArrayBuffer(imgSize);
 
         var minX = (centrePoint[0] - w);
         var minY = (centrePoint[1] - h);
@@ -824,7 +736,6 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         if (minX < 0)
             minX = 0;
 
-
         if (minY < 0)
             minY = 0;
 
@@ -834,11 +745,8 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         if (maxY > TILESIZE)
             maxY = TILESIZE;
 
-        // console.log(minX, minY, maxX, maxY);
-
         var width = maxX - minX;
         var height = maxY - minY;
-        // console.log(WIDTH,HEIGHT,maxY,minY, width, height);
 
         if (width == 0 || height == 0) {
             return new Image();
@@ -849,66 +757,81 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         subCanvas.height = height;
         var subContext = subCanvas.getContext('2d');
 
-        if (!canvas.imgData) {
-            // var start = new Date().getTime();
-            // var img = new Image();
+        // if (!canvas.imgData) {            
+        var pix = context.getImageData(0, 0, TILESIZE, TILESIZE);
+        canvas.imgData = new ImageBuffer(pix);
+        // }
 
-            // console.log("Create new ImageData");
-            var pix = context.getImageData(0, 0, TILESIZE, TILESIZE);
-            canvas.imgData = new ImageBuffer(pix);
-            // var end = new Date().getTime();
-            // var time = end - start;
-            // console.log("Traditional way : ", end - start);
-        }
-
-
-        // var start = new Date().getTime();
         var img = new Image();
-        // for (var j = 0;j<100;++j){          
-
-        // var sz = ((width*height) << 2) >> 0;
-        // console.log("Array length ",sz);
-        // var buf = new Uint8ClampedArray(MEM, 0, sz );
         var imgData = subContext.createImageData(width, height);
 
         var buffer = new ImageBuffer(imgData);
-
         var color = {};
         var data = canvas.imgData;
-        // console.log(SUPPORTS_32BIT);
 
         for (var y = 0; y < height; ++y) {
             for (var x = 0; x < width; ++x) {
                 data.getPixelAt(x + minX, y + minY, color);
-
-                if (color.a != 255) {
-                    color.r = 0;
-                    color.g = 0;
-                    color.b = 0;
-                    color.a = 0;
-                }
-
                 buffer.setPixelAt(x, y, color.r, color.g, color.b, color.a);
             }
         }
 
-        // imgData.data.set(buf);
+        subContext.putImageData(imgData, 0, 0);
+        return imgData;
+    },
+
+    cropImageFromTL: function(canvas, topLeft, WIDTH, HEIGHT) {
+        var context = canvas.getContext('2d');
+
+        var minX = topLeft[0];
+        var minY = topLeft[1];
+
+        var maxX = minX + WIDTH;
+        var maxY = minY + HEIGHT;
+
+        if (minX < 0)
+            minX = 0;
+
+        if (minY < 0)
+            minY = 0;
+
+        if (maxX > TILESIZE)
+            maxX = TILESIZE;
+
+        if (maxY > TILESIZE)
+            maxY = TILESIZE;
+
+        var width = maxX - minX;
+        var height = maxY - minY;
+
+        if (width == 0 || height == 0) {
+            return new Image();
+        }
+
+        var subCanvas = document.createElement('canvas');
+        subCanvas.width = width;
+        subCanvas.height = height;
+        var subContext = subCanvas.getContext('2d');
+
+        var pix = context.getImageData(0, 0, TILESIZE, TILESIZE);
+        canvas.imgData = new ImageBuffer(pix);
+
+        var img = new Image();
+        var imgData = subContext.createImageData(width, height);
+
+        var buffer = new ImageBuffer(imgData);
+        var color = {};
+        var data = canvas.imgData;
+
+        for (var y = 0; y < height; ++y) {
+            for (var x = 0; x < width; ++x) {
+                data.getPixelAt(x + minX, y + minY, color);
+                buffer.setPixelAt(x, y, color.r, color.g, color.b, color.a);
+            }
+        }
 
         subContext.putImageData(imgData, 0, 0);
-        img.src = subCanvas.toDataURL("image/png");
-        // if (img.complete) {
-        //     context.drawImage(img, 0, 0);
-        // }
-        // else {
-        //   img.onload = function(){
-        //     context.drawImage(img, 0, 0);
-        //   }
-        // }
-        // var end = new Date().getTime();
-        // var time = end - start;
-        // console.log("New way : ",end-start);
-        // }
-        return img;
+        return imgData;
     },
 
     drawImage: function(ctx, image, x, y) {
@@ -952,24 +875,23 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         for (var i = 0; i < tileIDs.length; i++) {
             var tile = tileIDs[i];
             var canvas = tile.canvas;
+            console.log("canvas", canvas._imgData);
+
             if (!canvas) {
                 // console.log("No canvas ", tile);
                 continue;
             }
             var coords = tile.coords;
             var tilePoint = this._tilePoint(coords, topPts);
-            var img = this.cropImage(canvas, tilePoint, WIDTH, HEIGHT, 255);
+            var imgData = this.cropImage(canvas, tilePoint, WIDTH, HEIGHT);
 
             var o = {};
             o.canvas = canvas;
             o.tilePoint = tilePoint;
-            o.img = img;
+            o.imgData = imgData;
             o.ctx = canvas.getContext('2d');
-            // globalResults.push(o);
 
-            o.draw = function() {
-                // var WIDTH = (w << 1);
-                // var HEIGHT = (h << 1);
+            o.put = function() {
                 var minX = (this.tilePoint[0] - w);
                 var minY = (this.tilePoint[1] - h);
                 minX = (minX < 0) ? (minX - 0.5) >> 0 : (minX + 0.5) >> 0;
@@ -982,46 +904,94 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                     minY = 0;
 
                 var self = this;
+                // console.log(self.imgData);
+                var putImageData = function() {
+                    try {
+                        self.ctx.putImageData(self.imgData, minX, minY);
 
-                if (self.img.complete) {
-                    self2.drawImage(self.ctx, self.img, minX, minY);
-                    // self2.drawImage(self.ctx, self.img, 100, 100);
-                    // self.ctx.drawImage(self.img, 0, 0);
-                } else {
-                    self.img.onload = function(e) {
-                        // self.img.loaded = true;
-                        if (self.img.complete) {
-                            self.ctx.drawImage(self.img, minX, minY);
-                        } else {
-                            var maxTimes = 10;
-                            var countTimes = 0;
+                        console.log("????????????", self.canvas._imgData);
+                        self.ctx.putImageData(self.canvas._imgData, 0, 0);
 
-                            function retryLoadImage() {
-                                setTimeout(function() {
-                                    if (countTimes > maxTimes) {
-                                        // -- cannot load image.
-                                        return;
-                                    } else {
-                                        if (e.target.complete == true) {
-                                            self2.drawImage(self.ctx, self.img, minX, minY);
-                                        } else {
-                                            // console.log("here");
-                                            self.img.src = self.img.src;
-                                            retryLoadImage();
-                                        }
-                                    }
-                                    countTimes++;
-                                }, 100);
-                            };
-                            retryLoadImage();
-                        }
+                    } catch (e) {
+                        console.log("err put image data ", e);
+                        setTimeout(putImageData, 10);
                     }
                 }
+
+                putImageData();
+                // self.ctx.putImageData(self.imgData, minX, minY);
             }
+
             result.push(o);
         }
         return result;
     },
+
+
+    cropImgBoxsFromTL: function(topLeftlatlng, WIDTH, HEIGHT, coords) {
+
+        var lat = topLeftlatlng[0];
+        var lng = topLeftlatlng[1];
+        var nw = [lat, lng];
+
+        var topLeft = this._tilePoint(coords, nw);
+        var tileIDs = this.getTileIDsFromTL(topLeft, WIDTH, HEIGHT, coords);
+
+        var result = [];
+
+        var self2 = this;
+
+        for (var i = 0; i < tileIDs.length; i++) {
+            var tile = tileIDs[i];
+            var canvas = tile.canvas;
+            if (!canvas) {
+                continue;
+            }
+
+            var coords = tile.coords;
+
+            var tilePoint = this._tilePoint(coords, nw);
+
+            var imgData = this.cropImageFromTL(canvas, tilePoint, WIDTH, HEIGHT);
+
+            var o = {};
+            o.canvas = canvas;
+            o.tilePoint = tilePoint;
+            o.imgData = imgData;
+            o.ctx = canvas.getContext('2d');
+
+            o.put = function() {
+                var minX = this.tilePoint[0];
+                var minY = this.tilePoint[1];
+                if (minX < 0)
+                    minX = 0;f
+
+                if (minY < 0)
+                    minY = 0;
+
+                var self = this;
+
+
+                // self.ctx.putImageData(self.imgData, minX, minY);
+
+                var putImageData = function() {
+                    try {
+                        self.ctx.putImageData(self.imgData, minX, minY);
+                        self.ctx.putImageData(self.canvas._imgData, 0, 0);
+                    } catch (e) {
+                        console.log("err ", e);
+                        setTimeout(putImageData, 10);
+                    }
+                }
+
+                putImageData();
+            }
+
+            result.push(o);
+        }
+        return result;
+    },
+
 
     // -------------------------------------------------------------------
 
@@ -1100,65 +1070,24 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         ctx.stroke();
     },
 
-    // getVertexAndBoundinLatLng: function(poly) {
-    //     var map = this.options.map;
-    //     var zoom = 12; //map.getZoom();
-    //     // console.log("zoom", zoom);
-
-    //     var tempVertexsP = [];
-    //     for (var i = 0; i < poly.length; i++) {
-    //         var p = poly[i];
-    //         tempVertexsP.push(L.point(p.x, p.y));
-    //     }
-
-    //     var bound = L.bounds(tempVertexsP);
-    //     var tempCenterP = bound.getCenter();
-
-    //     var centerL = L.latLng(poly.posL[0], poly.posL[1]);
-    //     var centerP = map.project(centerL, zoom);
-
-    //     var distance = centerP.subtract(tempCenterP);
-
-    //     var vertexsL = [];
-    //     for (var i = 0; i < poly.length; i++) {
-    //         var vertexP = tempVertexsP[i].add(distance);
-    //         var vertexL = map.unproject(vertexP, zoom);
-    //         vertexsL.push(vertexL);
-    //     }
-
-    //     poly.vertexsL = vertexsL;
-    //     poly.lBounds = L.latLngBounds(vertexsL);
-    // },
-
     makeDataPoly: function(dataPoly) {
         var id = 0;
         if (!dataPoly) {
             var dPoly = [];
             var maxWith = 0.0025674919142666397;
             var maxHeight = 0.0274658203125;
-            // var canvas = document.getElementById('myCanvas');
-            // var ctx = canvas.getContext('2d');
-            // ctx.fillStyle = 'rgba(20,250,200,0.1)';
+
             for (j = 0; j < NUMPOLYGON; j++) {
-                // 20.9204, 105.59578
-                // 21.11269, 105.88451
 
-                // lat: 21.056267652104697, lng: 105.8020305633545
-
-                // lat: 21.00952219788383, lng: 105.72898864746095
-
-                // 21.15176, 105.65826
-                // 20.76831, 105.25108
                 var lat = 21.00952219788383 + Math.random() * (21.056267652104697 - 21.00952219788383);
                 var lng = 105.72898864746095 + Math.random() * (105.8020305633545 - 105.72898864746095);
 
-                var polyVertex = makeVPolygon2(lat, lng, maxWith, maxHeight); //tao hinh dang cua polygon                        
-                polyVertex[0].c = 'rgba(0, 255, 0,1)';
+                var polyVertex = makeVPolygon2(lat, lng, maxWith, maxHeight); //tao cac dinh cua polygon theo latlng
+                polyVertex[0].c = 'rgba(0, 255, 0,0.3)';
 
-                // this.getVertexAndBoundinLatLng(poly);
                 var poly = {};
-                poly.vertexs = polyVertex;
 
+                poly.vertexs = polyVertex;
                 var minlat = 999,
                     minlng = 999,
                     maxlat = -999,
@@ -1226,7 +1155,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                 poly.TL = [maxlat, minlng];
 
                 var a = [minlat, minlng, maxlat, maxlng, poly, id++];
-                dPoly.push(a);                
+                dPoly.push(a);
             }
             return dPoly;
         }
@@ -1246,7 +1175,6 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
     makeDataCell: function(dataCell) {
         if (!dataCell) {
             var sectors = [];
-
             for (var i = 0; i < NUMCELL; i++) {
                 var lat = 20.76831 + Math.random() * (21.15176 - 20.76831);
                 var lng = 105.25108 + Math.random() * (105.65826 - 105.25108);
@@ -1261,15 +1189,12 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
                 var colorcode = (rand * 2) >> 0;
                 item.color = colorcode == 0 ? RED : BLUE;
-                // console.log(item);
                 var sector = [lat, lng, lat, lng, item, i];
                 sectors.push(sector);
             }
             return sectors;
         } else {
-
             var sectors = [];
-
             for (var i = 0; i < dataCell.length; i++) {
                 var cell = dataCell[i];
 
@@ -1280,36 +1205,15 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                 cell.startRadian = cell.biRadian - HCELLARCSIZE;
                 cell.endRadian = cell.biRadian + HCELLARCSIZE;
 
-                // cell.a = L.latLngBounds(L.latLng(20, 20), L.latLng(21, 21));
-                // cell.a.getSouth();
                 var sector = [cell.lat, cell.lng, cell.lat, cell.lng, cell, i];
-
                 sectors.push(sector);
             }
-
             return sectors;
         }
     },
 
-
-
     setDataPoly: function(dataPoly) {
         var self = this;
-        // this.bounds = new L.LatLngBounds(dataset);
-
-        // this._rtree = new rbush(32);
-        // this.rtree_loaded = false;
-
-        // this.makeRtree(self.rtree_loaded).then(function(res) {
-        //     // console.log(res);
-        //     if (self._map) {
-        //         self.redraw();
-        //     }
-        //     // console.log(self.rtree_loaded);
-        // }).catch(function(err) {
-        //     console.log(err);
-        // })
-
 
         this._rtreePolygon = new rbush(32);
         if (dataPoly)
@@ -1342,7 +1246,6 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         }
         this._maxRadius = this.options.radius;
     },
-
 
     clearCell: function(boundaryBox) {
         if (boundaryBox) {
@@ -1563,7 +1466,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
     getStoreObj: function(id) {
 
-        if(!this.options.useStoreDB)
+        if (!this.options.useStoreDB)
             return Promise.reject();
         /**
          * @ general description This function try to get tile from db,
@@ -1804,8 +1707,8 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
     },
 
-    //important function
     _draw: function(canvas, coords) {
+
         // var valid = this.iscollides(coords);
         // if (!valid) return;          
         if ((!this._rtreePolygon && !this._rtreeCell) || !this._map) {
@@ -1819,6 +1722,9 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
         (function(self, canvas, coords) {
             var id = self.getId(coords);
+
+            var ctx = canvas.getContext('2d');
+
             self.getTile(coords).then(function(tile) {
                 // console.log("here", tile);
                 if (tile.empty) {
@@ -1828,8 +1734,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                 self._cellRadius = tile.cellRadius;
 
                 if (tile.img) {
-                    // console.log("here");
-                    var ctx = canvas.getContext('2d');
+                    // console.log("here");                    
                     if (tile.img.complete) {
                         // if (tile.imgFromDB) {
                         //     ctx.drawImage(tile.img, 50, 50);
@@ -1945,13 +1850,17 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
             }).then(function() {
                 // self._drawVPolys(canvas, coords, vpolyCoordinates);
+                var imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                canvas._imgData = imgData;
+
+                // console.log("canvas ...", canvas._imgData);
+
             }).catch(function(err) {
                 console.log("Err", err);
                 // self.drawLinhTinh(canvas, coords, vpolyCoordinates);
             })
         })(self, canvas, coords);
     },
-
 
     store: function(id, tile) {
         var self = this;
@@ -1976,12 +1885,11 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         self.tiles.set(id, tile, function(removed) {
             // console.log("here1");
             if (removed) {
-                if(!this.options.useStoreDB)
-                {
+                if (!self.options.useStoreDB) {
                     return;
                 }
 
-                {   
+                {
                     var tile = removed;
                     if (tile.empty) {
                         console.log("detect empty tiles removed ________________________OMG");
@@ -2256,7 +2164,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         ctx.closePath();
         ctx.fillStyle = color;
         ctx.fill();
-        ctx.stroke();
+        // ctx.stroke();
 
         if (this.showCellName) {
             // console.log(cell);
@@ -2274,12 +2182,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         for (var i = 0; i < cells.length; i++) {
             var cell = cells[i][4];
             var pos = this._tilePoint(coords, [cell.lat, cell.lng]);
-            // console.log(coords.z, "-----------");
             this.drawCell(ctx, pos, cell);
-
-            // draw: function(topPointlatlng, WIDTH, HEIGHT, coords, img)
-            // this.draw([cell.lat, cell.lng], this._cellRadius, this._cellRadius, coords, this.getCanvasCell(cell, RED));
-
         }
     },
 
