@@ -926,7 +926,6 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         return result;
     },
 
-
     cropImgBoxsFromTL: function(topLeftlatlng, WIDTH, HEIGHT, coords) {
 
         var lat = topLeftlatlng[0];
@@ -991,9 +990,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         return result;
     },
 
-
     // -------------------------------------------------------------------
-
     getId: function(coords) {
         return coords.z + "_" + coords.x + "_" + coords.y;
     },
@@ -1175,7 +1172,6 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         color: "#FF0066"
     }
     */
-
     makeDataCell: function(dataCell) {
         if (!dataCell) {
             var sectors = [];
@@ -1613,7 +1609,6 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
          * @general description: this function check if tile in cache (lru or db)
          * if tile is not founded, then we create tile data by RTREE, and then we cache this tile to lru immediately    
          */
-
         var self = this;
         var id = this.getId(coords);
 
@@ -1636,12 +1631,10 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         }
 
         if (!tile || tile.status != LOADING) {
-
             tile = {};
             tile.status = LOADING;
             self.store(id, tile);
             // console.log("here");
-
             var promise = new Promise(function(resolve, reject) {
                 //sau do kiem tra trong o cung                
                 var out = self.getStoreObj(id).then(function(res) {
@@ -1765,9 +1758,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                         console.log("create tile from rtree", tile);
 
                     if (!self.options.useGlobalData && tile.numCells == 0 && tile.numPolys == 0) {
-
                         // console.log("hrere", tile);
-
                         self.emptyTiles.set(id, EMPTY);
                         self.tiles.remove(id);
                         self.hugeTiles.remove(id);
@@ -1789,10 +1780,11 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                     resolve(tile);
                 })
             });
-
             return promise;
         }
 
+        console.log("not return any thing");
+        return Promise.reject();
     },
 
     _draw: function(canvas, coords) {
