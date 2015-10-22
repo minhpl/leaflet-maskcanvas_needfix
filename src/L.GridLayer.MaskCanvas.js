@@ -41,7 +41,6 @@ if (version[0] == 0) {
     tempLayer = L.GridLayer;
 }
 
-
 L.TileLayer.MaskCanvas = tempLayer.extend({
     options: {
         db: new PouchDB('vmts'),
@@ -59,10 +58,10 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         useGlobalData: false,
         boundary: true,
         _cellRadius: 30,
-        hover_poly_color: 'rgba(200,0,0,0.8)',
+        hover_poly_color: 'rgba(200,0,0,0.3)',
         hover_cell_color: 'rgba(200,220,220,1)',
         bright_cell_color: 'rgba(255, 102, 204,1)',
-        useStoreDB: false,
+        useStoreDB: true,
     },
 
     ready: false,
@@ -75,14 +74,17 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
     tiles: new lru(40),
     hugeTiles: new lru(40),
 
-    rtree_cachedTile: rbush(32),
+    all_tiles_drawed: {},
+    rtree_cachedTilePoly: rbush(32),
+    rtree_cachedTileCell: rbush(32),
+
+    tilesStoredNeedUpdate: {},
 
     emptyTiles: new lru(4000),
     canvases: new lru(100),
 
     // rtreeLCTilePoly: new lru(40),    
     BBAllPointLatlng: [-9999, -9999, -9999, -9999],
-
 
     _cellRadius: undefined, //pixel    
     cellRadius: 50, //pixel   
@@ -102,14 +104,15 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
     initialize: function(options) {
         L.Util.setOptions(this, options);
+        this._rtreePolygon = new rbush(32);
+        this._rtreeCell = new rbush(32);
 
         var _cellRadius = this.options._cellRadius;
         var db = this.options.db;
 
         var self = this;
         if (db) {
-
-            var refreshDB = function(self) {
+            var refreshDB = function() {
                 db.destroy().then(function(response) {
                     self.options.db = new PouchDB('vmts');
                     console.log("Refresh database");
@@ -401,7 +404,6 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
                     } else {
                         if (self.lastRecentInfo.imgCellCropped) {
-                            console.log("here --");
                             self.redrawImgCropped(self.lastRecentInfo.imgCellCropped);
                         }
 
@@ -427,12 +429,9 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                         self.lastRecentInfo.cell = undefined;
                         self.lastRecentInfo.cells = undefined;
 
-                        console.log("here");
                         self.redrawImgCropped(self.lastRecentInfo.imgCellCropped);
                     }
                 }
-
-
 
                 if (poly && !cell) {
                     if (self.lastRecentInfo.polyID && (polys.topPolyID == self.lastRecentInfo.polyID)) {
@@ -875,7 +874,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         for (var i = 0; i < tileIDs.length; i++) {
             var tile = tileIDs[i];
             var canvas = tile.canvas;
-            console.log("canvas", canvas._imgData);
+            // console.log("canvas", canvas._imgData);
 
             if (!canvas) {
                 // console.log("No canvas ", tile);
@@ -909,11 +908,11 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                     try {
                         self.ctx.putImageData(self.imgData, minX, minY);
 
-                        console.log("????????????", self.canvas._imgData);
+                        // console.log("????????????", self.canvas._imgData);
                         self.ctx.putImageData(self.canvas._imgData, 0, 0);
 
                     } catch (e) {
-                        console.log("err put image data ", e);
+                        // console.log("err put image data ", e);
                         setTimeout(putImageData, 10);
                     }
                 }
@@ -964,7 +963,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                 var minX = this.tilePoint[0];
                 var minY = this.tilePoint[1];
                 if (minX < 0)
-                    minX = 0;f
+                    minX = 0;
 
                 if (minY < 0)
                     minY = 0;
@@ -1122,8 +1121,13 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
             return dPoly;
         } else {
             var dPoly = [];
-            for (var i = 0; i < dataPoly.length; i++) {
-                var polyVertex = dataPoly[i];
+
+            console.log("data from server length", dataPoly.length);
+
+            for (var j = 0; j < dataPoly.length; j++) {
+                var polyVertex = dataPoly[j];
+                poly = {};
+
                 poly.vertexs = polyVertex;
 
                 var minlat = 999,
@@ -1236,12 +1240,42 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
     clearPolyMarker: function(boundaryBox) {
         if (boundaryBox) {
+
+            var allTileNeedUpdate = this.rtree_cachedTilePoly.search(boundaryBox);
+            for (var i = 0; i < allTileNeedUpdate.length; i++) {
+                var id = allTileNeedUpdate[i][4];
+                self.tilesStoredNeedUpdate[id] = true;
+            }
+
             var items = this._rtreePolygon.search(boundaryBox);
             for (var i = 0; i < items; i++) {
                 var item = items[i];
                 this._rtreePolygon.remove(item);
             }
         } else {
+
+            var allTileNeedUpdate = this.rtree_cachedTilePoly.all();
+            for (var i = 0; i < allTileNeedUpdate.length; i++) {
+                var id = allTileNeedUpdate[i][4];
+                self.tilesStoredNeedUpdate[id] = true;
+            }
+
+
+            if (db) {
+                var refreshDB = function() {
+                    db.destroy().then(function(response) {
+                        self.options.db = new PouchDB('vmts');
+                        console.log("Refresh database");
+                        self.ready = true;
+                    }).catch(function(err) {
+                        console.log(err);
+                    })
+                }
+
+                refreshDB(this);
+            }
+
+
             this._rtreePolygon.clear();
         }
         this._maxRadius = this.options.radius;
@@ -1249,12 +1283,41 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
     clearCell: function(boundaryBox) {
         if (boundaryBox) {
+
+            var allTileNeedUpdate = this.rtree_cachedTileCell.search(boundaryBox);
+            for (var i = 0; i < allTileNeedUpdate.length; i++) {
+                var id = allTileNeedUpdate[i][4];
+                self.tilesStoredNeedUpdate[id] = true;
+            }
+
             var items = this._rtreeCell.search(boundaryBox);
             for (var i = 0; i < items; i++) {
                 var item = items[i];
                 this._rtreeCell.remove(item);
             }
         } else {
+
+            var allTileNeedUpdate = this.rtree_cachedTile.all();
+            for (var i = 0; i < allTileNeedUpdate.length; i++) {
+                var id = allTileNeedUpdate[i][4];
+                self.tilesStoredNeedUpdate[id] = true;
+            }
+
+
+            if (db) {
+                var refreshDB = function() {
+                    db.destroy().then(function(response) {
+                        self.options.db = new PouchDB('vmts');
+                        console.log("Refresh database");
+                        self.ready = true;
+                    }).catch(function(err) {
+                        console.log(err);
+                    })
+                }
+
+                refreshDB(this);
+            }
+
             this._rtreeCell.clear();
         }
         this._maxRadius = this.options.radius;
@@ -1468,6 +1531,12 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
         if (!this.options.useStoreDB)
             return Promise.reject();
+
+        if (this.tilesStoredNeedUpdate[id] == true) {
+            console.log("need update tile in db", id);
+            return Promise.reject();
+        }
+
         /**
          * @ general description This function try to get tile from db,
          * if tile is founded, then it immediately set it up to lru head
@@ -1548,11 +1617,13 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         var self = this;
         var id = this.getId(coords);
 
-        var tile = this.tiles.get(id) || this.hugeTiles.get(id);
+        var tile;
 
-        // tile = undefined;
+        if (this.options.useStoreDB && !this.tilesStoredNeedUpdate[id]) {
+            tile = this.tiles.get(id) || this.hugeTiles.get(id);
+        }
 
-        if (tile && tile.status != LOADING) {
+        if (tile && tile.status != LOADING && this.options.useStoreDB) {
             if (self.options.debug)
                 console.log("tile in mem", tile);
             return Promise.resolve(tile);
@@ -1569,6 +1640,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
             tile = {};
             tile.status = LOADING;
             self.store(id, tile);
+            // console.log("here");
 
             var promise = new Promise(function(resolve, reject) {
                 //sau do kiem tra trong o cung                
@@ -1631,6 +1703,16 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                     var bbCell = [currentBounds.y, currentBounds.x, currentBounds.y + currentBounds.height, currentBounds.x + currentBounds.width];
 
 
+                    //Create RTREE_cached
+                    if (!self.all_tiles_drawed[id]) {
+                        self.all_tiles_drawed[id] = {};
+                        self.rtree_cachedTilePoly.insert([bbPoly[0], bbPoly[1], bbPoly[2], bbPoly[3], id]);
+                        self.rtree_cachedTileCell.insert([bbCell[0], bbCell[1], bbCell[2], bbCell[3], id]);
+                    } else {
+                        console.log("all_tiles_drawed", self.all_tiles_drawed[id], self.all_tiles_drawed);
+                    }
+
+
                     // var rqpoly = self.queryPolys(coords);
                     // var vpolyCoordinates = rqpoly.vpolyCoordinates;
                     // var bbpoly = rqpoly.bb;
@@ -1671,7 +1753,13 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                         cellRadius: self._cellRadius,
                         needSave: true,
                         status: LOADED,
+                    };
+
+                    if (self.tilesStoredNeedUpdate[id] == true) {
+                        delete self.tilesStoredNeedUpdate[id];
+                        console.log("updated tile", self.tilesStoredNeedUpdate[id], id);
                     }
+
 
                     if (self.options.debug)
                         console.log("create tile from rtree", tile);
@@ -1688,7 +1776,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                     }
 
                     if (!self.options.useGlobalData && (tile.numCells > 0 || tile.numPolys > 0)) {
-
+                        self.emptyTiles.remove(id);
                         if (tile.numCells + tile.numPolys >= HUGETILE_THREADSHOLD) {
                             self.hugeTiles.set(id, tile);
                             self.tiles.remove(id, tile);
@@ -1726,6 +1814,10 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
             var ctx = canvas.getContext('2d');
 
             self.getTile(coords).then(function(tile) {
+
+                // console.log("DrawTime", coords);
+                // console.time(coords);
+
                 // console.log("here", tile);
                 if (tile.empty) {
                     return;
@@ -1741,6 +1833,8 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                         //     console.log("img from DB:", tile._id, " ctx.drawImage(tile.img, 50, 50)");
                         // } else
                         ctx.drawImage(tile.img, 0, 0);
+                        // var imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                        // canvas._imgData = imgData;
                     } else {
                         tile.img.onload = function(e) {
                             if (e.target.complete) {
@@ -1750,6 +1844,8 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                                 // } else
                                 ctx.drawImage(tile.img, 0, 0);
                                 console.log("image complete loaded");
+                                var imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                                canvas._imgData = imgData;
                             } else {
                                 var maxTimes = 10;
                                 var countTimes = 0;
@@ -1767,6 +1863,8 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                                                 // } else
                                                 ctx.drawImage(tile.img, 0, 0);
                                                 console.log("retryLoadImage");
+                                                var imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                                                canvas._imgData = imgData;
                                             } else {
                                                 retryLoadImage();
                                             }
@@ -1833,12 +1931,15 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
                     //sau khi ve xong phai luu lai vao lru  hoac cache.
                     tile.img = img;
+
+                    self.emptyTiles.remove(id);
                     if (tile.numCells + tile.numPolys >= HUGETILE_THREADSHOLD) {
                         // console.log(tile.img);
                         self.hugeTiles.set(id, tile);
                         self.tiles.remove(id);
                     } else {
                         self.store(id, tile);
+                        self.hugeTiles.remove(id);
                     }
 
                 } else {
@@ -1848,16 +1949,19 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                     self.tiles.remove(id);
                 }
 
+                // console.timeEnd(coords);
             }).then(function() {
                 // self._drawVPolys(canvas, coords, vpolyCoordinates);
-                var imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                canvas._imgData = imgData;
+                // console.time("getImageDataTime");
 
+                // console.timeEnd("getImageDataTime");
                 // console.log("canvas ...", canvas._imgData);
-
             }).catch(function(err) {
                 console.log("Err", err);
-                // self.drawLinhTinh(canvas, coords, vpolyCoordinates);
+            }).then(function() {
+                // console.log("canvas imgData", id);
+                var imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                canvas._imgData = imgData;
             })
         })(self, canvas, coords);
     },
