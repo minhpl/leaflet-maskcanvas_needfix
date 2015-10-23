@@ -235,6 +235,42 @@ $(function() {
     //crop images at Position
     map.on('mousemove', onMouseMove);
 
+    // map.on('zoomend', onZoomend);
+
+
+    var start = 0;
+    var step = 10000;
+    var num = 1;
+    var count = 0;
+    var celldata2;
+    var increase = true;
+
+    function onZoomend(e) {
+        // alert("dsdas");
+        if (count == num){
+            increase = !increase;
+            count = 0;
+        }
+
+        if (count < num) {
+            if (increase == true) {
+                start = start + step;
+            } else {
+                start = start - step;
+            }
+
+            celldata2 = celldata.slice(start);
+            console.log("length celldata2", celldata2.length);
+            count++;
+        } else {
+            // console.log("length celldata2", celldata2.length);
+
+        }
+
+        coverageLayer.setDataPoly();
+        coverageLayer.setDataCell(celldata2);
+    }
+
     function onMouseMove(e) {
         coverageLayer.onMouseMove(e);
     }

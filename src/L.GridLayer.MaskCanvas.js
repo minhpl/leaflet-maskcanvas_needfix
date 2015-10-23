@@ -19,8 +19,8 @@ const NUMPOLYGON = 100;
 const NUMCELL = 100;
 const HCELLARCSIZE = ((65 / 2) / 180) * Math.PI;
 const NORTH = 3 * (Math.PI / 2);
-const RED = "rgba(255,0,0,0.2)"; //2G
-const BLUE = "rgba(0,0,255,0.3)"; //3G
+const RED = "rgba(255,0,0,0.5)"; //2G
+const BLUE = "rgba(0,0,255,0.5)"; //3G
 const TILESIZE = 256;
 const CELLTYPE2G = 2;
 const CELLTYPE3G = 3;
@@ -61,7 +61,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         hover_poly_color: 'rgba(200,0,0,0.3)',
         hover_cell_color: 'rgba(200,220,220,1)',
         bright_cell_color: 'rgba(255, 102, 204,1)',
-        useStoreDB: true,
+        useStoreDB: false,
     },
 
     ready: false,
@@ -103,9 +103,11 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
     },
 
     initialize: function(options) {
+        // console.log("?????????????????????//");
         L.Util.setOptions(this, options);
         this._rtreePolygon = new rbush(32);
         this._rtreeCell = new rbush(32);
+        this.rtree_cachedTile = new rbush(32);
 
         var _cellRadius = this.options._cellRadius;
         var db = this.options.db;
@@ -527,7 +529,6 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
         }
     },
 
-
     drawFromTL: function(topLeftlatlng, WIDTH, HEIGHT, coords, img) {
         var lat = topLeftlatlng[0];
         var lng = topLeftlatlng[1];
@@ -635,7 +636,6 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
         return tileIDs;
     },
-
 
     getTileIDs: function(centrePoint, WIDTH, HEIGHT, coords) {
         // var TopPoint = info.topPointTile;
@@ -1215,6 +1215,8 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
     setDataPoly: function(dataPoly) {
         var self = this;
 
+        this.clearPolyMarker();
+
         this._rtreePolygon = new rbush(32);
         if (dataPoly)
             this._rtreePolygon.load(this.makeDataPoly(dataPoly));
@@ -1224,6 +1226,9 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
     },
 
     setDataCell: function(dataCell) {
+
+        this.clearCell();
+
         if (dataCell) {
             this._rtreeCell = new rbush(32);
             this._rtreeCell.load(this.makeDataCell(dataCell));
@@ -1235,6 +1240,10 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
     },
 
     clearPolyMarker: function(boundaryBox) {
+        console.log("clear poly");
+        var db = this.options.db;
+        var self = this;
+
         if (boundaryBox) {
 
             var allTileNeedUpdate = this.rtree_cachedTilePoly.search(boundaryBox);
@@ -1256,20 +1265,19 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                 self.tilesStoredNeedUpdate[id] = true;
             }
 
+            // if (db) {
+            //     var refreshDB = function(self) {
+            //         db.destroy().then(function(response) {
+            //             self.options.db = new PouchDB('vmts');
+            //             console.log("DOM Refresh database");
+            //             self.ready = true;
+            //         }).catch(function(err) {
+            //             console.log(err);
+            //         });
+            //     }
 
-            if (db) {
-                var refreshDB = function() {
-                    db.destroy().then(function(response) {
-                        self.options.db = new PouchDB('vmts');
-                        console.log("Refresh database");
-                        self.ready = true;
-                    }).catch(function(err) {
-                        console.log(err);
-                    })
-                }
-
-                refreshDB(this);
-            }
+            //     refreshDB(self);
+            // }
 
 
             this._rtreePolygon.clear();
@@ -1278,6 +1286,11 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
     },
 
     clearCell: function(boundaryBox) {
+        console.log("clear cell");
+
+        var db = this.options.db;
+        var self = this;
+
         if (boundaryBox) {
 
             var allTileNeedUpdate = this.rtree_cachedTileCell.search(boundaryBox);
@@ -1293,26 +1306,25 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
             }
         } else {
 
-            var allTileNeedUpdate = this.rtree_cachedTile.all();
+            var allTileNeedUpdate = this.rtree_cachedTilePoly.all();
             for (var i = 0; i < allTileNeedUpdate.length; i++) {
                 var id = allTileNeedUpdate[i][4];
                 self.tilesStoredNeedUpdate[id] = true;
             }
 
+            // if (db) {
+            //     var refreshDB = function(self) {
+            //         db.destroy().then(function(response) {
+            //             self.options.db = new PouchDB('vmts');
+            //             console.log("Refresh database");
+            //             self.ready = true;
+            //         }).catch(function(err) {
+            //             console.log(err);
+            //         })
+            //     }
 
-            if (db) {
-                var refreshDB = function() {
-                    db.destroy().then(function(response) {
-                        self.options.db = new PouchDB('vmts');
-                        console.log("Refresh database");
-                        self.ready = true;
-                    }).catch(function(err) {
-                        console.log(err);
-                    })
-                }
-
-                refreshDB(this);
-            }
+            //     refreshDB(self);
+            // }
 
             this._rtreeCell.clear();
         }
@@ -1525,8 +1537,10 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
     getStoreObj: function(id) {
 
-        if (!this.options.useStoreDB)
+        if (!this.options.useStoreDB || !this.ready) {
+            console.log("here not useStoreDB");
             return Promise.reject();
+        }
 
         if (this.tilesStoredNeedUpdate[id] == true) {
             console.log("need update tile in db", id);
@@ -1609,6 +1623,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
          * @general description: this function check if tile in cache (lru or db)
          * if tile is not founded, then we create tile data by RTREE, and then we cache this tile to lru immediately    
          */
+
         var self = this;
         var id = this.getId(coords);
 
@@ -1616,6 +1631,9 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
         if (this.options.useStoreDB && !this.tilesStoredNeedUpdate[id]) {
             tile = this.tiles.get(id) || this.hugeTiles.get(id);
+            console.log("here2 check tile in mem", tile, id, this.options.useGlobalData);
+        } else {
+            console.log("here2", this.tilesStoredNeedUpdate[id]);
         }
 
         if (tile && tile.status != LOADING && this.options.useStoreDB) {
@@ -1624,7 +1642,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
             return Promise.resolve(tile);
         }
 
-        if (this.emptyTiles.get(id)) {
+        if (this.options.useStoreDB && this.emptyTiles.get(id) && !this.tilesStoredNeedUpdate[id]) {
             if (self.options.debug)
                 console.log("tile is empty", tile);
             return Promise.resolve(EMPTY);
@@ -1757,23 +1775,25 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                     if (self.options.debug)
                         console.log("create tile from rtree", tile);
 
-                    if (!self.options.useGlobalData && tile.numCells == 0 && tile.numPolys == 0) {
-                        // console.log("hrere", tile);
-                        self.emptyTiles.set(id, EMPTY);
-                        self.tiles.remove(id);
-                        self.hugeTiles.remove(id);
-                        resolve(EMPTY);
-                        return;
-                    }
-
-                    if (!self.options.useGlobalData && (tile.numCells > 0 || tile.numPolys > 0)) {
-                        self.emptyTiles.remove(id);
-                        if (tile.numCells + tile.numPolys >= HUGETILE_THREADSHOLD) {
-                            self.hugeTiles.set(id, tile);
-                            self.tiles.remove(id, tile);
-                        } else {
-                            self.store(id, tile);
-                            self.hugeTiles.remove(tile);
+                    if (self.options.useStoreDB) {
+                        if (!self.options.useGlobalData && tile.numCells == 0 && tile.numPolys == 0) {
+                            console.log("hrere tile emty", tile);
+                            self.emptyTiles.set(id, EMPTY);
+                            self.tiles.remove(id);
+                            self.hugeTiles.remove(id);
+                            resolve(EMPTY);
+                            return;
+                        } else if (!self.options.useGlobalData && (tile.numCells > 0 || tile.numPolys > 0)) {
+                            self.emptyTiles.remove(id);
+                            if (tile.numCells + tile.numPolys >= HUGETILE_THREADSHOLD) {
+                                console.log("hrere hugetiles", tile);
+                                self.hugeTiles.set(id, tile);
+                                self.tiles.remove(id, tile);
+                            } else {
+                                console.log("hrere normal tile", tile);
+                                self.store(id, tile);
+                                self.hugeTiles.remove(tile);
+                            }
                         }
                     }
 
@@ -1783,7 +1803,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
             return promise;
         }
 
-        console.log("not return any thing");
+        console.log("not return any thing --");
         return Promise.reject();
     },
 
@@ -1908,37 +1928,38 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                     }
                 }
                 // this.drawCellName(canvas, coords, cells);
+                if (self.options.useStoreDB) {
+                    if (tile.numCells > 0 || tile.numPolys > 0) {
+                        // self.store(id, tile);                    
 
-                if (tile.numCells > 0 || tile.numPolys > 0) {
-                    // self.store(id, tile);                    
+                        /**
+                         * why don't use canvas directly instead of img ???                         
+                         */
+                        var img = new Image();
+                        img.src = canvas.toDataURL("image/png");
 
-                    /**
-                     * why don't use canvas directly instead of img ???                         
-                     */
-                    var img = new Image();
-                    img.src = canvas.toDataURL("image/png");
+                        // img.onload = function(){
+                        // console.log("Store Img to tile");
 
-                    // img.onload = function(){
-                    // console.log("Store Img to tile");
+                        //sau khi ve xong phai luu lai vao lru  hoac cache.
+                        tile.img = img;
 
-                    //sau khi ve xong phai luu lai vao lru  hoac cache.
-                    tile.img = img;
+                        self.emptyTiles.remove(id);
+                        if (tile.numCells + tile.numPolys >= HUGETILE_THREADSHOLD) {
+                            // console.log(tile.img);
+                            self.hugeTiles.set(id, tile);
+                            self.tiles.remove(id);
+                        } else {
+                            self.store(id, tile);
+                            self.hugeTiles.remove(id);
+                        }
 
-                    self.emptyTiles.remove(id);
-                    if (tile.numCells + tile.numPolys >= HUGETILE_THREADSHOLD) {
-                        // console.log(tile.img);
-                        self.hugeTiles.set(id, tile);
-                        self.tiles.remove(id);
                     } else {
-                        self.store(id, tile);
+                        console.log("detect empty tile here ________________________OMG");
+                        self.emptyTiles.set(id, EMPTY);
                         self.hugeTiles.remove(id);
+                        self.tiles.remove(id);
                     }
-
-                } else {
-                    console.log("detect empty tile here ________________________OMG");
-                    self.emptyTiles.set(id, EMPTY);
-                    self.hugeTiles.remove(id);
-                    self.tiles.remove(id);
                 }
 
                 // console.timeEnd(coords);
@@ -2005,6 +2026,8 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
     backupToDb: function(db, tile) {
 
+        var self = this;
+
         if (this.options.debug)
             console.log("backupToDb", tile._id, tile);
         if (tile.needSave == false) {
@@ -2041,10 +2064,43 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
             if (simpleTile.numCells > 0 || simpleTile.numPolys > 0) {
 
-                // console.log(tile.img);
+
                 getBlob(tile).then(function(blob) {
 
                     simpleTile.image = blob;
+
+
+                    // var db = self.options.db;
+
+                    // // console.log("in worker", simpleTile._id, simpleTile);
+                    // db.get(simpleTile._id).then(function(doc) {
+                    //     //doc._rev co khi len toi 3, tuc la da duoc update lai 3 lan
+                    //     // console.log(doc._rev, doc.needSave, "???????????????????????/");
+                    //     simpleTile._rev = doc._rev;
+                    //     return db.put(simpleTile);
+                    // }).then(function() {
+                    //     // callback(1);
+                    //     return db.get(simpleTile._id);
+                    // }).then(function(doc) {
+                    //     console.log("successfully update stored object: ", doc._id, doc);
+                    // }).catch(function(err) {
+                    //     // console.log("???????????????????????/");
+                    //     if (err.status == 404) {
+                    //         db.put(simpleTile).then(function(res) {
+                    //             // console.log("in worker 2", simpleTile._id, simpleTile);
+                    //             console.log('successfully save new object ', simpleTile._id, res, simpleTile);
+                    //             // callback(1);
+                    //         }).catch(function(err) {
+                    //             console.log('other err2', err, simpleTile);
+                    //             // callback(undefined);
+                    //         });
+                    //     } else {
+                    //         console.log('other err1', err, simpleTile);
+                    //         // callback(undefined);
+                    //     }
+                    // });
+
+
 
                     if (!self.worker) {
 
@@ -2068,7 +2124,7 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
                             backup: function(simpleTile, callback) {
 
-                                // console.log("in worker", simpleTile._id, simpleTile);
+                                console.log("in worker", simpleTile._id, simpleTile);
 
                                 //Only need to create DB object only once
                                 if (!this.db) {
@@ -2102,15 +2158,29 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
                                         callback(undefined);
                                     }
                                 });
-                            }
+                            },
+
+                            doCrazy: function(cb) {
+
+                                console.time('Craziness');
+                                for (var i = 0; i < 100; ++i);
+                                console.timeEnd('Craziness');
+
+                                cb('I am done!');
+                            },
+
                         }, ['pouchdb-4.0.3.min.js', 'pouchdb.upsert.js']);
                     }
 
                     //********invoke web worker******
                     //*********************************
                     if (self.worker) {
-
+                        console.log("backupToDb  2");
                         // console.log("here", simpleTile);
+
+                        self.worker.doCrazy(function(result) {
+                            console.log(result);
+                        })
 
                         self.worker.backup(simpleTile, function(results) {
                             if (results) {
