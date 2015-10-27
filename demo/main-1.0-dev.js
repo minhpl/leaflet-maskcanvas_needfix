@@ -245,31 +245,31 @@ $(function() {
     var celldata2;
     var increase = true;
 
-    function onZoomend(e) {
-        // alert("dsdas");
-        if (count == num){
-            increase = !increase;
-            count = 0;
-        }
+    // function onZoomend(e) {
+    //     // alert("dsdas");
+    //     if (count == num){
+    //         increase = !increase;
+    //         count = 0;
+    //     }
 
-        if (count < num) {
-            if (increase == true) {
-                start = start + step;
-            } else {
-                start = start - step;
-            }
+    //     if (count < num) {
+    //         if (increase == true) {
+    //             start = start + step;
+    //         } else {
+    //             start = start - step;
+    //         }
 
-            celldata2 = celldata.slice(start);
-            console.log("length celldata2", celldata2.length);
-            count++;
-        } else {
-            // console.log("length celldata2", celldata2.length);
+    //         celldata2 = celldata.slice(start);
+    //         console.log("length celldata2", celldata2.length);
+    //         count++;
+    //     } else {
+    //         // console.log("length celldata2", celldata2.length);
 
-        }
+    //     }
 
-        coverageLayer.setDataPoly();
-        coverageLayer.setDataCell(celldata2);
-    }
+    //     coverageLayer.setDataPoly();
+    //     coverageLayer.setDataCell(celldata2);
+    // }
 
     function onMouseMove(e) {
         coverageLayer.onMouseMove(e);

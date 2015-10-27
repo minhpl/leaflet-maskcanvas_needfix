@@ -971,14 +971,20 @@ L.TileLayer.MaskCanvas = tempLayer.extend({
 
 
                 // self.ctx.putImageData(self.imgData, minX, minY);
+                var count = 0;
+                var max = 10;
 
                 var putImageData = function() {
                     try {
+                        if(self2.options.debug)
+                            console.log("put image data");
                         self.ctx.putImageData(self.imgData, minX, minY);
                         self.ctx.putImageData(self.canvas._imgData, 0, 0);
                     } catch (e) {
                         console.log("err ", e);
-                        setTimeout(putImageData, 10);
+                        count++;
+                        if(count<max)
+                            setTimeout(putImageData, 10);
                     }
                 }
 
